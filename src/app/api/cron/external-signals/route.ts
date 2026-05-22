@@ -35,40 +35,46 @@ interface CronResult {
   summary: { inserted: number; skipped: number; errored: number };
 }
 
+async function processAccount(
+  account: (typeof accounts)[number],
+): Promise<AccountResult> {
+  const t0 = Date.now();
+  try {
+    const { signals } = await fetchSignalsForCompany(
+      account.id,
+      account.name,
+      account.industry,
+    );
+    const { inserted, skipped } = await insertSignalsDedup(signals);
+    return {
+      accountId: account.id,
+      companyName: account.name,
+      status: "success",
+      inserted,
+      skipped,
+      durationMs: Date.now() - t0,
+    };
+  } catch (e) {
+    return {
+      accountId: account.id,
+      companyName: account.name,
+      status: "error",
+      error: e instanceof Error ? e.message : String(e),
+      durationMs: Date.now() - t0,
+    };
+  }
+}
+
 async function runIngestion(filterAccountId?: string): Promise<CronResult> {
   const startedAt = Date.now();
   const trackable = accounts.filter(
     (a) => a.trackable && (!filterAccountId || a.id === filterAccountId),
   );
 
-  const results: AccountResult[] = [];
-  for (const account of trackable) {
-    const t0 = Date.now();
-    try {
-      const { signals } = await fetchSignalsForCompany(
-        account.id,
-        account.name,
-        account.industry,
-      );
-      const { inserted, skipped } = await insertSignalsDedup(signals);
-      results.push({
-        accountId: account.id,
-        companyName: account.name,
-        status: "success",
-        inserted,
-        skipped,
-        durationMs: Date.now() - t0,
-      });
-    } catch (e) {
-      results.push({
-        accountId: account.id,
-        companyName: account.name,
-        status: "error",
-        error: e instanceof Error ? e.message : String(e),
-        durationMs: Date.now() - t0,
-      });
-    }
-  }
+  // Parallelize per-account web_search calls. 3 trackable accounts in parallel
+  // finishes in ~30s instead of the ~90s sequential would take, well under the
+  // Vercel Hobby 60s function cap.
+  const results = await Promise.all(trackable.map(processAccount));
 
   return {
     ranAt: new Date().toISOString(),

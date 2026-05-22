@@ -36,7 +36,12 @@ function getKey(): string | null {
 function client(): Anthropic {
   const key = getKey();
   if (!key) throw new Error("ANTHROPIC_API_KEY not set");
-  return new Anthropic({ apiKey: key, maxRetries: 4 });
+  // Per-request timeout: 40s. The web_search tool can take 20-30s
+  // internally (multiple searches + synthesis). 40s leaves headroom but
+  // bails before Vercel's 60s function cap kills the whole batch.
+  // Drop retries (default 2) since we already have 40s; better to fail
+  // a single account than block the batch on retries.
+  return new Anthropic({ apiKey: key, maxRetries: 1, timeout: 40_000 });
 }
 
 const VALID_TYPES: ExternalSignalType[] = [
@@ -98,7 +103,10 @@ export async function fetchSignalsForCompany(
   const c = client();
   const message = await c.messages.create({
     model: MODEL,
-    max_tokens: 4000,
+    // Reduced from 4000 to 2000. We only need a few signals + brief synthesis;
+    // higher max_tokens encourages longer generations and burns wall time
+    // we don't have.
+    max_tokens: 2000,
     messages: [{ role: "user", content: buildPrompt(companyName, industry) }],
     tools: [{ type: "web_search_20260209" as const, name: "web_search" }],
   });
