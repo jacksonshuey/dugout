@@ -14,12 +14,12 @@ import type {
   Signal,
   Stage,
 } from "@/lib/types";
+import { STAGE_ORDER } from "@/lib/types";
 import type { WorkspaceConfig } from "@/lib/workspace";
 import {
   Sidebar,
   type ConsoleView,
   type FilterState,
-  EMPTY_FILTERS,
 } from "./sidebar";
 import { Drawer } from "./drawer";
 import { TaskCard } from "./task-card";
@@ -35,8 +35,7 @@ import {
   type Task,
 } from "@/lib/tasks";
 import { computeDealHealth } from "@/lib/signal-engine";
-import { daysBetween, formatCurrency } from "@/lib/utils";
-import { cn } from "@/lib/utils";
+import { cn, daysBetween, formatCurrency, lookupBy } from "@/lib/utils";
 
 export interface ConsoleData {
   signals: Signal[];
@@ -99,6 +98,11 @@ export function Console(props: ConsoleData) {
     const ownerLookup: Record<string, string> = {};
     for (const o of props.opportunities) ownerLookup[o.id] = o.ownerId;
     const result = reconcile(workspaceKey, props.signals, props.reps, ownerLookup);
+    // Reconciliation reads localStorage (client-only) and must rehydrate
+    // after mount — the React 19 "derive in render" alternative requires
+    // splitting reconcile() into pure + side-effecting paths and tracking
+    // user mutations separately. Deferred.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTasks(result.tasks);
     setHydrated(true);
     if (result.autoResolved.length > 0) {
@@ -395,16 +399,10 @@ function PipelineView({
     Monitor: 2,
     Healthy: 3,
   };
-  // Stage order matches the funnel — Intro at top, Contracting at bottom.
-  // Ascending sort places earliest stages first.
-  const STAGE_RANK: Record<string, number> = {
-    Intro: 0,
-    Qualified: 1,
-    "Demo Sat": 2,
-    Evaluating: 3,
-    "Selected Vendor": 4,
-    Contracting: 5,
-  };
+  // Stage rank derived from STAGE_ORDER so adding/renaming a stage in
+  // lib/types.ts can't drift from the sort here. Ascending sort places
+  // earliest stages first (Intro at top, Contracting at bottom).
+  const stageRank = (s: Stage) => STAGE_ORDER.indexOf(s);
 
   const enriched = opps.map((opp) => {
     const oppTasks = tasks.filter(
@@ -423,8 +421,8 @@ function PipelineView({
     }));
     const health = computeDealHealth(opp, oppSignals);
     const blocking = oppTasks.filter((t) => t.severity === "blocking").length;
-    const account = data.accounts.find((a) => a.id === opp.accountId)!;
-    const owner = data.reps.find((r) => r.id === opp.ownerId)!;
+    const account = lookupBy(data.accounts, opp.accountId, "account");
+    const owner = lookupBy(data.reps, opp.ownerId, "rep");
     return {
       opp,
       health,
@@ -460,7 +458,7 @@ function PipelineView({
         primary = a.account.name.localeCompare(b.account.name);
         break;
       case "stage":
-        primary = STAGE_RANK[a.opp.stage] - STAGE_RANK[b.opp.stage];
+        primary = stageRank(a.opp.stage) - stageRank(b.opp.stage);
         break;
       case "health":
         primary = HEALTH_RANK[a.health] - HEALTH_RANK[b.health];
@@ -740,9 +738,9 @@ function TaskRow({
   onAddNote: (id: string, text: string) => void;
   onAddCoachingNote: (id: string, text: string) => void;
 }) {
-  const opp = data.opportunities.find((o) => o.id === task.oppId)!;
-  const acc = data.accounts.find((a) => a.id === opp.accountId)!;
-  const owner = data.reps.find((r) => r.id === opp.ownerId)!;
+  const opp = lookupBy(data.opportunities, task.oppId, "opportunity");
+  const acc = lookupBy(data.accounts, opp.accountId, "account");
+  const owner = lookupBy(data.reps, opp.ownerId, "rep");
   const isOwner = viewerId === task.ownerId;
 
   return (
