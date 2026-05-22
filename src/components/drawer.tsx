@@ -104,6 +104,9 @@ export function Drawer({
   useEffect(() => {
     if (!opp) return;
     let cancelled = false;
+    // Standard data-fetching pattern. The React 19 Suspense + use() refactor
+    // would require lifting the promise upstream with memoization; deferred.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSignalsLoading(true);
     fetch(`/api/external-signals?account=${opp.accountId}`)
       .then((r) => r.json())
@@ -130,7 +133,6 @@ export function Drawer({
   const dealContacts = opp.contactRoleIds
     .map((cid) => data.contacts.find((c) => c.id === cid))
     .filter((c): c is Contact => !!c);
-  const presentRoles = new Set(dealContacts.map((c) => c.role));
 
   const dealTasks = data.tasks.filter((t) => t.oppId === oppId);
   const openTasks = dealTasks.filter(

@@ -20,7 +20,6 @@ import {
   Sidebar,
   type ConsoleView,
   type FilterState,
-  EMPTY_FILTERS,
 } from "./sidebar";
 import { Drawer } from "./drawer";
 import { TaskCard } from "./task-card";
@@ -99,6 +98,11 @@ export function Console(props: ConsoleData) {
     const ownerLookup: Record<string, string> = {};
     for (const o of props.opportunities) ownerLookup[o.id] = o.ownerId;
     const result = reconcile(workspaceKey, props.signals, props.reps, ownerLookup);
+    // Reconciliation reads localStorage (client-only) and must rehydrate
+    // after mount — the React 19 "derive in render" alternative requires
+    // splitting reconcile() into pure + side-effecting paths and tracking
+    // user mutations separately. Deferred.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTasks(result.tasks);
     setHydrated(true);
     if (result.autoResolved.length > 0) {
