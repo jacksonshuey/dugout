@@ -3,6 +3,7 @@
 import { accounts } from "@/data/seed";
 import { ingestAccount, type PerSourceResult } from "@/lib/ingestion";
 import { insertSignalsDedup } from "@/lib/external-signals";
+import { requireUiSessionAction } from "@/lib/ui-auth-server";
 
 // Server action for the Settings → Refresh button. Calls the same
 // ingestion path as the cron route but stays server-side, so the
@@ -24,6 +25,8 @@ export interface RefreshAccountResult {
 export async function refreshAccountSignals(
   accountId: string,
 ): Promise<RefreshAccountResult> {
+  await requireUiSessionAction();
+
   const t0 = Date.now();
   const account = accounts.find((a) => a.id === accountId && a.trackable);
   if (!account) {

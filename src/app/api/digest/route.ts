@@ -14,6 +14,7 @@ import { formatCurrency, daysBetween } from "@/lib/utils";
 import type { Signal } from "@/lib/types";
 import { getWorkspaceConfig } from "@/lib/workspace-server";
 import type { WorkspaceConfig } from "@/lib/workspace";
+import { requireUiSession } from "@/lib/ui-auth-server";
 
 // The morning digest synthesizer. The signal engine produces structured
 // signals; this endpoint serializes them into the prompt context Claude
@@ -76,6 +77,9 @@ function describeSignal(s: Signal): string {
 }
 
 export async function POST(req: Request) {
+  const unauthorized = await requireUiSession();
+  if (unauthorized) return unauthorized;
+
   let body: DigestRequest;
   try {
     const parsed = await req.json();

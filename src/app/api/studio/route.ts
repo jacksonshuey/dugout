@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { chat } from "@/lib/claude";
 import { getWorkspaceConfig } from "@/lib/workspace-server";
 import type { WorkspaceConfig } from "@/lib/workspace";
+import { requireUiSession } from "@/lib/ui-auth-server";
 
 function buildSystemPrompt(workspace: WorkspaceConfig): string {
   const priorityList = workspace.priorities
@@ -76,6 +77,9 @@ interface StudioRequest {
 }
 
 export async function POST(req: Request) {
+  const unauthorized = await requireUiSession();
+  if (unauthorized) return unauthorized;
+
   let body: StudioRequest;
   try {
     const parsed = await req.json();

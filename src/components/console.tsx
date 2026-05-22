@@ -27,7 +27,6 @@ import { Card, HealthBadge, StageBadge, SeverityBadge, Button } from "./ui";
 import { ToastStack, useToasts } from "./toast";
 import {
   addNote,
-  loadTasks,
   markDone,
   mute,
   reconcile,
@@ -85,11 +84,21 @@ export function Console(props: ConsoleData) {
   const [hydrated, setHydrated] = useState(false);
   const { toasts, push, dismiss } = useToasts();
 
+  // Scopes task localStorage per workspace. Switching presets stops the
+  // current task set from being walked under the new ruleset (which would
+  // produce a wall of "auto-resolved" toasts as old signal IDs no longer
+  // match).
+  const workspaceKey = useMemo(
+    () =>
+      `${props.workspace.presetName ?? "custom"}::${props.workspace.companyName}`,
+    [props.workspace.presetName, props.workspace.companyName],
+  );
+
   useEffect(() => {
     // On first mount (and whenever signals change), reconcile.
     const ownerLookup: Record<string, string> = {};
     for (const o of props.opportunities) ownerLookup[o.id] = o.ownerId;
-    const result = reconcile(props.signals, props.reps, ownerLookup);
+    const result = reconcile(workspaceKey, props.signals, props.reps, ownerLookup);
     setTasks(result.tasks);
     setHydrated(true);
     if (result.autoResolved.length > 0) {
@@ -112,7 +121,7 @@ export function Console(props: ConsoleData) {
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.signals]);
+  }, [props.signals, workspaceKey]);
 
   // ── Drawer ──────────────────────────────────────────────────────
   const [drawerOppId, setDrawerOppId] = useState<string | null>(null);
@@ -156,48 +165,51 @@ export function Console(props: ConsoleData) {
   // ── Task action handlers ────────────────────────────────────────
   function handleMarkDone(taskId: string) {
     const task = tasks.find((t) => t.id === taskId);
-    setTasks(markDone(tasks, taskId, viewerId));
+    setTasks(markDone(workspaceKey, tasks, taskId, viewerId));
     push({
       tone: "success",
       message: "Marked done",
       detail: task?.title,
       action: {
         label: "Undo",
-        onClick: () => setTasks((curr) => reopen(curr, taskId, viewerId)),
+        onClick: () =>
+          setTasks((curr) => reopen(workspaceKey, curr, taskId, viewerId)),
       },
     });
   }
   function handleSnooze(taskId: string, hours: number) {
-    setTasks(snooze(tasks, taskId, hours, viewerId));
+    setTasks(snooze(workspaceKey, tasks, taskId, hours, viewerId));
     push({
       tone: "info",
       message: `Snoozed ${hours}h`,
       action: {
         label: "Undo",
-        onClick: () => setTasks((curr) => reopen(curr, taskId, viewerId)),
+        onClick: () =>
+          setTasks((curr) => reopen(workspaceKey, curr, taskId, viewerId)),
       },
     });
   }
   function handleMute(taskId: string, reason: string) {
-    setTasks(mute(tasks, taskId, reason, viewerId));
+    setTasks(mute(workspaceKey, tasks, taskId, reason, viewerId));
     push({
       tone: "info",
       message: "Muted",
       detail: reason,
       action: {
         label: "Undo",
-        onClick: () => setTasks((curr) => reopen(curr, taskId, viewerId)),
+        onClick: () =>
+          setTasks((curr) => reopen(workspaceKey, curr, taskId, viewerId)),
       },
     });
   }
   function handleReopen(taskId: string) {
-    setTasks(reopen(tasks, taskId, viewerId));
+    setTasks(reopen(workspaceKey, tasks, taskId, viewerId));
   }
   function handleAddNote(taskId: string, text: string) {
-    setTasks(addNote(tasks, taskId, text, "work", viewerId));
+    setTasks(addNote(workspaceKey, tasks, taskId, text, "work", viewerId));
   }
   function handleAddCoachingNote(taskId: string, text: string) {
-    setTasks(addNote(tasks, taskId, text, "coaching", viewerId));
+    setTasks(addNote(workspaceKey, tasks, taskId, text, "coaching", viewerId));
     push({ tone: "success", message: "Coaching note saved" });
   }
   async function handlePageOnSlack(taskId: string) {

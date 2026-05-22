@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { postToSlack, signalsToSlackPayload } from "@/lib/slack";
+import { requireUiSession } from "@/lib/ui-auth-server";
 
 interface SlackRequest {
   repName: string;
@@ -7,6 +8,9 @@ interface SlackRequest {
 }
 
 export async function POST(req: Request) {
+  const unauthorized = await requireUiSession();
+  if (unauthorized) return unauthorized;
+
   let body: SlackRequest;
   try {
     const parsed = await req.json();
