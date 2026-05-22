@@ -1,36 +1,53 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Dugout
 
-## Getting Started
+> *The dugout view of your pipeline.*
 
-First, run the development server:
+A working deal intelligence layer for GTM teams. Configurable per workspace, built by Jackson Shuey.
+
+Dugout tells sellers and managers what's happening in their pipeline before they have to ask — routed by severity tier, weighted by close-date proximity, and tied to playbooks when the moment is big enough to need one. The engine is workspace-agnostic; load a preset, edit it, or build your own from scratch in the settings.
+
+This repo ships with a **Checkbox** preset preloaded — the workspace was originally built as the deliverable for Checkbox's GTM Engineer case. The Generic B2B SaaS preset is included to demonstrate the platform isn't tied to legal-tech or any one company.
+
+→ **Live demo:** _link to be added after Vercel deploy_
+
+## Surfaces
+
+- `/` — operational home. Signal counts, deal health distribution, top signals across the team.
+- `/ae` — AE Console with morning digest (live Claude call) + per-deal cards with health badges + inline playbooks.
+- `/manager` — team risk roll-up, blocking queue, 1:1 coaching hooks.
+- `/studio` — Signal Studio: natural-language to rule spec, mapped to your workspace's strategic priorities.
+- `/settings` — workspace configuration. Edit company identity, priorities, assets, and stack. Persists via cookie; survives reloads.
+- `/architecture` — 4-layer spec, signal catalog, design choices, what we don't build.
+- `/rollout` — 3-phase rollout plan with metrics.
+- `/part-two` — Trial Orchestrator (companion system proposal).
+
+## How the engine works
+
+- **Signal engine** (`src/lib/signal-engine.ts`) — pure functions, one per rule. Each rule tags a workspace priority and a severity tier. The tier dictates routing.
+- **Workspace config** (`src/lib/workspace.ts`) — runtime configuration that drives behavior. Priorities, asset names, and stack labels flow through the engine, the digest prompt, and the rule-authoring prompt.
+- **Deal Health** — compound state aggregated from signals on a deal, weighted by close-date proximity. Returns `Healthy / Monitor / At Risk / Critical`.
+- **Playbooks** — multi-phase workflows attached to specific signals. The Champion Departure playbook ships in v1.
+- **Claude** — Sonnet 4.6 for digest synthesis and rule authoring. ~90% of useful signals are deterministic; the LLM runs where it earns its keep.
+
+## Run locally
 
 ```bash
+cp .env.example .env.local      # then fill in ANTHROPIC_API_KEY
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Deploy
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Connect this repo to Vercel. Add `ANTHROPIC_API_KEY` (and optionally `SLACK_WEBHOOK_URL`) in Vercel's Environment Variables. Push to `main` to deploy.
 
-## Learn More
+## What's real vs what's seamed
 
-To learn more about Next.js, take a look at the following resources:
+**Real:** The signal engine, workspace config, digest synthesis, and Signal Studio all do live work. The configuration genuinely drives system behavior (asset names, priority mappings, digest context).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+**Seamed (intentional v1 limits):**
+- Pipeline stage names are hardcoded (refactoring the `Stage` union type to be runtime-configurable is a separate ~2h job).
+- Contact role names are hardcoded.
+- Seed data (accounts, opportunities) is fictional and legal-tech themed — switching presets updates terminology but not the underlying deals.
