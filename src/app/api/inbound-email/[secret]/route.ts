@@ -1,8 +1,16 @@
 import { NextResponse } from "next/server";
-import { insertInboundEmail } from "@/lib/inbound-email";
+import { insertInboundEmail, markClassified } from "@/lib/inbound-email";
+import { classifyNewsletter } from "@/lib/newsletter-adapter";
+import { insertSignalsDedup } from "@/lib/external-signals";
+import { accounts } from "@/data/seed";
 
-// SendGrid Inbound Parse webhook receiver — Phase 1: raw storage only.
-// Classification (newsletter-adapter.ts → external_signals) lands in Phase 2.
+// SendGrid Inbound Parse webhook receiver.
+//
+// Phase 1: persist the raw email into `inbound_emails`.
+// Phase 2: classify with Haiku (newsletter-adapter) and insert resulting
+// signals into `external_signals`. Account matching folds newsletter
+// mentions onto trackable accounts; unmatched material items become
+// workspace-scoped market intel.
 //
 // Auth: path-segment secret matched against INBOUND_WEBHOOK_SECRET. Fail-closed
 // when the env var is missing, mirroring the CRON_SECRET pattern in the cron
@@ -141,7 +149,41 @@ export async function POST(
     console.log(
       `[inbound-email] stored ${row.id} from=${parsed.domain} subject="${subject.slice(0, 60)}"`,
     );
-    return NextResponse.json({ ok: true, id: row.id });
+
+    // Phase 2: classify synchronously. Haiku averages 2-3s for a single
+    // newsletter; well under SendGrid's 30s webhook timeout. Failures here
+    // are non-fatal — the row is saved and a future re-run can pick it up
+    // (rows with classified_at IS NULL are the work queue).
+    try {
+      const trackable = accounts.filter((a) => a.trackable);
+      const result = await classifyNewsletter(row, trackable);
+      if (result.signals.length > 0) {
+        await insertSignalsDedup(result.signals);
+      }
+      await markClassified(row.id, result.signals.length);
+      console.log(
+        `[inbound-email] classified ${row.id}: ${result.signals.length} signals (${result.matched} matched, ${result.workspace} workspace) via ${result.classifier_used}`,
+      );
+      return NextResponse.json({
+        ok: true,
+        id: row.id,
+        signals: result.signals.length,
+        matched: result.matched,
+        workspace: result.workspace,
+      });
+    } catch (e) {
+      console.warn(
+        `[inbound-email] classification failed for ${row.id} (row saved, will retry later)`,
+        e instanceof Error ? e.message : String(e),
+      );
+      // Row is persisted; signal extraction will be re-attempted by a future
+      // run. Don't 5xx — SendGrid would re-send the email and we'd duplicate.
+      return NextResponse.json({
+        ok: true,
+        id: row.id,
+        classification: "deferred",
+      });
+    }
   } catch (e) {
     // Transient storage failure. Return 5xx so SendGrid retries within its
     // 3-day window — better than silently losing the message.
