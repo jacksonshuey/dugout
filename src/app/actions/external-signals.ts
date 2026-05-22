@@ -1,7 +1,7 @@
 "use server";
 
 import { accounts } from "@/data/seed";
-import { fetchSignalsForCompany } from "@/lib/news-adapter";
+import { ingestAccount, type PerSourceResult } from "@/lib/ingestion";
 import { insertSignalsDedup } from "@/lib/external-signals";
 
 // Server action for the Settings → Refresh button. Calls the same
@@ -16,6 +16,7 @@ export interface RefreshAccountResult {
   status: "success" | "error";
   inserted?: number;
   skipped?: number;
+  bySource?: PerSourceResult;
   error?: string;
   durationMs: number;
 }
@@ -35,11 +36,7 @@ export async function refreshAccountSignals(
     };
   }
   try {
-    const { signals } = await fetchSignalsForCompany(
-      account.id,
-      account.name,
-      account.industry,
-    );
+    const { signals, bySource } = await ingestAccount(account);
     const { inserted, skipped } = await insertSignalsDedup(signals);
     return {
       accountId: account.id,
@@ -47,6 +44,7 @@ export async function refreshAccountSignals(
       status: "success",
       inserted,
       skipped,
+      bySource,
       durationMs: Date.now() - t0,
     };
   } catch (e) {

@@ -1,18 +1,19 @@
 import { NextResponse } from "next/server";
 import { accounts } from "@/data/seed";
-import { fetchSignalsForCompany } from "@/lib/news-adapter";
+import { ingestAccount, type PerSourceResult } from "@/lib/ingestion";
 import { insertSignalsDedup } from "@/lib/external-signals";
 
-// Daily ingestion of external signals via Claude's web_search tool.
+// Daily ingestion of external signals across all adapters (NewsAPI today,
+// SEC EDGAR for public-co accounts with a ticker).
 //
 // Triggered by:
 //   - Vercel cron (configured in vercel.json, daily at 8am UTC)
 //   - Manual "Refresh signals" button in the UI
 //
 // We only run against accounts flagged trackable:true in seed (real companies
-// where web_search will return useful results). Fictional accounts get their
-// signals from the demo seed only — wasting Claude calls on them returns
-// nothing and burns budget.
+// where NewsAPI returns useful results). Fictional accounts get their signals
+// from the demo seed only — wasting LLM + API calls on them returns nothing
+// and burns budget.
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,6 +25,7 @@ interface AccountResult {
   status: "success" | "error";
   inserted?: number;
   skipped?: number;
+  bySource?: PerSourceResult;
   error?: string;
   durationMs: number;
 }
@@ -40,11 +42,7 @@ async function processAccount(
 ): Promise<AccountResult> {
   const t0 = Date.now();
   try {
-    const { signals } = await fetchSignalsForCompany(
-      account.id,
-      account.name,
-      account.industry,
-    );
+    const { signals, bySource } = await ingestAccount(account);
     const { inserted, skipped } = await insertSignalsDedup(signals);
     return {
       accountId: account.id,
@@ -52,6 +50,7 @@ async function processAccount(
       status: "success",
       inserted,
       skipped,
+      bySource,
       durationMs: Date.now() - t0,
     };
   } catch (e) {
@@ -71,9 +70,9 @@ async function runIngestion(filterAccountId?: string): Promise<CronResult> {
     (a) => a.trackable && (!filterAccountId || a.id === filterAccountId),
   );
 
-  // Parallelize per-account web_search calls. 3 trackable accounts in parallel
-  // finishes in ~30s instead of the ~90s sequential would take, well under the
-  // Vercel Hobby 60s function cap.
+  // Parallelize per-account ingestion. Inside ingestAccount the news + SEC
+  // adapters also run in parallel. Three trackable accounts × two adapters
+  // finishes in ~5-10s end-to-end, well under the Vercel Hobby 60s cap.
   const results = await Promise.all(trackable.map(processAccount));
 
   return {

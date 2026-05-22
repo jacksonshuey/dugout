@@ -13,6 +13,7 @@ import {
   saveWorkspaceConfig,
 } from "@/app/actions/workspace";
 import { refreshAccountSignals } from "@/app/actions/external-signals";
+import type { PerSourceResult } from "@/lib/ingestion";
 import { Button, Card } from "./ui";
 
 // All settings live in one form for a single Save action. Local React state
@@ -356,6 +357,7 @@ interface PerAccountResult {
   status: "success" | "error";
   inserted?: number;
   skipped?: number;
+  bySource?: PerSourceResult;
   error?: string;
   durationMs: number;
 }
@@ -365,6 +367,50 @@ const TRACKABLE_ACCOUNTS = [
   { id: "acc_atlas", name: "Snowflake" },
   { id: "acc_horizon", name: "Atlassian" },
 ];
+
+// Small per-source breakdown shown under each account's row. Only renders
+// for sources that actually ran (e.g. SEC line is hidden for Stripe which
+// has no ticker). Errors render in the blocking color so a partial-source
+// failure (e.g. Haiku 529 while EDGAR succeeded) is visible at a glance.
+function PerSourceLine({ bySource }: { bySource: PerSourceResult }) {
+  const lines: { label: string; count: number; error?: string }[] = [];
+  if (bySource.newsapi) {
+    lines.push({
+      label: "news",
+      count: bySource.newsapi.count,
+      error: bySource.newsapi.error,
+    });
+  }
+  if (bySource.sec_edgar) {
+    lines.push({
+      label: "sec",
+      count: bySource.sec_edgar.count,
+      error: bySource.sec_edgar.error,
+    });
+  }
+  if (lines.length === 0) return null;
+  return (
+    <div className="text-[11px] text-muted pl-3 font-mono opacity-70">
+      {lines.map((l, i) => (
+        <span key={l.label}>
+          {i > 0 && <span> · </span>}
+          {l.error ? (
+            <span
+              className="text-severity-blocking"
+              title={l.error}
+            >
+              {l.label} failed
+            </span>
+          ) : (
+            <>
+              {l.label} {l.count}
+            </>
+          )}
+        </span>
+      ))}
+    </div>
+  );
+}
 
 function ExternalSignalsSection() {
   const [running, setRunning] = useState(false);
@@ -392,6 +438,7 @@ function ExternalSignalsSection() {
           status: r.status,
           inserted: r.inserted,
           skipped: r.skipped,
+          bySource: r.bySource,
           error: r.error,
           durationMs: r.durationMs,
         };
@@ -424,7 +471,7 @@ function ExternalSignalsSection() {
   return (
     <Section
       title="External signals"
-      sub="Daily news ingestion for trackable accounts (Stripe, Snowflake, Atlassian) — NewsAPI fetches articles, Claude Haiku classifies them into material business events. Cron fires at 8am UTC; refresh below runs it on demand."
+      sub="Daily ingestion for trackable accounts. NewsAPI + Claude Haiku classify articles into material events; SEC EDGAR pulls 8-K filings for public-co accounts with a ticker (Snowflake, Atlassian). Cron fires at 8am UTC; refresh below runs it on demand."
     >
       <Card className="p-5 space-y-3">
         <div className="flex items-center gap-3">
@@ -472,23 +519,28 @@ function ExternalSignalsSection() {
                 return (
                   <div
                     key={account.id}
-                    className="flex justify-between gap-3 text-muted"
+                    className="flex flex-col gap-0.5 text-muted"
                   >
-                    <span className="text-foreground">{account.name}</span>
-                    <span>
-                      {!r ? (
-                        <span className="italic">waiting…</span>
-                      ) : r.status === "success" ? (
-                        <>
-                          {r.inserted} new · {r.skipped} dup ·{" "}
-                          {(r.durationMs / 1000).toFixed(1)}s
-                        </>
-                      ) : (
-                        <span className="text-severity-blocking">
-                          {r.error?.slice(0, 80)}
-                        </span>
-                      )}
-                    </span>
+                    <div className="flex justify-between gap-3">
+                      <span className="text-foreground">{account.name}</span>
+                      <span>
+                        {!r ? (
+                          <span className="italic">waiting…</span>
+                        ) : r.status === "success" ? (
+                          <>
+                            {r.inserted} new · {r.skipped} dup ·{" "}
+                            {(r.durationMs / 1000).toFixed(1)}s
+                          </>
+                        ) : (
+                          <span className="text-severity-blocking">
+                            {r.error?.slice(0, 80)}
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                    {r?.status === "success" && r.bySource && (
+                      <PerSourceLine bySource={r.bySource} />
+                    )}
                   </div>
                 );
               })}
@@ -497,7 +549,7 @@ function ExternalSignalsSection() {
         )}
 
         <p className="text-xs text-muted">
-          Storage: Supabase Postgres (table <code>external_signals</code>). Fictional accounts get demo seeds; trackable real companies get live web-search results with source attribution in the drawer.
+          Storage: Supabase Postgres (table <code>external_signals</code>). Fictional accounts get demo seeds; trackable real companies get live NewsAPI + (where applicable) SEC EDGAR results with per-source attribution in the drawer.
         </p>
       </Card>
     </Section>
