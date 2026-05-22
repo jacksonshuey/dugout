@@ -312,6 +312,21 @@ export function Console(props: ConsoleData) {
 // PIPELINE VIEW
 // ─────────────────────────────────────────────────────────────────
 
+type SortKey = "account" | "stage" | "health" | "amount" | "days" | "owner" | "tasks";
+type SortDir = "asc" | "desc";
+
+// Per-column intuitive default direction when first clicked.
+// Numerics descend (biggest first), text ascends, ranks ascend (most-urgent first).
+const DEFAULT_DIR: Record<SortKey, SortDir> = {
+  account: "asc",
+  stage: "asc",
+  health: "asc",
+  amount: "desc",
+  days: "desc",
+  owner: "asc",
+  tasks: "desc",
+};
+
 function PipelineView({
   opps,
   data,
@@ -323,12 +338,34 @@ function PipelineView({
   tasks: Task[];
   onOpen: (oppId: string) => void;
 }) {
-  // Sort by health then by $ at risk (Critical+At Risk first, biggest deals first within)
+  const [sortKey, setSortKey] = useState<SortKey>("health");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  function handleSort(key: SortKey) {
+    if (key === sortKey) {
+      // Toggle direction on same-column click
+      setSortDir(sortDir === "asc" ? "desc" : "asc");
+    } else {
+      setSortKey(key);
+      setSortDir(DEFAULT_DIR[key]);
+    }
+  }
+
   const HEALTH_RANK: Record<DealHealth, number> = {
     Critical: 0,
     "At Risk": 1,
     Monitor: 2,
     Healthy: 3,
+  };
+  // Stage order matches the funnel — Intro at top, Contracting at bottom.
+  // Ascending sort places earliest stages first.
+  const STAGE_RANK: Record<string, number> = {
+    Intro: 0,
+    Qualified: 1,
+    "Demo Sat": 2,
+    Evaluating: 3,
+    "Selected Vendor": 4,
+    Contracting: 5,
   };
 
   const enriched = opps.map((opp) => {
@@ -348,10 +385,52 @@ function PipelineView({
     }));
     const health = computeDealHealth(opp, oppSignals);
     const blocking = oppTasks.filter((t) => t.severity === "blocking").length;
-    return { opp, health, openTasks: oppTasks.length, blocking };
+    const account = data.accounts.find((a) => a.id === opp.accountId)!;
+    const owner = data.reps.find((r) => r.id === opp.ownerId)!;
+    return {
+      opp,
+      health,
+      openTasks: oppTasks.length,
+      blocking,
+      account,
+      owner,
+      ageDays: daysBetween(opp.enteredStageAt),
+    };
   });
 
+  // Sort applies primary key; secondary tiebreaker is always
+  // health-then-amount to keep the table feeling sensible even when sorted by
+  // something like owner.
   enriched.sort((a, b) => {
+    const dir = sortDir === "asc" ? 1 : -1;
+    let primary = 0;
+    switch (sortKey) {
+      case "account":
+        primary = a.account.name.localeCompare(b.account.name);
+        break;
+      case "stage":
+        primary = STAGE_RANK[a.opp.stage] - STAGE_RANK[b.opp.stage];
+        break;
+      case "health":
+        primary = HEALTH_RANK[a.health] - HEALTH_RANK[b.health];
+        break;
+      case "amount":
+        primary = a.opp.amount - b.opp.amount;
+        break;
+      case "days":
+        primary = a.ageDays - b.ageDays;
+        break;
+      case "owner":
+        primary = a.owner.name.localeCompare(b.owner.name);
+        break;
+      case "tasks":
+        // Use blocking as a tiebreaker within open count so a deal with 2 tasks
+        // and 2 blocking sorts above a deal with 2 tasks and 0 blocking.
+        primary = a.openTasks - b.openTasks || a.blocking - b.blocking;
+        break;
+    }
+    if (primary !== 0) return primary * dir;
+    // Tiebreaker
     const h = HEALTH_RANK[a.health] - HEALTH_RANK[b.health];
     if (h !== 0) return h;
     return b.opp.amount - a.opp.amount;
@@ -374,57 +453,52 @@ function PipelineView({
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-muted font-semibold sticky top-0">
               <tr className="border-b border-border">
-                <th className="text-left px-3 py-2 font-semibold">Account</th>
-                <th className="text-left px-3 py-2 font-semibold">Stage</th>
-                <th className="text-left px-3 py-2 font-semibold">Health</th>
-                <th className="text-right px-3 py-2 font-semibold">Amount</th>
-                <th className="text-right px-3 py-2 font-semibold">Days</th>
-                <th className="text-left px-3 py-2 font-semibold">Owner</th>
-                <th className="text-right px-3 py-2 font-semibold">Tasks</th>
+                <SortableTh sortKey={sortKey} sortDir={sortDir} myKey="account" align="left" onSort={handleSort}>Account</SortableTh>
+                <SortableTh sortKey={sortKey} sortDir={sortDir} myKey="stage" align="left" onSort={handleSort}>Stage</SortableTh>
+                <SortableTh sortKey={sortKey} sortDir={sortDir} myKey="health" align="left" onSort={handleSort}>Health</SortableTh>
+                <SortableTh sortKey={sortKey} sortDir={sortDir} myKey="amount" align="right" onSort={handleSort}>Amount</SortableTh>
+                <SortableTh sortKey={sortKey} sortDir={sortDir} myKey="days" align="right" onSort={handleSort}>Days</SortableTh>
+                <SortableTh sortKey={sortKey} sortDir={sortDir} myKey="owner" align="left" onSort={handleSort}>Owner</SortableTh>
+                <SortableTh sortKey={sortKey} sortDir={sortDir} myKey="tasks" align="right" onSort={handleSort}>Tasks</SortableTh>
               </tr>
             </thead>
             <tbody>
-              {enriched.map(({ opp, health, openTasks, blocking }) => {
-                const acc = data.accounts.find((a) => a.id === opp.accountId)!;
-                const owner = data.reps.find((r) => r.id === opp.ownerId)!;
-                const ageDays = daysBetween(opp.enteredStageAt);
-                return (
-                  <tr
-                    key={opp.id}
-                    onClick={() => onOpen(opp.id)}
-                    className="border-b border-border last:border-0 hover:bg-slate-50 cursor-pointer transition-colors"
-                  >
-                    <td className="px-3 py-2.5 font-medium">{acc.name}</td>
-                    <td className="px-3 py-2.5">
-                      <StageBadge stage={opp.stage} />
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <HealthBadge health={health} />
-                    </td>
-                    <td className="px-3 py-2.5 text-right font-mono text-foreground">
-                      {formatCurrency(opp.amount)}
-                    </td>
-                    <td className="px-3 py-2.5 text-right font-mono text-muted">
-                      {ageDays}d
-                    </td>
-                    <td className="px-3 py-2.5 text-muted">{owner.name}</td>
-                    <td className="px-3 py-2.5 text-right">
-                      {openTasks > 0 ? (
-                        <span className="font-mono text-xs">
-                          <span className="text-foreground">{openTasks}</span>
-                          {blocking > 0 && (
-                            <span className="text-severity-blocking font-medium ml-1">
-                              · {blocking} blocking
-                            </span>
-                          )}
-                        </span>
-                      ) : (
-                        <span className="text-muted text-xs italic">—</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
+              {enriched.map(({ opp, health, openTasks, blocking, account, owner, ageDays }) => (
+                <tr
+                  key={opp.id}
+                  onClick={() => onOpen(opp.id)}
+                  className="border-b border-border last:border-0 hover:bg-slate-50 cursor-pointer transition-colors"
+                >
+                  <td className="px-3 py-2.5 font-medium">{account.name}</td>
+                  <td className="px-3 py-2.5">
+                    <StageBadge stage={opp.stage} />
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <HealthBadge health={health} />
+                  </td>
+                  <td className="px-3 py-2.5 text-right font-mono text-foreground">
+                    {formatCurrency(opp.amount)}
+                  </td>
+                  <td className="px-3 py-2.5 text-right font-mono text-muted">
+                    {ageDays}d
+                  </td>
+                  <td className="px-3 py-2.5 text-muted">{owner.name}</td>
+                  <td className="px-3 py-2.5 text-right">
+                    {openTasks > 0 ? (
+                      <span className="font-mono text-xs">
+                        <span className="text-foreground">{openTasks}</span>
+                        {blocking > 0 && (
+                          <span className="text-severity-blocking font-medium ml-1">
+                            · {blocking} blocking
+                          </span>
+                        )}
+                      </span>
+                    ) : (
+                      <span className="text-muted text-xs italic">—</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
@@ -570,6 +644,50 @@ function TaskRow({
       onAddNote={(text) => onAddNote(task.id, text)}
       onAddCoachingNote={(text) => onAddCoachingNote(task.id, text)}
     />
+  );
+}
+
+// Sortable table header. Renders an arrow indicator on the active column,
+// a subtle muted arrow on the others as an affordance.
+function SortableTh({
+  myKey,
+  sortKey,
+  sortDir,
+  align,
+  onSort,
+  children,
+}: {
+  myKey: SortKey;
+  sortKey: SortKey;
+  sortDir: SortDir;
+  align: "left" | "right";
+  onSort: (k: SortKey) => void;
+  children: React.ReactNode;
+}) {
+  const isActive = sortKey === myKey;
+  const arrow = isActive ? (sortDir === "asc" ? "↑" : "↓") : "·";
+  return (
+    <th
+      onClick={() => onSort(myKey)}
+      className={cn(
+        "px-3 py-2 font-semibold cursor-pointer select-none hover:bg-slate-100 transition-colors",
+        align === "right" ? "text-right" : "text-left",
+      )}
+    >
+      <span className={cn("inline-flex items-center gap-1", align === "right" && "justify-end")}>
+        {align === "right" && (
+          <span className={cn("text-[10px]", isActive ? "text-foreground" : "text-muted/40")}>
+            {arrow}
+          </span>
+        )}
+        <span>{children}</span>
+        {align === "left" && (
+          <span className={cn("text-[10px]", isActive ? "text-foreground" : "text-muted/40")}>
+            {arrow}
+          </span>
+        )}
+      </span>
+    </th>
   );
 }
 
