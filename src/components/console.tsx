@@ -370,47 +370,63 @@ function PipelineView({
       {opps.length === 0 ? (
         <Empty msg="No deals match your filters." />
       ) : (
-        <div className="space-y-2">
-          {enriched.map(({ opp, health, openTasks, blocking }) => {
-            const acc = data.accounts.find((a) => a.id === opp.accountId)!;
-            const owner = data.reps.find((r) => r.id === opp.ownerId)!;
-            return (
-              <button
-                key={opp.id}
-                onClick={() => onOpen(opp.id)}
-                className="w-full text-left rounded-lg border border-border bg-background p-4 hover:border-brand hover:shadow-sm transition-all"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="space-y-1 min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium">{acc.name}</span>
+        <div className="rounded-lg border border-border bg-background overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-muted font-semibold sticky top-0">
+              <tr className="border-b border-border">
+                <th className="text-left px-3 py-2 font-semibold">Account</th>
+                <th className="text-left px-3 py-2 font-semibold">Stage</th>
+                <th className="text-left px-3 py-2 font-semibold">Health</th>
+                <th className="text-right px-3 py-2 font-semibold">Amount</th>
+                <th className="text-right px-3 py-2 font-semibold">Days</th>
+                <th className="text-left px-3 py-2 font-semibold">Owner</th>
+                <th className="text-right px-3 py-2 font-semibold">Tasks</th>
+              </tr>
+            </thead>
+            <tbody>
+              {enriched.map(({ opp, health, openTasks, blocking }) => {
+                const acc = data.accounts.find((a) => a.id === opp.accountId)!;
+                const owner = data.reps.find((r) => r.id === opp.ownerId)!;
+                const ageDays = daysBetween(opp.enteredStageAt);
+                return (
+                  <tr
+                    key={opp.id}
+                    onClick={() => onOpen(opp.id)}
+                    className="border-b border-border last:border-0 hover:bg-slate-50 cursor-pointer transition-colors"
+                  >
+                    <td className="px-3 py-2.5 font-medium">{acc.name}</td>
+                    <td className="px-3 py-2.5">
                       <StageBadge stage={opp.stage} />
+                    </td>
+                    <td className="px-3 py-2.5">
                       <HealthBadge health={health} />
-                    </div>
-                    <div className="text-xs text-muted">
-                      {formatCurrency(opp.amount)} · {daysBetween(opp.enteredStageAt)}d in stage · {owner.name}
-                    </div>
-                  </div>
-                  <div className="text-right shrink-0 text-xs space-y-0.5">
-                    {openTasks > 0 ? (
-                      <>
-                        <div className="font-mono text-foreground">
-                          {openTasks} open
-                        </div>
-                        {blocking > 0 && (
-                          <div className="text-severity-blocking font-medium">
-                            {blocking} blocking
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <div className="text-muted">no tasks</div>
-                    )}
-                  </div>
-                </div>
-              </button>
-            );
-          })}
+                    </td>
+                    <td className="px-3 py-2.5 text-right font-mono text-foreground">
+                      {formatCurrency(opp.amount)}
+                    </td>
+                    <td className="px-3 py-2.5 text-right font-mono text-muted">
+                      {ageDays}d
+                    </td>
+                    <td className="px-3 py-2.5 text-muted">{owner.name}</td>
+                    <td className="px-3 py-2.5 text-right">
+                      {openTasks > 0 ? (
+                        <span className="font-mono text-xs">
+                          <span className="text-foreground">{openTasks}</span>
+                          {blocking > 0 && (
+                            <span className="text-severity-blocking font-medium ml-1">
+                              · {blocking} blocking
+                            </span>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="text-muted text-xs italic">—</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
