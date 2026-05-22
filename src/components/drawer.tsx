@@ -594,27 +594,17 @@ function ExternalSignalsSection({
               className="rounded-lg border border-border p-3 space-y-1.5"
             >
               <div className="flex items-baseline justify-between gap-2 flex-wrap">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-[10px] font-semibold tracking-wider uppercase text-muted px-1.5 py-0.5 rounded bg-slate-100">
                     {SIGNAL_TYPE_LABEL[s.type] ?? "News"}
                   </span>
-                  <SourceBadge source={s.source} isDemo={s.is_demo} />
+                  <SourceBadge signal={s} />
                 </div>
                 <span className="text-[11px] text-muted font-mono">
                   {formatDate(s.occurred_at)}
                 </span>
               </div>
               <p className="text-sm leading-relaxed">{s.summary}</p>
-              {s.url && (
-                <a
-                  href={s.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[11px] text-brand hover:underline inline-block truncate max-w-full"
-                >
-                  source ↗
-                </a>
-              )}
             </div>
           ))}
         </div>
@@ -623,34 +613,81 @@ function ExternalSignalsSection({
   );
 }
 
-function SourceBadge({
-  source,
-  isDemo,
-}: {
-  source: string;
-  isDemo: boolean;
-}) {
-  if (isDemo || source === "demo") {
+// Safely read a string field from a signal's loosely-typed meta blob.
+// Returns undefined when missing, non-string, or whitespace-only.
+function metaString(
+  meta: ExternalSignal["meta"],
+  key: string,
+): string | undefined {
+  if (!meta || typeof meta !== "object") return undefined;
+  const v = (meta as Record<string, unknown>)[key];
+  return typeof v === "string" && v.trim().length > 0 ? v.trim() : undefined;
+}
+
+function SourceBadge({ signal }: { signal: ExternalSignal }) {
+  if (signal.is_demo || signal.source === "demo") {
     return (
       <span className="text-[10px] font-semibold tracking-wider uppercase px-1.5 py-0.5 rounded bg-slate-100 text-muted border border-border">
         Demo
       </span>
     );
   }
-  const label =
-    source === "newsapi"
+
+  // Prefer the actual publisher (Bloomberg, Reuters, TechCrunch) over the
+  // generic adapter name (NewsAPI). It's more credible attribution and more
+  // honest about where the underlying claim originated.
+  const publisher = metaString(signal.meta, "source_name");
+  const classifier = metaString(signal.meta, "classifier");
+
+  const label = publisher
+    ? `Live · ${publisher}`
+    : signal.source === "newsapi"
       ? "Live · NewsAPI"
-      : source === "sec_edgar"
+      : signal.source === "sec_edgar"
         ? "Live · SEC EDGAR"
-        : source === "claude_web_search"
+        : signal.source === "claude_web_search"
           ? "Live · web search"
-          : source === "manual"
+          : signal.source === "manual"
             ? "Manual"
             : "Live";
-  return (
-    <span className="text-[10px] font-semibold tracking-wider uppercase px-1.5 py-0.5 rounded bg-severity-green-bg text-severity-green border border-severity-green/20">
+
+  const badgeClass =
+    "text-[10px] font-semibold tracking-wider uppercase px-1.5 py-0.5 rounded bg-severity-green-bg text-severity-green border border-severity-green/20";
+
+  const url = signal.url ?? undefined;
+  const badge = url ? (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={cn(badgeClass, "hover:underline inline-flex items-center gap-1")}
+      title={`Open ${publisher ?? "source"} (new tab)`}
+    >
       {label}
+      <span aria-hidden>↗</span>
+    </a>
+  ) : (
+    <span className={badgeClass}>{label}</span>
+  );
+
+  // When the Anthropic incidents on 2026-05-22 left Haiku unavailable, the
+  // news-adapter falls back to a keyword classifier. Tag those rows so the
+  // demo audience knows the summary is lower-precision than LLM-read items
+  // and can weigh the read accordingly. Transparency > polish.
+  const heuristicTag = classifier === "heuristic" && (
+    <span
+      className="text-[10px] font-semibold tracking-wider uppercase px-1.5 py-0.5 rounded bg-severity-action-bg text-severity-action border border-severity-action/20"
+      title="Classified by keyword fallback (Anthropic capacity was unavailable when this signal was ingested). Summary is lower precision than LLM-classified items."
+    >
+      keyword
     </span>
+  );
+
+  return (
+    <>
+      {badge}
+      {heuristicTag}
+    </>
   );
 }
 
