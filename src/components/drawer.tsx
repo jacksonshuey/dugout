@@ -17,13 +17,14 @@ import { HealthBadge, StageBadge } from "./ui";
 import { computeDealHealth } from "@/lib/signal-engine";
 import { TaskCard } from "./task-card";
 import {
+  cn,
   daysBetween,
   formatCurrency,
   formatDate,
+  lookupBy,
   TODAY,
 } from "@/lib/utils";
 import type { WorkspaceConfig } from "@/lib/workspace";
-import { cn } from "@/lib/utils";
 import {
   companyLinkedinUrl,
   contactLinkedinUrl,
@@ -103,6 +104,9 @@ export function Drawer({
   useEffect(() => {
     if (!opp) return;
     let cancelled = false;
+    // Standard data-fetching pattern. The React 19 Suspense + use() refactor
+    // would require lifting the promise upstream with memoization; deferred.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSignalsLoading(true);
     fetch(`/api/external-signals?account=${opp.accountId}`)
       .then((r) => r.json())
@@ -122,14 +126,13 @@ export function Drawer({
   }, [opp]);
 
   if (!opp) return null;
-  const account = data.accounts.find((a) => a.id === opp.accountId)!;
-  const owner = data.reps.find((r) => r.id === opp.ownerId)!;
+  const account = lookupBy(data.accounts, opp.accountId, "account");
+  const owner = lookupBy(data.reps, opp.ownerId, "rep");
   const isOwnerMode = viewerId === opp.ownerId;
 
   const dealContacts = opp.contactRoleIds
     .map((cid) => data.contacts.find((c) => c.id === cid))
     .filter((c): c is Contact => !!c);
-  const presentRoles = new Set(dealContacts.map((c) => c.role));
 
   const dealTasks = data.tasks.filter((t) => t.oppId === oppId);
   const openTasks = dealTasks.filter(

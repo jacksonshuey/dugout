@@ -14,12 +14,12 @@ import type {
   Signal,
   Stage,
 } from "@/lib/types";
+import { STAGE_ORDER } from "@/lib/types";
 import type { WorkspaceConfig } from "@/lib/workspace";
 import {
   Sidebar,
   type ConsoleView,
   type FilterState,
-  EMPTY_FILTERS,
 } from "./sidebar";
 import { Drawer } from "./drawer";
 import { TaskCard } from "./task-card";
@@ -27,7 +27,6 @@ import { Card, HealthBadge, StageBadge, SeverityBadge, Button } from "./ui";
 import { ToastStack, useToasts } from "./toast";
 import {
   addNote,
-  loadTasks,
   markDone,
   mute,
   reconcile,
@@ -36,8 +35,7 @@ import {
   type Task,
 } from "@/lib/tasks";
 import { computeDealHealth } from "@/lib/signal-engine";
-import { daysBetween, formatCurrency } from "@/lib/utils";
-import { cn } from "@/lib/utils";
+import { cn, daysBetween, formatCurrency, lookupBy } from "@/lib/utils";
 
 export interface ConsoleData {
   signals: Signal[];
@@ -85,11 +83,26 @@ export function Console(props: ConsoleData) {
   const [hydrated, setHydrated] = useState(false);
   const { toasts, push, dismiss } = useToasts();
 
+  // Scopes task localStorage per workspace. Switching presets stops the
+  // current task set from being walked under the new ruleset (which would
+  // produce a wall of "auto-resolved" toasts as old signal IDs no longer
+  // match).
+  const workspaceKey = useMemo(
+    () =>
+      `${props.workspace.presetName ?? "custom"}::${props.workspace.companyName}`,
+    [props.workspace.presetName, props.workspace.companyName],
+  );
+
   useEffect(() => {
     // On first mount (and whenever signals change), reconcile.
     const ownerLookup: Record<string, string> = {};
     for (const o of props.opportunities) ownerLookup[o.id] = o.ownerId;
-    const result = reconcile(props.signals, props.reps, ownerLookup);
+    const result = reconcile(workspaceKey, props.signals, props.reps, ownerLookup);
+    // Reconciliation reads localStorage (client-only) and must rehydrate
+    // after mount — the React 19 "derive in render" alternative requires
+    // splitting reconcile() into pure + side-effecting paths and tracking
+    // user mutations separately. Deferred.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTasks(result.tasks);
     setHydrated(true);
     if (result.autoResolved.length > 0) {
@@ -112,7 +125,7 @@ export function Console(props: ConsoleData) {
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [props.signals]);
+  }, [props.signals, workspaceKey]);
 
   // ── Drawer ──────────────────────────────────────────────────────
   const [drawerOppId, setDrawerOppId] = useState<string | null>(null);
@@ -156,48 +169,51 @@ export function Console(props: ConsoleData) {
   // ── Task action handlers ────────────────────────────────────────
   function handleMarkDone(taskId: string) {
     const task = tasks.find((t) => t.id === taskId);
-    setTasks(markDone(tasks, taskId, viewerId));
+    setTasks(markDone(workspaceKey, tasks, taskId, viewerId));
     push({
       tone: "success",
       message: "Marked done",
       detail: task?.title,
       action: {
         label: "Undo",
-        onClick: () => setTasks((curr) => reopen(curr, taskId, viewerId)),
+        onClick: () =>
+          setTasks((curr) => reopen(workspaceKey, curr, taskId, viewerId)),
       },
     });
   }
   function handleSnooze(taskId: string, hours: number) {
-    setTasks(snooze(tasks, taskId, hours, viewerId));
+    setTasks(snooze(workspaceKey, tasks, taskId, hours, viewerId));
     push({
       tone: "info",
       message: `Snoozed ${hours}h`,
       action: {
         label: "Undo",
-        onClick: () => setTasks((curr) => reopen(curr, taskId, viewerId)),
+        onClick: () =>
+          setTasks((curr) => reopen(workspaceKey, curr, taskId, viewerId)),
       },
     });
   }
   function handleMute(taskId: string, reason: string) {
-    setTasks(mute(tasks, taskId, reason, viewerId));
+    setTasks(mute(workspaceKey, tasks, taskId, reason, viewerId));
     push({
       tone: "info",
       message: "Muted",
       detail: reason,
       action: {
         label: "Undo",
-        onClick: () => setTasks((curr) => reopen(curr, taskId, viewerId)),
+        onClick: () =>
+          setTasks((curr) => reopen(workspaceKey, curr, taskId, viewerId)),
       },
     });
   }
   function handleReopen(taskId: string) {
-    setTasks(reopen(tasks, taskId, viewerId));
+    setTasks(reopen(workspaceKey, tasks, taskId, viewerId));
   }
   function handleAddNote(taskId: string, text: string) {
-    setTasks(addNote(tasks, taskId, text, "work", viewerId));
+    setTasks(addNote(workspaceKey, tasks, taskId, text, "work", viewerId));
   }
   function handleAddCoachingNote(taskId: string, text: string) {
-    setTasks(addNote(tasks, taskId, text, "coaching", viewerId));
+    setTasks(addNote(workspaceKey, tasks, taskId, text, "coaching", viewerId));
     push({ tone: "success", message: "Coaching note saved" });
   }
   async function handlePageOnSlack(taskId: string) {
@@ -383,16 +399,10 @@ function PipelineView({
     Monitor: 2,
     Healthy: 3,
   };
-  // Stage order matches the funnel — Intro at top, Contracting at bottom.
-  // Ascending sort places earliest stages first.
-  const STAGE_RANK: Record<string, number> = {
-    Intro: 0,
-    Qualified: 1,
-    "Demo Sat": 2,
-    Evaluating: 3,
-    "Selected Vendor": 4,
-    Contracting: 5,
-  };
+  // Stage rank derived from STAGE_ORDER so adding/renaming a stage in
+  // lib/types.ts can't drift from the sort here. Ascending sort places
+  // earliest stages first (Intro at top, Contracting at bottom).
+  const stageRank = (s: Stage) => STAGE_ORDER.indexOf(s);
 
   const enriched = opps.map((opp) => {
     const oppTasks = tasks.filter(
@@ -411,8 +421,8 @@ function PipelineView({
     }));
     const health = computeDealHealth(opp, oppSignals);
     const blocking = oppTasks.filter((t) => t.severity === "blocking").length;
-    const account = data.accounts.find((a) => a.id === opp.accountId)!;
-    const owner = data.reps.find((r) => r.id === opp.ownerId)!;
+    const account = lookupBy(data.accounts, opp.accountId, "account");
+    const owner = lookupBy(data.reps, opp.ownerId, "rep");
     return {
       opp,
       health,
@@ -448,7 +458,7 @@ function PipelineView({
         primary = a.account.name.localeCompare(b.account.name);
         break;
       case "stage":
-        primary = STAGE_RANK[a.opp.stage] - STAGE_RANK[b.opp.stage];
+        primary = stageRank(a.opp.stage) - stageRank(b.opp.stage);
         break;
       case "health":
         primary = HEALTH_RANK[a.health] - HEALTH_RANK[b.health];
@@ -728,9 +738,9 @@ function TaskRow({
   onAddNote: (id: string, text: string) => void;
   onAddCoachingNote: (id: string, text: string) => void;
 }) {
-  const opp = data.opportunities.find((o) => o.id === task.oppId)!;
-  const acc = data.accounts.find((a) => a.id === opp.accountId)!;
-  const owner = data.reps.find((r) => r.id === opp.ownerId)!;
+  const opp = lookupBy(data.opportunities, task.oppId, "opportunity");
+  const acc = lookupBy(data.accounts, opp.accountId, "account");
+  const owner = lookupBy(data.reps, opp.ownerId, "rep");
   const isOwner = viewerId === task.ownerId;
 
   return (
