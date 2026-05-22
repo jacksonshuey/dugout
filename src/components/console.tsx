@@ -340,6 +340,7 @@ function PipelineView({
 }) {
   const [sortKey, setSortKey] = useState<SortKey>("health");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [query, setQuery] = useState("");
 
   function handleSort(key: SortKey) {
     if (key === sortKey) {
@@ -398,10 +399,23 @@ function PipelineView({
     };
   });
 
+  // Free-text search filter — matches against account name, owner name, and
+  // opportunity name (case-insensitive substring). Applies before sort.
+  const q = query.trim().toLowerCase();
+  const filtered = q
+    ? enriched.filter(
+        ({ account, owner, opp }) =>
+          account.name.toLowerCase().includes(q) ||
+          owner.name.toLowerCase().includes(q) ||
+          opp.name.toLowerCase().includes(q) ||
+          opp.stage.toLowerCase().includes(q),
+      )
+    : enriched;
+
   // Sort applies primary key; secondary tiebreaker is always
   // health-then-amount to keep the table feeling sensible even when sorted by
   // something like owner.
-  enriched.sort((a, b) => {
+  filtered.sort((a, b) => {
     const dir = sortDir === "asc" ? 1 : -1;
     let primary = 0;
     switch (sortKey) {
@@ -436,18 +450,54 @@ function PipelineView({
     return b.opp.amount - a.opp.amount;
   });
 
-  const totalPipeline = opps.reduce((s, o) => s + o.amount, 0);
-  const criticalCount = enriched.filter((e) => e.health === "Critical").length;
-  const atRiskCount = enriched.filter((e) => e.health === "At Risk").length;
+  const filteredPipeline = filtered.reduce((s, e) => s + e.opp.amount, 0);
+  const criticalCount = filtered.filter((e) => e.health === "Critical").length;
+  const atRiskCount = filtered.filter((e) => e.health === "At Risk").length;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <Header
         title="Pipeline"
-        sub={`${opps.length} deal${opps.length === 1 ? "" : "s"} · ${formatCurrency(totalPipeline)} · ${criticalCount} Critical · ${atRiskCount} At Risk`}
+        sub={`${filtered.length} deal${filtered.length === 1 ? "" : "s"}${q ? ` (of ${opps.length})` : ""} · ${formatCurrency(filteredPipeline)} · ${criticalCount} Critical · ${atRiskCount} At Risk`}
       />
+
+      {/* Search bar */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="relative flex-1 max-w-md">
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search accounts, owners, stages…"
+            className="w-full h-9 pl-9 pr-9 rounded-md border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
+          />
+          {/* Search icon */}
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted text-xs pointer-events-none">
+            ⌕
+          </span>
+          {/* Clear button */}
+          {query && (
+            <button
+              onClick={() => setQuery("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted hover:text-foreground text-xs px-1.5 py-0.5 rounded hover:bg-slate-100"
+              title="Clear search"
+              aria-label="Clear search"
+            >
+              ×
+            </button>
+          )}
+        </div>
+        {q && (
+          <span className="text-xs text-muted">
+            Filtered to {filtered.length} of {opps.length}
+          </span>
+        )}
+      </div>
+
       {opps.length === 0 ? (
         <Empty msg="No deals match your filters." />
+      ) : filtered.length === 0 ? (
+        <Empty msg={`No deals match "${query}".`} />
       ) : (
         <div className="rounded-lg border border-border bg-background overflow-hidden">
           <table className="w-full text-sm">
@@ -463,7 +513,7 @@ function PipelineView({
               </tr>
             </thead>
             <tbody>
-              {enriched.map(({ opp, health, openTasks, blocking, account, owner, ageDays }) => (
+              {filtered.map(({ opp, health, openTasks, blocking, account, owner, ageDays }) => (
                 <tr
                   key={opp.id}
                   onClick={() => onOpen(opp.id)}
