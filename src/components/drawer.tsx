@@ -141,27 +141,35 @@ export function Drawer({
     .sort((a, b) => (a.callDate < b.callDate ? 1 : -1));
   const dealDeliveries = data.deliveries.filter((d) => d.oppId === oppId);
 
+  // Match the Pipeline row's health selector: only open/snoozed tasks count
+  // against deal health. Done/muted tasks have been actively resolved and
+  // should no longer escalate. Without this filter, drawer header stays
+  // CRITICAL after the user marks the blocking task done, disagreeing with
+  // the row in the background.
   const health = computeDealHealth(
     opp,
-    dealTasks.map((t) => ({
-      id: t.id,
-      ruleId: t.signalRuleId,
-      oppId: t.oppId,
-      severity: t.severity,
-      title: t.title,
-      body: t.body,
-      suggestedAction: t.suggestedAction,
-      assetLink: t.assetLink,
-      detectedAt: t.createdAt,
-    })),
+    dealTasks
+      .filter((t) => t.status === "open" || t.status === "snoozed")
+      .map((t) => ({
+        id: t.id,
+        ruleId: t.signalRuleId,
+        oppId: t.oppId,
+        severity: t.severity,
+        title: t.title,
+        body: t.body,
+        suggestedAction: t.suggestedAction,
+        assetLink: t.assetLink,
+        detectedAt: t.createdAt,
+      })),
   );
 
   return (
     <>
-      {/* Backdrop */}
+      {/* Backdrop — pointer-events-none so users can click Pipeline rows
+          behind the dimmer to switch deals without closing the drawer.
+          Esc + the X button still dismiss. */}
       <div
-        className="fixed inset-0 bg-black/20 z-40"
-        onClick={onClose}
+        className="fixed inset-0 bg-black/20 z-40 pointer-events-none"
         aria-hidden
       />
       {/* Panel */}
@@ -328,52 +336,11 @@ export function Drawer({
             >
               <div className="space-y-3">
                 {dealCalls.map((call) => (
-                  <div
+                  <CallCard
                     key={call.id}
-                    className="rounded-lg border border-border p-3 space-y-2"
-                  >
-                    <div className="flex items-baseline justify-between gap-3">
-                      <div className="text-xs text-muted">
-                        <span className="text-foreground font-medium">
-                          {formatDate(call.callDate)}
-                        </span>{" "}
-                        · {call.durationMin}min · {call.attendees.length} attendees
-                      </div>
-                      {call.riskFlags.length > 0 && (
-                        <span className="text-[10px] font-semibold tracking-wider text-severity-action">
-                          {call.riskFlags.length} RISK
-                          {call.riskFlags.length > 1 ? "S" : ""}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm leading-relaxed">{call.summary}</p>
-                    {call.riskFlags.length > 0 && (
-                      <ul className="text-xs space-y-0.5">
-                        {call.riskFlags.map((f, i) => (
-                          <li
-                            key={i}
-                            className="text-severity-action"
-                          >
-                            ⚠ {f}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    {call.excerpts.length > 0 && (
-                      <div className="space-y-1.5 pt-2 border-t border-border">
-                        {call.excerpts.map((e, i) => (
-                          <div key={i} className="text-xs">
-                            <div className="text-muted font-mono">
-                              [{e.timestamp}] {e.speaker}
-                            </div>
-                            <div className="text-foreground italic pl-3 border-l-2 border-border ml-1">
-                              &ldquo;{e.text}&rdquo;
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                    call={call}
+                    defaultExpanded={dealCalls.length === 1}
+                  />
                 ))}
               </div>
             </Section>
@@ -467,6 +434,76 @@ const SIGNAL_TYPE_LABEL: Record<string, string> = {
   partnership: "Partnership",
   other: "News",
 };
+
+function CallCard({
+  call,
+  defaultExpanded,
+}: {
+  call: CallTranscript;
+  defaultExpanded: boolean;
+}) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
+  const hasDetail = call.riskFlags.length > 0 || call.excerpts.length > 0;
+
+  return (
+    <div className="rounded-lg border border-border p-3 space-y-2">
+      <button
+        type="button"
+        onClick={() => hasDetail && setExpanded((v) => !v)}
+        aria-expanded={expanded}
+        className={
+          "w-full flex items-baseline justify-between gap-3 text-left " +
+          (hasDetail ? "cursor-pointer" : "cursor-default")
+        }
+      >
+        <div className="text-xs text-muted flex items-center gap-1.5">
+          {hasDetail && (
+            <span
+              className="text-muted/60 font-mono text-[10px] w-3 inline-block"
+              aria-hidden
+            >
+              {expanded ? "▾" : "▸"}
+            </span>
+          )}
+          <span className="text-foreground font-medium">
+            {formatDate(call.callDate)}
+          </span>{" "}
+          · {call.durationMin}min · {call.attendees.length} attendees
+        </div>
+        {call.riskFlags.length > 0 && (
+          <span className="text-[10px] font-semibold tracking-wider text-severity-action shrink-0">
+            {call.riskFlags.length} RISK
+            {call.riskFlags.length > 1 ? "S" : ""}
+          </span>
+        )}
+      </button>
+      <p className="text-sm leading-relaxed">{call.summary}</p>
+      {expanded && call.riskFlags.length > 0 && (
+        <ul className="text-xs space-y-0.5">
+          {call.riskFlags.map((f, i) => (
+            <li key={i} className="text-severity-action">
+              ⚠ {f}
+            </li>
+          ))}
+        </ul>
+      )}
+      {expanded && call.excerpts.length > 0 && (
+        <div className="space-y-1.5 pt-2 border-t border-border">
+          {call.excerpts.map((e, i) => (
+            <div key={i} className="text-xs">
+              <div className="text-muted font-mono">
+                [{e.timestamp}] {e.speaker}
+              </div>
+              <div className="text-foreground italic pl-3 border-l-2 border-border ml-1">
+                &ldquo;{e.text}&rdquo;
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function ExternalSignalsSection({
   signals,

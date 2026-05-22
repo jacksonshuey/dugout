@@ -58,9 +58,9 @@ function ToastItem({
       )}
       role="status"
     >
-      <div className="flex items-start gap-3">
+      <div className="flex items-center gap-3">
         <div
-          className="flex-1 cursor-pointer"
+          className="flex-1 cursor-pointer min-w-0"
           onClick={() => onDismiss(toast.id)}
         >
           <div className="font-medium">{toast.message}</div>
@@ -71,8 +71,9 @@ function ToastItem({
         {toast.action && (
           <button
             type="button"
-            className="text-xs font-semibold underline underline-offset-2 shrink-0 mt-0.5"
-            onClick={() => {
+            className="text-xs font-semibold underline underline-offset-2 shrink-0 px-3 py-1.5 -my-0.5 rounded hover:bg-black/[0.05]"
+            onClick={(e) => {
+              e.stopPropagation();
               toast.action!.onClick();
               onDismiss(toast.id);
             }}

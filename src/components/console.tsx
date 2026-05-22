@@ -744,6 +744,7 @@ function TaskRow({
       onReopen={() => onReopen(task.id)}
       onAddNote={(text) => onAddNote(task.id, text)}
       onAddCoachingNote={(text) => onAddCoachingNote(task.id, text)}
+      onOpenDeal={() => onOpen(task.oppId)}
     />
   );
 }

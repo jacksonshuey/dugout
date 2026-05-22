@@ -26,6 +26,7 @@ export function TaskCard({
   onReopen,
   onAddNote,
   onAddCoachingNote,
+  onOpenDeal,
 }: {
   task: Task;
   dealName?: string; // shown when this card is rendered outside a deal context (Today view)
@@ -38,6 +39,7 @@ export function TaskCard({
   onReopen: () => void;
   onAddNote: (text: string) => void;
   onAddCoachingNote: (text: string) => void;
+  onOpenDeal?: () => void; // when set, the dealName pill becomes a button into the drawer
 }) {
   const [showHistory, setShowHistory] = useState(false);
   const [showPlaybook, setShowPlaybook] = useState(false);
@@ -75,9 +77,19 @@ export function TaskCard({
               {task.title}
             </span>
             {task.status !== "open" && <StatusChip status={task.status} />}
-            {dealName && (
-              <span className="text-xs text-muted">· {dealName}</span>
-            )}
+            {dealName &&
+              (onOpenDeal ? (
+                <button
+                  type="button"
+                  onClick={onOpenDeal}
+                  className="text-xs text-muted hover:text-foreground hover:underline underline-offset-2"
+                  title="Open deal drawer"
+                >
+                  · {dealName}
+                </button>
+              ) : (
+                <span className="text-xs text-muted">· {dealName}</span>
+              ))}
           </div>
           {!compact && (
             <p className="text-sm text-muted leading-relaxed">{task.body}</p>
