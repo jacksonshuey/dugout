@@ -42,3 +42,6 @@ next-env.d.ts
 
 # Handoff doc — for local Claude sessions, not the public repo
 HANDOFF.md
+
+# Swarm bug intake — session artifacts, not part of the public repo
+bugs/

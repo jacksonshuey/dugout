@@ -78,7 +78,14 @@ interface StudioRequest {
 export async function POST(req: Request) {
   let body: StudioRequest;
   try {
-    body = (await req.json()) as StudioRequest;
+    const parsed = await req.json();
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return NextResponse.json(
+        { error: "Body must be a JSON object" },
+        { status: 400 },
+      );
+    }
+    body = parsed as StudioRequest;
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }

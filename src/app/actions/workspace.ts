@@ -20,6 +20,8 @@ export async function saveWorkspaceConfig(config: WorkspaceConfig) {
     path: "/",
     maxAge: ONE_YEAR,
     sameSite: "lax",
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
   });
   revalidatePath("/", "layout");
 }

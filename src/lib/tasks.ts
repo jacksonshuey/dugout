@@ -13,6 +13,7 @@
 // per task, per workspace). This is the honest seam to flag in interview.
 
 import type { Signal, SignalSeverity } from "./types";
+import { TODAY } from "./utils";
 
 export type TaskStatus = "open" | "done" | "snoozed" | "muted";
 
@@ -119,7 +120,7 @@ export function reconcile(
   signals: Signal[],
   reps: { id: string }[],
   oppOwnerLookup: Record<string, string>,
-  now: Date = new Date(),
+  now: Date = TODAY,
 ): ReconciliationResult {
   const stored = loadTasks();
   const signalsById = new Map(signals.map((s) => [s.id, s]));

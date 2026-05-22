@@ -88,12 +88,15 @@ async function runIngestion(filterAccountId?: string): Promise<CronResult> {
   };
 }
 
-// Verify request is from Vercel cron OR a trusted caller.
-// Vercel cron sends Authorization: Bearer ${CRON_SECRET}.
-// In dev (or when CRON_SECRET unset), accept any request — single-tenant demo.
+// Verify request is from Vercel cron. Vercel auto-injects
+// Authorization: Bearer ${CRON_SECRET} when the env var is set.
+// Fail-closed: if the secret isn't configured, refuse all requests
+// rather than silently exposing paid Anthropic + NewsAPI work to the
+// public. The UI's Refresh button goes through the
+// refreshAccountSignals server action, not this endpoint.
 function authorized(req: Request): boolean {
   const required = process.env.CRON_SECRET;
-  if (!required) return true; // dev / unconfigured — allow
+  if (!required) return false;
   const header = req.headers.get("authorization");
   return header === `Bearer ${required}`;
 }

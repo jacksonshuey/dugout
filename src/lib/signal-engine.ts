@@ -132,7 +132,7 @@ const ruleSelectedVendorNoFinance: SignalRule = {
         body: "Deal is at Selected Vendor without a Finance contact identified. Budget approval is the most common kill point at this stage.",
         suggestedAction: `Send the ${assetName(ctx, "cfo_leave_behind", "CFO Leave-Behind")} to your champion today and ask for a Finance intro by EOW.`,
         assetLink: assetLink(ctx, "cfo_leave_behind", "CFO Leave-Behind"),
-        detectedAt: new Date().toISOString(),
+        detectedAt: TODAY.toISOString(),
       })),
 };
 
@@ -159,7 +159,7 @@ const ruleSelectedVendorNoProcurement: SignalRule = {
         body: "No Procurement contact on this deal. Once paperwork starts, you need a named procurement lead or you'll wait weeks for triage.",
         suggestedAction:
           "Ask your champion for the procurement contact this week — frame as 'making the contracting phase fast for both sides.'",
-        detectedAt: new Date().toISOString(),
+        detectedAt: TODAY.toISOString(),
       })),
 };
 
@@ -186,7 +186,7 @@ const ruleNoFinanceAtEvaluating: SignalRule = {
         body: "You're at Evaluating with no Finance contact. We know deals die at Selected Vendor budget approval — this is when to fix it.",
         suggestedAction: `Send the ${assetName(ctx, "finance_meeting_brief", "Finance Meeting Brief")} to your champion today and request a 30-min intro to Finance this week.`,
         assetLink: assetLink(ctx, "finance_meeting_brief", "Finance Meeting Brief"),
-        detectedAt: new Date().toISOString(),
+        detectedAt: TODAY.toISOString(),
       })),
 };
 
@@ -213,7 +213,7 @@ const ruleNoITAtEvaluating: SignalRule = {
         body: "IT review averages 2–4 weeks. If it hasn't started yet, you'll lose that time at Contracting.",
         suggestedAction: `Send the ${assetName(ctx, "it_zero_lift_one_pager", "IT Zero-Lift One-Pager")} to your champion and ask them to forward to their IT/Security lead.`,
         assetLink: assetLink(ctx, "it_zero_lift_one_pager", "IT Zero-Lift One-Pager"),
-        detectedAt: new Date().toISOString(),
+        detectedAt: TODAY.toISOString(),
       })),
 };
 
@@ -240,7 +240,7 @@ const ruleNoTrialBriefAtDemoSat: SignalRule = {
         body: `Per company playbook, every Demo Sat deal should have an ${assetName(ctx, "outcome_first_trial_brief", "outcome-first trial brief")} in place before the next meeting. This one doesn't.`,
         suggestedAction: `Request intake from your champion today. SE will return ${assetName(ctx, "kpi_assessment", "KPI Assessment")} + ${assetName(ctx, "pre_seeded_demo", "pre-seeded demo")} in 48 hours.`,
         assetLink: "Trigger SE Intake",
-        detectedAt: new Date().toISOString(),
+        detectedAt: TODAY.toISOString(),
       })),
 };
 
@@ -269,7 +269,7 @@ const ruleSingleThreadRisk: SignalRule = {
         body: "Only one contact on this deal. If your champion leaves or goes quiet, the deal goes with them.",
         suggestedAction:
           "Identify a second stakeholder this week — Legal Ops or GC are the highest-leverage adds.",
-        detectedAt: new Date().toISOString(),
+        detectedAt: TODAY.toISOString(),
       })),
 };
 
@@ -295,7 +295,7 @@ const ruleStageAgeExceeded: SignalRule = {
           body: `This deal has been in ${o.stage} for ${age} days — ${age - bench} days past benchmark. Either there's a blocker we haven't named, or the stage is wrong.`,
           suggestedAction:
             "Get on a 15-min call with your champion to name the specific blocker. If you can't name it, update the stage to reflect reality.",
-          detectedAt: new Date().toISOString(),
+          detectedAt: TODAY.toISOString(),
         };
       }),
 };
@@ -331,7 +331,7 @@ const ruleDemoNotBooked: SignalRule = {
         body: "You have a champion but no demo on the calendar in the next 7 days. The Intro → Qualified hop is already a 37% step — don't let momentum die here.",
         suggestedAction:
           "Send Chili Piper link directly to champion today. Offer 3 specific time windows.",
-        detectedAt: new Date().toISOString(),
+        detectedAt: TODAY.toISOString(),
       })),
 };
 
@@ -358,7 +358,7 @@ const ruleAssetGapFinance: SignalRule = {
         body: "Finance is in the conversation but you haven't sent them the standard brief. We built it for exactly this moment.",
         suggestedAction: `Forward the ${assetName(ctx, "finance_meeting_brief", "Finance Meeting Brief")} from ${ctx.config?.stack.dealRooms ?? "Dock"} today.`,
         assetLink: assetLink(ctx, "finance_meeting_brief", "Finance Meeting Brief"),
-        detectedAt: new Date().toISOString(),
+        detectedAt: TODAY.toISOString(),
       })),
 };
 
@@ -388,7 +388,7 @@ const ruleAssetGapIT: SignalRule = {
         body: `There's been talk of security/SSO on this deal and the ${assetName(ctx, "it_zero_lift_one_pager", "IT one-pager")} hasn't gone out. That's the asset that pre-empts most of the back-and-forth.`,
         suggestedAction: `Send the ${assetName(ctx, "it_zero_lift_one_pager", "IT Zero-Lift One-Pager")} today and offer a 20-min walkthrough with our SE.`,
         assetLink: assetLink(ctx, "it_zero_lift_one_pager", "IT Zero-Lift One-Pager"),
-        detectedAt: new Date().toISOString(),
+        detectedAt: TODAY.toISOString(),
       })),
 };
 
@@ -426,7 +426,7 @@ const ruleChampionGhost: SignalRule = {
           body: "Champion hasn't responded, joined a meeting, or visited the deal room in over a week. We need to know why before this fades to closed-lost.",
           suggestedAction:
             "Send a low-pressure check-in today: 'Want to make sure I haven't missed anything — should I pause our outreach or keep going?'",
-          detectedAt: new Date().toISOString(),
+          detectedAt: TODAY.toISOString(),
         };
       }),
 };
@@ -466,7 +466,7 @@ const ruleChampionDeparted: SignalRule = {
           suggestedAction:
             "Open the Champion Departure playbook now. First decision is risk classification — multi-threaded deals follow Rebuild; single-threaded deals follow Save Play.",
           playbookId: "champion-departure",
-          detectedAt: new Date().toISOString(),
+          detectedAt: TODAY.toISOString(),
         };
       }),
 };
@@ -497,7 +497,7 @@ const ruleCallNegativeSentiment: SignalRule = {
         title: `${latest.riskFlags.length} risk marker${latest.riskFlags.length > 1 ? "s" : ""} on last call`,
         body: `Last call (${latest.callDate}) surfaced: ${latest.riskFlags.join(", ")}.`,
         suggestedAction: `Watch the 30s clip flagged in ${ctx.config?.stack.conversationIntelligence ?? "Gong"} and address the specific objection in your next outreach.`,
-        detectedAt: new Date().toISOString(),
+        detectedAt: TODAY.toISOString(),
       });
     }
     return out;
@@ -567,11 +567,15 @@ export function computeDealHealth(
   const blocking = ownSignals.filter((s) => s.severity === "blocking");
   const action = ownSignals.filter((s) => s.severity === "action");
 
-  // Days from today to forecast close — positive = future.
-  const daysToClose = Math.floor(
-    (new Date(opp.closeDate).getTime() - TODAY.getTime()) /
-      (1000 * 60 * 60 * 24),
-  );
+  // Days from today to forecast close — positive = future, negative = overdue
+  // (overdue trips both < 60 and < 30 checks below, escalating health, which
+  // is intentional — past-close deals are by definition imminent).
+  // Invalid / missing closeDate defaults to 0 so a blocking signal still
+  // escalates to Critical rather than silently demoting through NaN compares.
+  const closeMs = new Date(opp.closeDate).getTime();
+  const daysToClose = Number.isFinite(closeMs)
+    ? Math.floor((closeMs - TODAY.getTime()) / (1000 * 60 * 60 * 24))
+    : 0;
 
   // Special case: champion departure is always Critical — losing your champion
   // on a deal in flight is a category-different problem.

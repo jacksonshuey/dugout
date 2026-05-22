@@ -13,6 +13,7 @@ import {
   resetWorkspace,
   saveWorkspaceConfig,
 } from "@/app/actions/workspace";
+import { refreshAccountSignals } from "@/app/actions/external-signals";
 import { Button, Card } from "./ui";
 
 // All settings live in one form for a single Save action. Local React state
@@ -362,35 +363,22 @@ function ExternalSignalsSection() {
     setTotalDurationMs(null);
     const startedAt = Date.now();
 
-    // Fire all per-account requests in parallel from the browser. Each
-    // request stays under the 60s function cap because it handles one
-    // account. As each settles, push to progress list for live UI updates.
+    // Fire all per-account requests in parallel via server action. Each
+    // action invocation stays under the 60s function cap because it
+    // handles one account. As each settles, push to progress list for
+    // live UI updates. Server-action path keeps CRON_SECRET server-side.
     const promises = TRACKABLE_ACCOUNTS.map(async (account): Promise<PerAccountResult> => {
       const t0 = Date.now();
       try {
-        const res = await fetch(
-          `/api/cron/external-signals?account=${account.id}`,
-        );
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}`);
-        }
-        const data = await res.json();
-        const r = data.results?.[0];
-        const result: PerAccountResult = r
-          ? {
-              companyName: account.name,
-              status: r.status,
-              inserted: r.inserted,
-              skipped: r.skipped,
-              error: r.error,
-              durationMs: r.durationMs,
-            }
-          : {
-              companyName: account.name,
-              status: "error",
-              error: "No result returned",
-              durationMs: Date.now() - t0,
-            };
+        const r = await refreshAccountSignals(account.id);
+        const result: PerAccountResult = {
+          companyName: account.name,
+          status: r.status,
+          inserted: r.inserted,
+          skipped: r.skipped,
+          error: r.error,
+          durationMs: r.durationMs,
+        };
         setProgress((p) => [...p, result]);
         return result;
       } catch (e) {
