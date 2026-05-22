@@ -17,13 +17,14 @@ import { HealthBadge, StageBadge } from "./ui";
 import { computeDealHealth } from "@/lib/signal-engine";
 import { TaskCard } from "./task-card";
 import {
+  cn,
   daysBetween,
   formatCurrency,
   formatDate,
+  lookupBy,
   TODAY,
 } from "@/lib/utils";
 import type { WorkspaceConfig } from "@/lib/workspace";
-import { cn } from "@/lib/utils";
 import {
   companyLinkedinUrl,
   contactLinkedinUrl,
@@ -122,8 +123,8 @@ export function Drawer({
   }, [opp]);
 
   if (!opp) return null;
-  const account = data.accounts.find((a) => a.id === opp.accountId)!;
-  const owner = data.reps.find((r) => r.id === opp.ownerId)!;
+  const account = lookupBy(data.accounts, opp.accountId, "account");
+  const owner = lookupBy(data.reps, opp.ownerId, "rep");
   const isOwnerMode = viewerId === opp.ownerId;
 
   const dealContacts = opp.contactRoleIds
