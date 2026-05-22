@@ -202,12 +202,14 @@ export function SettingsForm({ initial }: { initial: WorkspaceConfig }) {
                 <input
                   value={p.id}
                   onChange={(e) => updatePriority(i, { id: e.target.value })}
+                  aria-label={`Priority ${i + 1} ID`}
                   className="w-16 shrink-0 rounded-md border border-border bg-background px-2 h-9 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
                 />
                 <input
                   value={p.name}
                   onChange={(e) => updatePriority(i, { name: e.target.value })}
                   placeholder="Priority name"
+                  aria-label={`Priority ${i + 1} name`}
                   className="flex-1 min-w-0 rounded-md border border-border bg-background px-3 h-9 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
                 />
                 <button
@@ -226,6 +228,7 @@ export function SettingsForm({ initial }: { initial: WorkspaceConfig }) {
                 }
                 rows={2}
                 placeholder="One-paragraph description"
+                aria-label={`Priority ${i + 1} description`}
                 className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand resize-y"
               />
             </Card>
@@ -251,18 +254,25 @@ export function SettingsForm({ initial }: { initial: WorkspaceConfig }) {
               className="grid grid-cols-12 gap-2 py-2 border-b border-border last:border-0"
             >
               <div className="col-span-3">
-                <Input value={a.id} readOnly className="font-mono text-xs opacity-60" />
+                <Input
+                  value={a.id}
+                  readOnly
+                  className="font-mono text-xs opacity-60"
+                  ariaLabel={`Asset ${i + 1} ID`}
+                />
               </div>
               <div className="col-span-3">
                 <Input
                   value={a.name}
                   onChange={(v) => updateAsset(i, { name: v })}
+                  ariaLabel={`Asset ${i + 1} name`}
                 />
               </div>
               <div className="col-span-6">
                 <Input
                   value={a.description}
                   onChange={(v) => updateAsset(i, { description: v })}
+                  ariaLabel={`Asset ${i + 1} description`}
                 />
               </div>
             </div>
@@ -537,12 +547,14 @@ function Input({
   placeholder,
   className,
   readOnly,
+  ariaLabel,
 }: {
   value: string;
   onChange?: (v: string) => void;
   placeholder?: string;
   className?: string;
   readOnly?: boolean;
+  ariaLabel?: string;
 }) {
   return (
     <input
@@ -550,6 +562,7 @@ function Input({
       onChange={(e) => onChange?.(e.target.value)}
       placeholder={placeholder}
       readOnly={readOnly}
+      aria-label={ariaLabel}
       className={
         "w-full rounded-md border border-border bg-background px-3 h-9 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand " +
         (className ?? "")

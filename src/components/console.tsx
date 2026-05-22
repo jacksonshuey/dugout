@@ -614,15 +614,17 @@ function TodayView({
     (a, b) => SEV_RANK[a.severity] - SEV_RANK[b.severity],
   );
 
-  const blocking = sorted.filter((t) => t.severity === "blocking");
-  const action = sorted.filter((t) => t.severity === "action");
-  const awareness = sorted.filter((t) => t.severity === "awareness");
+  const openOnly = sorted.filter((t) => t.status === "open");
+  const blocking = openOnly.filter((t) => t.severity === "blocking");
+  const action = openOnly.filter((t) => t.severity === "action");
+  const awareness = openOnly.filter((t) => t.severity === "awareness");
+  const snoozed = sorted.filter((t) => t.status === "snoozed");
 
   return (
     <div className="space-y-6">
       <Header
         title="Today's queue"
-        sub={`${tasks.length} open task${tasks.length === 1 ? "" : "s"} · ${blocking.length} blocking · ${action.length} action${awareness.length > 0 ? ` · ${awareness.length} awareness` : ""}`}
+        sub={`${openOnly.length} open · ${blocking.length} blocking · ${action.length} action${awareness.length > 0 ? ` · ${awareness.length} awareness` : ""}${snoozed.length > 0 ? ` · ${snoozed.length} snoozed` : ""}`}
       />
 
       {tasks.length === 0 ? (

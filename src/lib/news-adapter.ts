@@ -239,17 +239,67 @@ export interface AdapterResult {
   rawResponseLength: number; // diagnostic — number of articles seen
 }
 
+// Cheap keyword-based fallback used when Haiku is unavailable (e.g., the
+// Anthropic 529 capacity incidents we hit on 2026-05-22). Lower precision
+// than Haiku but keeps signals flowing instead of dropping them.
+function heuristicClassify(
+  article: NewsApiArticle,
+  idx: number,
+): Classification | null {
+  const text = `${article.title ?? ""} ${article.description ?? ""}`.toLowerCase();
+  if (text.trim().length < 20) return null;
+  const summary = (article.title ?? "").replace(/\s+/g, " ").trim().slice(0, 200);
+  let type: ExternalSignalType = "other";
+  if (/\b(acquires?|acquired|acquisition|merger|merging|to buy)\b/.test(text)) type = "ma_acquisition";
+  else if (/\b(series [a-z]\b|raises? \$|funding|valuation|round led by)\b/.test(text)) type = "funding_round";
+  else if (/\b(layoffs?|workforce reduction|cuts \d+ jobs|fires \d+)\b/.test(text)) type = "layoff";
+  else if (/\b(cfo|ceo|cto|coo|appoint|step ?down|named (new )?(chief|head|svp|vp))\b/.test(text)) type = "leadership_change";
+  else if (/\b(earnings|quarterly|q[1-4] (results|revenue)|guidance)\b/.test(text)) type = "earnings";
+  else if (/\b(launch(es|ed)?|announces|unveils|releases?|introduces)\b/.test(text)) type = "product_launch";
+  else if (/\b(partnership|partner(ed|s)? with|collaboration)\b/.test(text)) type = "partnership";
+  else if (/\b(lawsuit|sued|fine|settlement|sec|ftc|investigation|probe)\b/.test(text)) type = "regulatory_action";
+  return { original_index: idx, type, summary };
+}
+
 export async function fetchSignalsForCompany(
   accountId: string,
   companyName: string,
   industry: string,
 ): Promise<AdapterResult> {
   const articles = await fetchArticles(companyName);
+  console.log(`[news-adapter] ${companyName}: fetched ${articles.length} articles`);
   if (articles.length === 0) {
     return { signals: [], rawResponseLength: 0 };
   }
 
-  const classifications = await classifyArticles(companyName, industry, articles);
+  let classifications: Classification[];
+  let usedFallback = false;
+  try {
+    classifications = await classifyArticles(companyName, industry, articles);
+    if (classifications.length === 0) {
+      // Haiku ran but found nothing material. Fall back to keywords so the
+      // demo still shows something the team can react to.
+      usedFallback = true;
+      classifications = articles
+        .map((a, i) => heuristicClassify(a, i))
+        .filter((c): c is Classification => c !== null);
+    }
+  } catch (e) {
+    // Haiku failed (commonly 529 overloaded_error during Anthropic incidents).
+    // Fall back to keyword classification so signals still flow.
+    console.warn(
+      `[news-adapter] ${companyName}: Haiku classification failed, using heuristic fallback`,
+      e instanceof Error ? e.message : String(e),
+    );
+    usedFallback = true;
+    classifications = articles
+      .map((a, i) => heuristicClassify(a, i))
+      .filter((c): c is Classification => c !== null);
+  }
+
+  console.log(
+    `[news-adapter] ${companyName}: classified ${classifications.length}${usedFallback ? " (heuristic fallback)" : ""}`,
+  );
 
   const signals: NewExternalSignal[] = classifications.map((c) => {
     const article = articles[c.original_index];
@@ -263,6 +313,7 @@ export async function fetchSignalsForCompany(
       meta: {
         source_name: article.source.name,
         author: article.author,
+        classifier: usedFallback ? "heuristic" : "haiku",
       },
       is_demo: false,
     };

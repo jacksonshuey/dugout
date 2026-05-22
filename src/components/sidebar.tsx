@@ -220,6 +220,7 @@ function Pill({
   return (
     <button
       onClick={onClick}
+      aria-pressed={active}
       className={cn(
         "text-[11px] px-2 py-0.5 rounded border transition-colors capitalize",
         active
