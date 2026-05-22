@@ -323,43 +323,99 @@ export function SettingsForm({ initial }: { initial: WorkspaceConfig }) {
   );
 }
 
-// External signals manual-refresh widget. Calls /api/cron/external-signals
-// directly (same path Vercel cron uses on schedule). Shows per-account
-// inserted/skipped counts so it feels like a real ingestion job.
+// External signals manual-refresh widget.
+//
+// Architectural note worth defending: we call the cron endpoint ONCE PER
+// ACCOUNT from the browser in parallel, rather than calling the bulk endpoint
+// from the browser and letting the server iterate. Reason: Vercel Hobby caps
+// serverless functions at 60s, and 3 web_search calls in a server-side loop
+// were timing out (504). Browser-side fan-out means each function invocation
+// handles one account in ~20-30s and stays under the cap. The Vercel cron
+// daily-run still uses the bulk endpoint but for 1-2 trackable accounts (we
+// could split it later if we add more).
+
+interface PerAccountResult {
+  companyName: string;
+  status: "success" | "error";
+  inserted?: number;
+  skipped?: number;
+  error?: string;
+  durationMs: number;
+}
+
+const TRACKABLE_ACCOUNTS = [
+  { id: "acc_cobalt", name: "Stripe" },
+  { id: "acc_atlas", name: "Snowflake" },
+  { id: "acc_horizon", name: "Atlassian" },
+];
 
 function ExternalSignalsSection() {
   const [running, setRunning] = useState(false);
-  const [result, setResult] = useState<{
-    summary: { inserted: number; skipped: number; errored: number };
-    totalDurationMs: number;
-    results: Array<{
-      companyName: string;
-      status: string;
-      inserted?: number;
-      skipped?: number;
-      error?: string;
-      durationMs: number;
-    }>;
-  } | null>(null);
+  const [progress, setProgress] = useState<PerAccountResult[]>([]);
+  const [totalDurationMs, setTotalDurationMs] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function refresh() {
     setRunning(true);
-    setResult(null);
+    setProgress([]);
     setError(null);
-    try {
-      const res = await fetch("/api/cron/external-signals");
-      if (!res.ok) {
-        const e = await res.json().catch(() => ({}));
-        throw new Error(e.error ?? `HTTP ${res.status}`);
+    setTotalDurationMs(null);
+    const startedAt = Date.now();
+
+    // Fire all per-account requests in parallel from the browser. Each
+    // request stays under the 60s function cap because it handles one
+    // account. As each settles, push to progress list for live UI updates.
+    const promises = TRACKABLE_ACCOUNTS.map(async (account): Promise<PerAccountResult> => {
+      const t0 = Date.now();
+      try {
+        const res = await fetch(
+          `/api/cron/external-signals?account=${account.id}`,
+        );
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        const data = await res.json();
+        const r = data.results?.[0];
+        const result: PerAccountResult = r
+          ? {
+              companyName: account.name,
+              status: r.status,
+              inserted: r.inserted,
+              skipped: r.skipped,
+              error: r.error,
+              durationMs: r.durationMs,
+            }
+          : {
+              companyName: account.name,
+              status: "error",
+              error: "No result returned",
+              durationMs: Date.now() - t0,
+            };
+        setProgress((p) => [...p, result]);
+        return result;
+      } catch (e) {
+        const result: PerAccountResult = {
+          companyName: account.name,
+          status: "error",
+          error: e instanceof Error ? e.message : String(e),
+          durationMs: Date.now() - t0,
+        };
+        setProgress((p) => [...p, result]);
+        return result;
       }
-      setResult(await res.json());
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setRunning(false);
-    }
+    });
+
+    await Promise.all(promises);
+    setTotalDurationMs(Date.now() - startedAt);
+    setRunning(false);
   }
+
+  const summary = {
+    inserted: progress.reduce((s, r) => s + (r.inserted ?? 0), 0),
+    skipped: progress.reduce((s, r) => s + (r.skipped ?? 0), 0),
+    errored: progress.filter((r) => r.status === "error").length,
+  };
+  const done = !running && progress.length === TRACKABLE_ACCOUNTS.length;
 
   return (
     <Section
@@ -383,39 +439,55 @@ function ExternalSignalsSection() {
           </div>
         )}
 
-        {result && (
+        {(progress.length > 0 || running) && (
           <div className="text-xs space-y-2 border-t border-border pt-3">
             <div className="font-medium">
-              ✓ Done in {(result.totalDurationMs / 1000).toFixed(1)}s ·{" "}
-              <span className="text-severity-green">
-                {result.summary.inserted} inserted
-              </span>{" "}
-              · {result.summary.skipped} skipped
-              {result.summary.errored > 0 && (
-                <span className="text-severity-blocking">
-                  {" "}
-                  · {result.summary.errored} errored
-                </span>
+              {done ? (
+                <>
+                  ✓ Done in {((totalDurationMs ?? 0) / 1000).toFixed(1)}s ·{" "}
+                  <span className="text-severity-green">
+                    {summary.inserted} inserted
+                  </span>{" "}
+                  · {summary.skipped} skipped
+                  {summary.errored > 0 && (
+                    <span className="text-severity-blocking">
+                      {" "}
+                      · {summary.errored} errored
+                    </span>
+                  )}
+                </>
+              ) : (
+                <>
+                  Running · {progress.length}/{TRACKABLE_ACCOUNTS.length} complete…
+                </>
               )}
             </div>
             <div className="space-y-1">
-              {result.results.map((r, i) => (
-                <div key={i} className="flex justify-between gap-3 text-muted">
-                  <span className="text-foreground">{r.companyName}</span>
-                  <span>
-                    {r.status === "success" ? (
-                      <>
-                        {r.inserted} new · {r.skipped} dup ·{" "}
-                        {(r.durationMs / 1000).toFixed(1)}s
-                      </>
-                    ) : (
-                      <span className="text-severity-blocking">
-                        {r.error?.slice(0, 80)}
-                      </span>
-                    )}
-                  </span>
-                </div>
-              ))}
+              {TRACKABLE_ACCOUNTS.map((account) => {
+                const r = progress.find((p) => p.companyName === account.name);
+                return (
+                  <div
+                    key={account.id}
+                    className="flex justify-between gap-3 text-muted"
+                  >
+                    <span className="text-foreground">{account.name}</span>
+                    <span>
+                      {!r ? (
+                        <span className="italic">waiting…</span>
+                      ) : r.status === "success" ? (
+                        <>
+                          {r.inserted} new · {r.skipped} dup ·{" "}
+                          {(r.durationMs / 1000).toFixed(1)}s
+                        </>
+                      ) : (
+                        <span className="text-severity-blocking">
+                          {r.error?.slice(0, 80)}
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
