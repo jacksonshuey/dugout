@@ -59,11 +59,12 @@ export const accounts: Account[] = [
   },
   {
     id: "acc_cobalt",
-    name: "Cobalt Software",
+    name: "Stripe",
     industry: "SaaS",
     segment: "Enterprise",
-    hqLocation: "San Francisco, CA",
-    legalTeamSize: 18,
+    hqLocation: "South San Francisco, CA",
+    legalTeamSize: 120,
+    trackable: true,
   },
   {
     id: "acc_northwind",
@@ -99,11 +100,12 @@ export const accounts: Account[] = [
   },
   {
     id: "acc_atlas",
-    name: "Atlas Manufacturing",
-    industry: "Manufacturing",
-    segment: "Mid-Market",
-    hqLocation: "Detroit, MI",
-    legalTeamSize: 9,
+    name: "Snowflake",
+    industry: "SaaS",
+    segment: "Enterprise",
+    hqLocation: "Bozeman, MT",
+    legalTeamSize: 85,
+    trackable: true,
   },
   {
     id: "acc_quantum",
@@ -115,11 +117,12 @@ export const accounts: Account[] = [
   },
   {
     id: "acc_horizon",
-    name: "Horizon Retail Group",
-    industry: "Retail",
+    name: "Atlassian",
+    industry: "SaaS",
     segment: "Enterprise",
-    hqLocation: "Bentonville, AR",
-    legalTeamSize: 31,
+    hqLocation: "Sydney, AU / San Francisco, CA",
+    legalTeamSize: 95,
+    trackable: true,
   },
   {
     id: "acc_stratos",
@@ -223,7 +226,7 @@ export const opportunities: Opportunity[] = [
   {
     id: "opp_cobalt",
     accountId: "acc_cobalt",
-    name: "Cobalt Software — NDA Automation",
+    name: "Stripe — NDA Automation",
     ownerId: "rep_sc",
     stage: "Qualified",
     amount: 95000,
@@ -283,7 +286,7 @@ export const opportunities: Opportunity[] = [
   {
     id: "opp_atlas",
     accountId: "acc_atlas",
-    name: "Atlas Manufacturing — Contract Lifecycle",
+    name: "Snowflake — Contract Lifecycle",
     ownerId: "rep_mw",
     stage: "Selected Vendor",
     amount: 75000,
@@ -307,7 +310,7 @@ export const opportunities: Opportunity[] = [
   {
     id: "opp_horizon",
     accountId: "acc_horizon",
-    name: "Horizon Retail — Full Platform",
+    name: "Atlassian — Full Platform",
     ownerId: "rep_jp",
     stage: "Contracting",
     amount: 200000,

@@ -291,6 +291,9 @@ export function SettingsForm({ initial }: { initial: WorkspaceConfig }) {
         </Card>
       </Section>
 
+      {/* External signals (Supabase + Claude web_search) */}
+      <ExternalSignalsSection />
+
       {/* Slack */}
       <Section
         title="Slack delivery"
@@ -313,6 +316,111 @@ export function SettingsForm({ initial }: { initial: WorkspaceConfig }) {
         </Card>
       </Section>
     </div>
+  );
+}
+
+// External signals manual-refresh widget. Calls /api/cron/external-signals
+// directly (same path Vercel cron uses on schedule). Shows per-account
+// inserted/skipped counts so it feels like a real ingestion job.
+
+function ExternalSignalsSection() {
+  const [running, setRunning] = useState(false);
+  const [result, setResult] = useState<{
+    summary: { inserted: number; skipped: number; errored: number };
+    totalDurationMs: number;
+    results: Array<{
+      companyName: string;
+      status: string;
+      inserted?: number;
+      skipped?: number;
+      error?: string;
+      durationMs: number;
+    }>;
+  } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function refresh() {
+    setRunning(true);
+    setResult(null);
+    setError(null);
+    try {
+      const res = await fetch("/api/cron/external-signals");
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}));
+        throw new Error(e.error ?? `HTTP ${res.status}`);
+      }
+      setResult(await res.json());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setRunning(false);
+    }
+  }
+
+  return (
+    <Section
+      title="External signals"
+      sub="Daily web-search ingestion for trackable accounts (Stripe, Snowflake, Atlassian). Cron fires at 8am UTC. Manual refresh below runs the same job on demand."
+    >
+      <Card className="p-5 space-y-3">
+        <div className="flex items-center gap-3">
+          <Button variant="primary" onClick={refresh} disabled={running}>
+            {running ? "Running…" : "Refresh signals now"}
+          </Button>
+          <span className="text-xs text-muted">
+            Calls Claude web_search per trackable account · ~30s total
+          </span>
+        </div>
+
+        {error && (
+          <div className="text-xs text-severity-blocking border-t border-border pt-3">
+            <div className="font-medium">Failed</div>
+            <div className="font-mono opacity-80 mt-0.5">{error}</div>
+          </div>
+        )}
+
+        {result && (
+          <div className="text-xs space-y-2 border-t border-border pt-3">
+            <div className="font-medium">
+              ✓ Done in {(result.totalDurationMs / 1000).toFixed(1)}s ·{" "}
+              <span className="text-severity-green">
+                {result.summary.inserted} inserted
+              </span>{" "}
+              · {result.summary.skipped} skipped
+              {result.summary.errored > 0 && (
+                <span className="text-severity-blocking">
+                  {" "}
+                  · {result.summary.errored} errored
+                </span>
+              )}
+            </div>
+            <div className="space-y-1">
+              {result.results.map((r, i) => (
+                <div key={i} className="flex justify-between gap-3 text-muted">
+                  <span className="text-foreground">{r.companyName}</span>
+                  <span>
+                    {r.status === "success" ? (
+                      <>
+                        {r.inserted} new · {r.skipped} dup ·{" "}
+                        {(r.durationMs / 1000).toFixed(1)}s
+                      </>
+                    ) : (
+                      <span className="text-severity-blocking">
+                        {r.error?.slice(0, 80)}
+                      </span>
+                    )}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <p className="text-xs text-muted">
+          Storage: Supabase Postgres (table <code>external_signals</code>). Fictional accounts get demo seeds; trackable real companies get live web-search results with source attribution in the drawer.
+        </p>
+      </Card>
+    </Section>
   );
 }
 

@@ -60,6 +60,10 @@ export interface Account {
   segment: AccountSegment;
   hqLocation: string;
   legalTeamSize: number; // proxy for buyer complexity
+  // Real public company we should run the daily web-search cron against.
+  // Fictional accounts (most of the seed) stay false — running web_search
+  // on "Apex Pharmaceuticals" returns nothing useful and burns budget.
+  trackable?: boolean;
 }
 
 // Contact roles map to Salesforce OpportunityContactRole. The presence/absence

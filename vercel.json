@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/external-signals",
+      "schedule": "0 8 * * *"
+    }
+  ]
+}

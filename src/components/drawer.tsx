@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type {
   Account,
   Activity,
@@ -12,6 +12,7 @@ import type {
   Rep,
 } from "@/lib/types";
 import type { Task } from "@/lib/tasks";
+import type { ExternalSignal } from "@/lib/external-signals";
 import { HealthBadge, StageBadge } from "./ui";
 import { computeDealHealth } from "@/lib/signal-engine";
 import { TaskCard } from "./task-card";
@@ -88,7 +89,32 @@ export function Drawer({
     return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
 
+  // External signals (Supabase-backed) for this deal's account.
+  // Lazy-loaded when the drawer opens; not part of the seed data.
+  const [externalSignals, setExternalSignals] = useState<ExternalSignal[]>([]);
+  const [signalsLoading, setSignalsLoading] = useState(true);
   const opp = data.opportunities.find((o) => o.id === oppId);
+  useEffect(() => {
+    if (!opp) return;
+    let cancelled = false;
+    setSignalsLoading(true);
+    fetch(`/api/external-signals?account=${opp.accountId}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelled) return;
+        setExternalSignals(d.signals ?? []);
+        setSignalsLoading(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setExternalSignals([]);
+        setSignalsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [opp]);
+
   if (!opp) return null;
   const account = data.accounts.find((a) => a.id === opp.accountId)!;
   const owner = data.reps.find((r) => r.id === opp.ownerId)!;
@@ -287,6 +313,13 @@ export function Drawer({
             </Section>
           )}
 
+          {/* External signals — what the outside world is saying about this account */}
+          <ExternalSignalsSection
+            signals={externalSignals}
+            loading={signalsLoading}
+            isTrackable={!!account.trackable}
+          />
+
           {/* Call transcripts */}
           {dealCalls.length > 0 && (
             <Section
@@ -412,6 +445,118 @@ export function Drawer({
         </div>
       </aside>
     </>
+  );
+}
+
+// External signals section — pulled from Supabase, sourced from Claude's
+// web_search (real news) for trackable accounts, or seed/demo data for
+// fictional accounts. Each signal is tagged with its source so the UI is
+// transparent about what's real.
+
+const SIGNAL_TYPE_LABEL: Record<string, string> = {
+  leadership_change: "Leadership",
+  champion_job_change: "Job change",
+  ma_acquisition: "M&A",
+  funding_round: "Funding",
+  layoff: "Layoff",
+  earnings: "Earnings",
+  product_launch: "Product",
+  press_release: "Press",
+  competitor_mention: "Competitor",
+  regulatory_action: "Regulatory",
+  partnership: "Partnership",
+  other: "News",
+};
+
+function ExternalSignalsSection({
+  signals,
+  loading,
+  isTrackable,
+}: {
+  signals: ExternalSignal[];
+  loading: boolean;
+  isTrackable: boolean;
+}) {
+  const sub = loading
+    ? "Loading…"
+    : signals.length === 0
+      ? isTrackable
+        ? "No signals yet — daily cron runs at 8am UTC"
+        : "Fictional account · no live signals"
+      : `${signals.length} event${signals.length === 1 ? "" : "s"} on record`;
+  return (
+    <Section title="External signals" sub={sub}>
+      {loading ? (
+        <div className="text-xs text-muted italic">Loading signals…</div>
+      ) : signals.length === 0 ? (
+        <div className="text-xs text-muted italic">
+          {isTrackable
+            ? "Claude web search hasn't surfaced material events for this account yet. Run the cron manually from Settings to refresh."
+            : "This is a fictional account, so the live web search doesn't return useful results. Real accounts (Stripe, Snowflake, Atlassian in this demo) are populated by the daily cron."}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {signals.map((s) => (
+            <div
+              key={s.id}
+              className="rounded-lg border border-border p-3 space-y-1.5"
+            >
+              <div className="flex items-baseline justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-semibold tracking-wider uppercase text-muted px-1.5 py-0.5 rounded bg-slate-100">
+                    {SIGNAL_TYPE_LABEL[s.type] ?? "News"}
+                  </span>
+                  <SourceBadge source={s.source} isDemo={s.is_demo} />
+                </div>
+                <span className="text-[11px] text-muted font-mono">
+                  {formatDate(s.occurred_at)}
+                </span>
+              </div>
+              <p className="text-sm leading-relaxed">{s.summary}</p>
+              {s.url && (
+                <a
+                  href={s.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[11px] text-brand hover:underline inline-block truncate max-w-full"
+                >
+                  source ↗
+                </a>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </Section>
+  );
+}
+
+function SourceBadge({
+  source,
+  isDemo,
+}: {
+  source: string;
+  isDemo: boolean;
+}) {
+  if (isDemo || source === "demo") {
+    return (
+      <span className="text-[10px] font-semibold tracking-wider uppercase px-1.5 py-0.5 rounded bg-slate-100 text-muted border border-border">
+        Demo
+      </span>
+    );
+  }
+  const label =
+    source === "claude_web_search"
+      ? "Live · web search"
+      : source === "sec_edgar"
+        ? "Live · SEC EDGAR"
+        : source === "manual"
+          ? "Manual"
+          : "Live";
+  return (
+    <span className="text-[10px] font-semibold tracking-wider uppercase px-1.5 py-0.5 rounded bg-severity-green-bg text-severity-green border border-severity-green/20">
+      {label}
+    </span>
   );
 }
 
