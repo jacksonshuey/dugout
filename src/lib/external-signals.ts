@@ -6,8 +6,9 @@ import { supabaseAdmin } from "./supabase";
 // data, SEC filings, or a manual entry.
 
 export type ExternalSignalSource =
-  | "claude_web_search"
-  | "sec_edgar"
+  | "newsapi" // primary v1 source — NewsAPI + Haiku classification
+  | "sec_edgar" // future — public-company 8-K filings
+  | "claude_web_search" // deprecated — too slow for sync 60s budget
   | "manual"
   | "demo";
 

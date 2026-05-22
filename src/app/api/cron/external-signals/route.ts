@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { accounts } from "@/data/seed";
-import { fetchSignalsForCompany } from "@/lib/web-search-adapter";
+import { fetchSignalsForCompany } from "@/lib/news-adapter";
 import { insertSignalsDedup } from "@/lib/external-signals";
 
 // Daily ingestion of external signals via Claude's web_search tool.

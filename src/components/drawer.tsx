@@ -546,13 +546,15 @@ function SourceBadge({
     );
   }
   const label =
-    source === "claude_web_search"
-      ? "Live · web search"
+    source === "newsapi"
+      ? "Live · NewsAPI"
       : source === "sec_edgar"
         ? "Live · SEC EDGAR"
-        : source === "manual"
-          ? "Manual"
-          : "Live";
+        : source === "claude_web_search"
+          ? "Live · web search"
+          : source === "manual"
+            ? "Manual"
+            : "Live";
   return (
     <span className="text-[10px] font-semibold tracking-wider uppercase px-1.5 py-0.5 rounded bg-severity-green-bg text-severity-green border border-severity-green/20">
       {label}

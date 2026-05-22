@@ -420,7 +420,7 @@ function ExternalSignalsSection() {
   return (
     <Section
       title="External signals"
-      sub="Daily web-search ingestion for trackable accounts (Stripe, Snowflake, Atlassian). Cron fires at 8am UTC. Manual refresh below runs the same job on demand."
+      sub="Daily news ingestion for trackable accounts (Stripe, Snowflake, Atlassian) — NewsAPI fetches articles, Claude Haiku classifies them into material business events. Cron fires at 8am UTC; refresh below runs it on demand."
     >
       <Card className="p-5 space-y-3">
         <div className="flex items-center gap-3">
@@ -428,7 +428,7 @@ function ExternalSignalsSection() {
             {running ? "Running…" : "Refresh signals now"}
           </Button>
           <span className="text-xs text-muted">
-            Calls Claude web_search per trackable account · ~30s total
+            NewsAPI fetch + Haiku classification per account · ~5s total
           </span>
         </div>
 
