@@ -24,6 +24,12 @@ import {
 } from "@/lib/utils";
 import type { WorkspaceConfig } from "@/lib/workspace";
 import { cn } from "@/lib/utils";
+import {
+  companyLinkedinUrl,
+  contactLinkedinUrl,
+  isDirectCompanyLink,
+  isDirectContactLink,
+} from "@/lib/linkedin";
 
 const ROLE_ORDER: ContactRole[] = [
   "Champion",
@@ -182,6 +188,29 @@ export function Drawer({
           <div className="space-y-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-semibold tracking-tight">{account.name}</span>
+              <a
+                href={companyLinkedinUrl(account)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cn(
+                  "text-[11px] font-semibold tracking-wider px-1.5 py-0.5 rounded border transition-colors",
+                  isDirectCompanyLink(account)
+                    ? "bg-[#0A66C2]/10 text-[#0A66C2] border-[#0A66C2]/20 hover:bg-[#0A66C2]/15"
+                    : "bg-slate-50 text-muted border-border hover:text-foreground",
+                )}
+                title={
+                  isDirectCompanyLink(account)
+                    ? `View ${account.name} on LinkedIn`
+                    : `Search LinkedIn for ${account.name}`
+                }
+                aria-label={
+                  isDirectCompanyLink(account)
+                    ? `View ${account.name} on LinkedIn (opens in new tab)`
+                    : `Search LinkedIn for ${account.name} (opens in new tab)`
+                }
+              >
+                in ↗
+              </a>
               <StageBadge stage={opp.stage} />
               <HealthBadge health={health} />
             </div>
@@ -239,21 +268,47 @@ export function Drawer({
             </div>
             {dealContacts.length > 0 && (
               <div className="mt-3 space-y-1">
-                {dealContacts.map((c) => (
-                  <div
-                    key={c.id}
-                    className="text-xs text-muted flex items-baseline gap-2"
-                  >
-                    <span className="text-foreground font-medium">{c.name}</span>
-                    <span>{c.title}</span>
-                    <span>· {c.role}</span>
-                    {c.status === "departed" && (
-                      <span className="text-severity-blocking font-medium">
-                        · departed
-                      </span>
-                    )}
-                  </div>
-                ))}
+                {dealContacts.map((c) => {
+                  const direct = isDirectContactLink(c);
+                  return (
+                    <div
+                      key={c.id}
+                      className="text-xs text-muted flex items-baseline gap-2"
+                    >
+                      <a
+                        href={contactLinkedinUrl(c, account.name)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-foreground font-medium hover:text-[#0A66C2] hover:underline inline-flex items-baseline gap-1"
+                        title={
+                          direct
+                            ? `View ${c.name} on LinkedIn`
+                            : `Search LinkedIn for ${c.name} at ${account.name}`
+                        }
+                        aria-label={
+                          direct
+                            ? `View ${c.name} on LinkedIn (opens in new tab)`
+                            : `Search LinkedIn for ${c.name} at ${account.name} (opens in new tab)`
+                        }
+                      >
+                        {c.name}
+                        <span
+                          className="text-[10px] text-muted/70"
+                          aria-hidden
+                        >
+                          in↗
+                        </span>
+                      </a>
+                      <span>{c.title}</span>
+                      <span>· {c.role}</span>
+                      {c.status === "departed" && (
+                        <span className="text-severity-blocking font-medium">
+                          · departed
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </Section>

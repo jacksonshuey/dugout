@@ -64,6 +64,13 @@ export interface Account {
   // Fictional accounts (most of the seed) stay false — running web_search
   // on "Apex Pharmaceuticals" returns nothing useful and burns budget.
   trackable?: boolean;
+  // LinkedIn company slug (e.g. "stripe" → linkedin.com/company/stripe/).
+  // Undefined for fictional accounts; UI falls back to a LinkedIn company search.
+  linkedinSlug?: string;
+  // Buyer website — used as a fallback link target and to scope future search.
+  website?: string;
+  // Stock ticker for public-co accounts. Reserved for the SEC EDGAR adapter.
+  ticker?: string;
 }
 
 // Contact roles map to Salesforce OpportunityContactRole. The presence/absence
@@ -92,6 +99,10 @@ export interface Contact {
   role: ContactRole;
   status?: ContactStatus; // undefined = active
   departureNote?: string; // surfaced in CHAMPION_DEPARTED signal
+  // Full LinkedIn profile URL. Personal slugs aren't predictable, so we store
+  // the URL rather than a slug fragment. Undefined → UI falls back to a
+  // LinkedIn people search scoped to "{name} {accountName}".
+  linkedinUrl?: string;
 }
 
 export interface Opportunity {

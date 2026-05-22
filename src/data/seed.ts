@@ -65,6 +65,8 @@ export const accounts: Account[] = [
     hqLocation: "South San Francisco, CA",
     legalTeamSize: 120,
     trackable: true,
+    linkedinSlug: "stripe",
+    website: "stripe.com",
   },
   {
     id: "acc_northwind",
@@ -106,6 +108,9 @@ export const accounts: Account[] = [
     hqLocation: "Bozeman, MT",
     legalTeamSize: 85,
     trackable: true,
+    linkedinSlug: "snowflake-computing",
+    website: "snowflake.com",
+    ticker: "SNOW",
   },
   {
     id: "acc_quantum",
@@ -123,6 +128,9 @@ export const accounts: Account[] = [
     hqLocation: "Sydney, AU / San Francisco, CA",
     legalTeamSize: 95,
     trackable: true,
+    linkedinSlug: "atlassian",
+    website: "atlassian.com",
+    ticker: "TEAM",
   },
   {
     id: "acc_stratos",
