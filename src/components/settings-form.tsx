@@ -14,6 +14,7 @@ import {
 } from "@/app/actions/workspace";
 import { refreshAccountSignals } from "@/app/actions/external-signals";
 import type { PerSourceResult } from "@/lib/ingestion";
+import type { InboundStats } from "@/lib/inbound-email";
 import { accounts } from "@/data/seed";
 import { Button, Card } from "./ui";
 
@@ -29,7 +30,13 @@ const STACK_OPTIONS = {
   prospectingEnrichment: ["ZoomInfo", "Apollo", "Clay", "LeadIQ"],
 };
 
-export function SettingsForm({ initial }: { initial: WorkspaceConfig }) {
+export function SettingsForm({
+  initial,
+  inboundStats,
+}: {
+  initial: WorkspaceConfig;
+  inboundStats?: InboundStats | null;
+}) {
   const router = useRouter();
   const [config, setConfig] = useState<WorkspaceConfig>(initial);
   const [pending, startTransition] = useTransition();
@@ -317,6 +324,9 @@ export function SettingsForm({ initial }: { initial: WorkspaceConfig }) {
       {/* External signals (Supabase + Claude web_search) */}
       <ExternalSignalsSection />
 
+      {/* Newsletter inbox — workspace-wide market intelligence */}
+      <NewsletterInboxSection stats={inboundStats} />
+
       {/* Slack */}
       <Section
         title="Slack delivery"
@@ -555,6 +565,61 @@ function ExternalSignalsSection() {
         </p>
       </Card>
     </Section>
+  );
+}
+
+// Newsletter inbox health card. Complements the per-account External Signals
+// section: this is the workspace-wide intelligence track. Stats come from the
+// `inbound_emails` table; null means Supabase wasn't reachable or the table
+// doesn't exist yet (run supabase/migrations/20260522_inbound_emails.sql).
+function NewsletterInboxSection({ stats }: { stats?: InboundStats | null }) {
+  return (
+    <Section
+      title="Newsletter inbox"
+      sub="Workspace-wide market intelligence. Subscribed newsletters POST to a SendGrid Inbound Parse webhook, get stored raw, and (Phase 2) get classified into market-intel signals alongside the per-account ingestion above. Setup steps live in the README."
+    >
+      <Card className="p-5 space-y-3">
+        {stats ? (
+          <div className="grid grid-cols-3 gap-4 text-xs">
+            <Stat label="Received (24h)" value={String(stats.received24h)} />
+            <Stat label="Received (total)" value={String(stats.receivedTotal)} />
+            <Stat
+              label="Last received"
+              value={
+                stats.lastReceivedAt
+                  ? new Date(stats.lastReceivedAt).toLocaleString()
+                  : "—"
+              }
+            />
+          </div>
+        ) : (
+          <div className="text-xs space-y-1">
+            <div className="font-medium text-muted">Not yet configured</div>
+            <div className="text-muted">
+              Run <code>supabase/migrations/20260522_inbound_emails.sql</code> in
+              Supabase Studio and set <code>INBOUND_WEBHOOK_SECRET</code> +{" "}
+              <code>INBOUND_SENDER_ALLOWLIST</code>.
+            </div>
+          </div>
+        )}
+        <p className="text-xs text-muted">
+          Storage: Supabase Postgres (table <code>inbound_emails</code>). Raw
+          HTML + plaintext kept so the classifier can re-run as the prompt
+          evolves without re-fetching.
+        </p>
+      </Card>
+    </Section>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="space-y-0.5">
+      <div className="uppercase tracking-wider text-muted font-medium">
+        {label}
+      </div>
+      <div className="text-foreground text-sm font-medium">{value}</div>
+    </div>
   );
 }
 
