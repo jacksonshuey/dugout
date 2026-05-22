@@ -190,33 +190,37 @@ export function SettingsForm({ initial }: { initial: WorkspaceConfig }) {
         <div className="space-y-2">
           {config.priorities.map((p, i) => (
             <Card key={i} className="p-4 space-y-2">
-              <div className="flex items-start gap-3">
-                <Input
+              {/* Top row: ID + Name + Remove (single horizontal line) */}
+              <div className="flex items-center gap-2">
+                <input
                   value={p.id}
-                  onChange={(v) => updatePriority(i, { id: v })}
-                  className="w-16 font-mono"
+                  onChange={(e) => updatePriority(i, { id: e.target.value })}
+                  className="w-16 shrink-0 rounded-md border border-border bg-background px-2 h-9 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
                 />
-                <div className="flex-1 space-y-2">
-                  <Input
-                    value={p.name}
-                    onChange={(v) => updatePriority(i, { name: v })}
-                    placeholder="Priority name"
-                  />
-                  <Textarea
-                    value={p.description}
-                    onChange={(v) => updatePriority(i, { description: v })}
-                    rows={2}
-                    placeholder="One-paragraph description"
-                  />
-                </div>
+                <input
+                  value={p.name}
+                  onChange={(e) => updatePriority(i, { name: e.target.value })}
+                  placeholder="Priority name"
+                  className="flex-1 min-w-0 rounded-md border border-border bg-background px-3 h-9 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
+                />
                 <button
                   onClick={() => removePriority(i)}
-                  className="text-xs text-muted hover:text-severity-blocking shrink-0 px-2 py-1"
+                  className="text-xs text-muted hover:text-severity-blocking shrink-0 px-2 h-9"
                   title="Remove priority"
                 >
                   Remove
                 </button>
               </div>
+              {/* Description spans full card width below */}
+              <textarea
+                value={p.description}
+                onChange={(e) =>
+                  updatePriority(i, { description: e.target.value })
+                }
+                rows={2}
+                placeholder="One-paragraph description"
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand resize-y"
+              />
             </Card>
           ))}
           <button
