@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Handoff doc — for local Claude sessions, not the public repo
+HANDOFF.md
