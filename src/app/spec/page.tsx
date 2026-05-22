@@ -165,6 +165,14 @@ export default async function SpecPage() {
           </table>
         </div>
 
+        {workspace.priorities
+          .filter((p) => !RULES.some((r) => r.strategicPriority === p.id))
+          .map((p) => (
+            <p key={p.id} className="text-xs text-muted leading-relaxed">
+              <span className="font-mono">{p.id}</span> · {p.name} has no rules in v1 — on the rollout, not the architecture.
+            </p>
+          ))}
+
         <H3>What we don&apos;t build in v1</H3>
         <ul className="space-y-2 text-sm text-muted">
           <Bullet>Black-box deal-health scores (0–100). Named signals survive contact with reality; composite scores don&apos;t.</Bullet>

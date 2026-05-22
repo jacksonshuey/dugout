@@ -9,7 +9,6 @@ import type {
 } from "@/lib/workspace";
 import { PRESETS } from "@/lib/workspace";
 import {
-  loadPreset,
   resetWorkspace,
   saveWorkspaceConfig,
 } from "@/app/actions/workspace";
@@ -43,12 +42,19 @@ export function SettingsForm({ initial }: { initial: WorkspaceConfig }) {
   }
 
   function applyPreset(name: string) {
-    startTransition(async () => {
-      await loadPreset(name);
-      setConfig(PRESETS[name]);
-      setSavedAt(new Date().toLocaleTimeString());
-      router.refresh();
-    });
+    // Preset click fills the form locally — user must click Save to persist.
+    // Confirm before discarding in-flight edits.
+    const isDirty = JSON.stringify(config) !== JSON.stringify(PRESETS[name]);
+    if (
+      isDirty &&
+      !window.confirm(
+        `Load the ${name} preset? Any unsaved edits will be discarded.`,
+      )
+    ) {
+      return;
+    }
+    setConfig(PRESETS[name]);
+    setSavedAt(null);
   }
 
   function reset() {

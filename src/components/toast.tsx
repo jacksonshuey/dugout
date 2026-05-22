@@ -12,6 +12,7 @@ export interface Toast {
   detail?: string;
   tone?: "success" | "info" | "warn";
   durationMs?: number;
+  action?: { label: string; onClick: () => void };
 }
 
 const TONE_STYLES: Record<NonNullable<Toast["tone"]>, string> = {
@@ -52,16 +53,34 @@ function ToastItem({
   return (
     <div
       className={cn(
-        "rounded-lg border px-4 py-3 shadow-md text-sm pointer-events-auto cursor-pointer",
+        "rounded-lg border px-4 py-3 shadow-md text-sm pointer-events-auto",
         TONE_STYLES[toast.tone ?? "info"],
       )}
-      onClick={() => onDismiss(toast.id)}
       role="status"
     >
-      <div className="font-medium">{toast.message}</div>
-      {toast.detail && (
-        <div className="text-xs opacity-80 mt-0.5">{toast.detail}</div>
-      )}
+      <div className="flex items-start gap-3">
+        <div
+          className="flex-1 cursor-pointer"
+          onClick={() => onDismiss(toast.id)}
+        >
+          <div className="font-medium">{toast.message}</div>
+          {toast.detail && (
+            <div className="text-xs opacity-80 mt-0.5">{toast.detail}</div>
+          )}
+        </div>
+        {toast.action && (
+          <button
+            type="button"
+            className="text-xs font-semibold underline underline-offset-2 shrink-0 mt-0.5"
+            onClick={() => {
+              toast.action!.onClick();
+              onDismiss(toast.id);
+            }}
+          >
+            {toast.action.label}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

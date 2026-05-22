@@ -155,15 +155,40 @@ export function Console(props: ConsoleData) {
 
   // ── Task action handlers ────────────────────────────────────────
   function handleMarkDone(taskId: string) {
+    const task = tasks.find((t) => t.id === taskId);
     setTasks(markDone(tasks, taskId, viewerId));
+    push({
+      tone: "success",
+      message: "Marked done",
+      detail: task?.title,
+      action: {
+        label: "Undo",
+        onClick: () => setTasks((curr) => reopen(curr, taskId, viewerId)),
+      },
+    });
   }
   function handleSnooze(taskId: string, hours: number) {
     setTasks(snooze(tasks, taskId, hours, viewerId));
-    push({ tone: "info", message: `Snoozed ${hours}h` });
+    push({
+      tone: "info",
+      message: `Snoozed ${hours}h`,
+      action: {
+        label: "Undo",
+        onClick: () => setTasks((curr) => reopen(curr, taskId, viewerId)),
+      },
+    });
   }
   function handleMute(taskId: string, reason: string) {
     setTasks(mute(tasks, taskId, reason, viewerId));
-    push({ tone: "info", message: "Muted", detail: reason });
+    push({
+      tone: "info",
+      message: "Muted",
+      detail: reason,
+      action: {
+        label: "Undo",
+        onClick: () => setTasks((curr) => reopen(curr, taskId, viewerId)),
+      },
+    });
   }
   function handleReopen(taskId: string) {
     setTasks(reopen(tasks, taskId, viewerId));
@@ -591,12 +616,13 @@ function TodayView({
 
   const blocking = sorted.filter((t) => t.severity === "blocking");
   const action = sorted.filter((t) => t.severity === "action");
+  const awareness = sorted.filter((t) => t.severity === "awareness");
 
   return (
     <div className="space-y-6">
       <Header
         title="Today's queue"
-        sub={`${tasks.length} open task${tasks.length === 1 ? "" : "s"} · ${blocking.length} blocking · ${action.length} action`}
+        sub={`${tasks.length} open task${tasks.length === 1 ? "" : "s"} · ${blocking.length} blocking · ${action.length} action${awareness.length > 0 ? ` · ${awareness.length} awareness` : ""}`}
       />
 
       {tasks.length === 0 ? (
@@ -631,6 +657,29 @@ function TodayView({
               <SectionHead label="Action" tone="action" count={action.length} />
               <div className="space-y-2">
                 {action.map((t) => (
+                  <TaskRow
+                    key={t.id}
+                    task={t}
+                    data={data}
+                    viewerId={viewerId}
+                    onOpen={onOpen}
+                    onMarkDone={onMarkDone}
+                    onSnooze={onSnooze}
+                    onMute={onMute}
+                    onReopen={onReopen}
+                    onAddNote={onAddNote}
+                    onAddCoachingNote={onAddCoachingNote}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {awareness.length > 0 && (
+            <section className="space-y-2">
+              <SectionHead label="Awareness" tone="awareness" count={awareness.length} />
+              <div className="space-y-2">
+                {awareness.map((t) => (
                   <TaskRow
                     key={t.id}
                     task={t}
@@ -955,7 +1004,7 @@ function SectionHead({
   count,
 }: {
   label: string;
-  tone: "blocking" | "action";
+  tone: "blocking" | "action" | "awareness";
   count: number;
 }) {
   return (

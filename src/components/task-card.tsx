@@ -43,8 +43,16 @@ export function TaskCard({
   const [showPlaybook, setShowPlaybook] = useState(false);
   const [muteOpen, setMuteOpen] = useState(false);
   const [muteText, setMuteText] = useState("");
+  const [snoozeOpen, setSnoozeOpen] = useState(false);
   const [workNote, setWorkNote] = useState("");
   const [coachNote, setCoachNote] = useState("");
+
+  const SNOOZE_OPTIONS = [
+    { label: "4h", hours: 4 },
+    { label: "1 day", hours: 24 },
+    { label: "3 days", hours: 72 },
+    { label: "1 week", hours: 168 },
+  ];
 
   const playbook = task.playbookId ? playbooks[task.playbookId] : null;
   const isClosed = task.status !== "open";
@@ -133,7 +141,7 @@ export function TaskCard({
           <ActionBtn primary onClick={onMarkDone}>
             ✓ Done
           </ActionBtn>
-          <ActionBtn onClick={() => onSnooze(24)}>Snooze 24h</ActionBtn>
+          <ActionBtn onClick={() => setSnoozeOpen((v) => !v)}>Snooze…</ActionBtn>
           <ActionBtn onClick={() => setMuteOpen((v) => !v)}>Mute…</ActionBtn>
           {playbook && (
             <ActionBtn onClick={() => setShowPlaybook((v) => !v)}>
@@ -158,6 +166,25 @@ export function TaskCard({
           >
             {showHistory ? "Hide history" : `History (${task.history.length})`}
           </button>
+        </div>
+      )}
+
+      {/* Snooze picker */}
+      {snoozeOpen && (
+        <div className="flex items-center gap-2 flex-wrap pt-1">
+          <span className="text-xs text-muted">Snooze for:</span>
+          {SNOOZE_OPTIONS.map((opt) => (
+            <ActionBtn
+              key={opt.hours}
+              onClick={() => {
+                onSnooze(opt.hours);
+                setSnoozeOpen(false);
+              }}
+            >
+              {opt.label}
+            </ActionBtn>
+          ))}
+          <ActionBtn onClick={() => setSnoozeOpen(false)}>Cancel</ActionBtn>
         </div>
       )}
 
