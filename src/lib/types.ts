@@ -60,17 +60,23 @@ export interface Account {
   segment: AccountSegment;
   hqLocation: string;
   legalTeamSize: number; // proxy for buyer complexity
-  // Real public company we should run the daily web-search cron against.
-  // Fictional accounts (most of the seed) stay false — running web_search
-  // on "Apex Pharmaceuticals" returns nothing useful and burns budget.
+  // Whether the daily ingestion cron should run live news + EDGAR for this
+  // account. Every seeded account today is a real company, so this is true
+  // across the board — the flag is retained for the future case of a private
+  // / pre-launch account where live sources would return nothing useful.
   trackable?: boolean;
   // LinkedIn company slug (e.g. "stripe" → linkedin.com/company/stripe/).
-  // Undefined for fictional accounts; UI falls back to a LinkedIn company search.
+  // Undefined → UI falls back to a LinkedIn company search.
   linkedinSlug?: string;
-  // Buyer website — used as a fallback link target and to scope future search.
+  // Buyer website — fallback link target and scope for future enrichment.
   website?: string;
-  // Stock ticker for public-co accounts. Reserved for the SEC EDGAR adapter.
+  // Stock ticker for public-co accounts. Drives SEC EDGAR adapter coverage.
   ticker?: string;
+  // True when the account is a real company but the layered CRM scenario
+  // (opportunity, contacts, transcripts, activity) is fictional for demo
+  // purposes. The drawer surfaces a chip + tooltip so the audience sees
+  // clearly which parts are real signal and which are illustrative.
+  isDemoScenario?: boolean;
 }
 
 // Contact roles map to Salesforce OpportunityContactRole. The presence/absence

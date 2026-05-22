@@ -25,13 +25,23 @@ const USER_AGENT =
 const LOOKBACK_DAYS = 90;
 const REQUEST_TIMEOUT_MS = 10_000;
 
-// Ticker → CIK (Central Index Key) map. Hardcoded for the two public-co
-// accounts in seed today (SNOW, TEAM). At this scale, hardcoding beats
-// fetching SEC's ~700KB company-tickers.json on every cron run. If we add
-// more tickers, switch to a fetch-once-cache-in-module strategy.
+// Ticker → CIK (Central Index Key) map. Hardcoded for the ten public-co
+// accounts in seed today. At this scale, hardcoding beats fetching SEC's
+// ~700KB company-tickers.json on every cron run; once this list grows past
+// ~30 entries we should switch to a fetch-once-cache-in-module strategy.
+//
+// CIKs verified against data.sec.gov/submissions on 2026-05-22.
 const TICKER_TO_CIK: Record<string, string> = {
   SNOW: "0001640147", // Snowflake Inc.
-  TEAM: "0001650372", // Atlassian Corporation
+  TEAM: "0001650372", // Atlassian Corp
+  MRNA: "0001682852", // Moderna, Inc.
+  KKR: "0001404912", // KKR & Co. Inc.
+  COP: "0001163165", // ConocoPhillips
+  UNH: "0000731766", // UnitedHealth Group
+  CNA: "0000021175", // CNA Financial Corp
+  BA: "0000012927", // Boeing Co
+  UPS: "0001090727", // United Parcel Service
+  CIVI: "0001509589", // Civitas Resources
 };
 
 // 8-K Item code → signal classification + human label. Codes from SEC Form 8-K

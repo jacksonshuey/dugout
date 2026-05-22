@@ -14,6 +14,7 @@ import {
 } from "@/app/actions/workspace";
 import { refreshAccountSignals } from "@/app/actions/external-signals";
 import type { PerSourceResult } from "@/lib/ingestion";
+import { accounts } from "@/data/seed";
 import { Button, Card } from "./ui";
 
 // All settings live in one form for a single Save action. Local React state
@@ -362,11 +363,12 @@ interface PerAccountResult {
   durationMs: number;
 }
 
-const TRACKABLE_ACCOUNTS = [
-  { id: "acc_cobalt", name: "Stripe" },
-  { id: "acc_atlas", name: "Snowflake" },
-  { id: "acc_horizon", name: "Atlassian" },
-];
+// Derive from seed so the refresh fan-out automatically picks up new
+// trackable accounts as they're added. Sorted by name for stable UI order.
+const TRACKABLE_ACCOUNTS = accounts
+  .filter((a) => a.trackable)
+  .map((a) => ({ id: a.id, name: a.name }))
+  .sort((a, b) => a.name.localeCompare(b.name));
 
 // Small per-source breakdown shown under each account's row. Only renders
 // for sources that actually ran (e.g. SEC line is hidden for Stripe which
@@ -471,7 +473,7 @@ function ExternalSignalsSection() {
   return (
     <Section
       title="External signals"
-      sub="Daily ingestion for trackable accounts. NewsAPI + Claude Haiku classify articles into material events; SEC EDGAR pulls 8-K filings for public-co accounts with a ticker (Snowflake, Atlassian). Cron fires at 8am UTC; refresh below runs it on demand."
+      sub="Daily ingestion for trackable accounts. NewsAPI + Claude Haiku classify articles into material events; SEC EDGAR pulls 8-K filings for every account with a ticker. Cron fires at 8am UTC; refresh below runs it on demand."
     >
       <Card className="p-5 space-y-3">
         <div className="flex items-center gap-3">

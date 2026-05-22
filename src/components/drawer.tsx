@@ -213,6 +213,15 @@ export function Drawer({
               </a>
               <StageBadge stage={opp.stage} />
               <HealthBadge health={health} />
+              {account.isDemoScenario && (
+                <span
+                  className="text-[10px] font-semibold tracking-wider uppercase px-1.5 py-0.5 rounded bg-slate-100 text-muted border border-border cursor-help"
+                  title={`Demo scenario — ${account.name} is a real company, but the CRM data shown here (deal stage, contacts, transcripts, activity) is illustrative. Live signals (NewsAPI, SEC EDGAR, LinkedIn deep-links) run against the real underlying company.`}
+                  aria-label="This is a demo scenario layered on a real company"
+                >
+                  Demo scenario
+                </span>
+              )}
             </div>
             <div className="text-xs text-muted">
               {opp.name} · {formatCurrency(opp.amount)} · close {formatDate(opp.closeDate)} · owner {owner.name} {isOwnerMode && "(you)"}
@@ -380,7 +389,6 @@ export function Drawer({
           <ExternalSignalsSection
             signals={externalSignals}
             loading={signalsLoading}
-            isTrackable={!!account.trackable}
           />
 
           {/* Call transcripts */}
@@ -563,18 +571,14 @@ function CallCard({
 function ExternalSignalsSection({
   signals,
   loading,
-  isTrackable,
 }: {
   signals: ExternalSignal[];
   loading: boolean;
-  isTrackable: boolean;
 }) {
   const sub = loading
     ? "Loading…"
     : signals.length === 0
-      ? isTrackable
-        ? "No signals yet — daily cron runs at 8am UTC"
-        : "Fictional account · no live signals"
+      ? "No signals yet — daily cron runs at 8am UTC"
       : `${signals.length} event${signals.length === 1 ? "" : "s"} on record`;
   return (
     <Section title="External signals" sub={sub}>
@@ -582,9 +586,9 @@ function ExternalSignalsSection({
         <div className="text-xs text-muted italic">Loading signals…</div>
       ) : signals.length === 0 ? (
         <div className="text-xs text-muted italic">
-          {isTrackable
-            ? "Claude web search hasn't surfaced material events for this account yet. Run the cron manually from Settings to refresh."
-            : "This is a fictional account, so the live web search doesn't return useful results. Real accounts (Stripe, Snowflake, Atlassian in this demo) are populated by the daily cron."}
+          NewsAPI + SEC EDGAR haven&rsquo;t surfaced material events for this
+          account in the lookback window. Run a refresh from Settings to
+          pull the latest.
         </div>
       ) : (
         <div className="space-y-2">
