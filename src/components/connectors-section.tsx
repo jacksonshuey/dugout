@@ -114,9 +114,9 @@ function SystemConnectorsGrid({ status }: { status: SystemConnectorStatus }) {
     },
     {
       brand: "inbox",
-      name: "Newsletter inbox",
+      name: "AgentMail",
       role: "Inbound email → Haiku → market intel",
-      envHint: "INBOUND_WEBHOOK_SECRET",
+      envHint: "AGENTMAIL_WEBHOOK_SECRET",
       status: status.inbox ? "live" : "missing",
     },
   ];

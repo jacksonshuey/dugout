@@ -267,12 +267,12 @@ const BRANDS: Record<string, BrandSpec> = {
     glyph: <ZoomInfoGlyph />,
     domain: "zoominfo.com",
   },
-  // Inbox is generic (any IMAP/SMTP) — no domain, keep the envelope glyph.
   inbox: {
-    name: "Inbox",
+    name: "AgentMail",
     bg: "#0EA5E9",
     fg: "white",
     glyph: <EnvelopeGlyph />,
+    domain: "agentmail.to",
   },
   pipedrive: {
     name: "Pipedrive",

@@ -7,13 +7,12 @@ import {
 import { classifyNewsletter } from "./newsletter-adapter";
 import { insertSignalsDedup } from "./external-signals";
 
-// Shared orchestration for inbound webhooks. Both the SendGrid path
-// (src/app/api/inbound-email/[secret]/route.ts) and the Mailgun path
-// (src/app/api/inbound-email/mailgun/route.ts) end up doing the same work
-// once they've parsed their provider-specific payload: validate the email,
-// store, classify, return a structured outcome. This file owns that
-// pipeline so each route handler is just provider-specific auth + payload
-// parsing on top.
+// Shared orchestration for inbound webhooks. The AgentMail route
+// (src/app/api/inbound-email/agentmail/route.ts) parses its provider-specific
+// payload, then this pipeline does the rest: validate the email, store,
+// classify, return a structured outcome. Kept provider-shaped so adding a
+// second provider later is just a new route handler that lands here with
+// a NormalizedInboundEmail.
 //
 // Lives in its own file to avoid a circular import — `newsletter-adapter`
 // already imports the InboundEmail type from `inbound-email`, so we can't
@@ -21,6 +20,7 @@ import { insertSignalsDedup } from "./external-signals";
 
 // 2 MB ceiling on combined text+html. Real newsletters land at 50-300 KB;
 // anything past 2 MB is almost certainly spam or a malformed payload.
+// AgentMail itself caps message size below this, so this is mostly defense.
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 
 export interface NormalizedInboundEmail {
@@ -110,11 +110,10 @@ async function classifyAndPersist(
 //     `dedup` / `stored`: return 200 to the provider. These are terminal
 //     states; retrying won't help.
 //   - On `storage_failed`: return 5xx so the provider retries. Supabase
-//     blips clear within minutes; SendGrid/Mailgun both have multi-day
-//     retry windows.
+//     blips clear within minutes; Svix's exponential backoff covers it.
 export async function processInboundEmail(
   email: NormalizedInboundEmail,
-  provider: "sendgrid" | "mailgun" | "cloudflare",
+  provider: "agentmail",
 ): Promise<ProcessOutcome> {
   const totalBytes = email.text_body.length + email.html_body.length;
   if (totalBytes > MAX_BODY_BYTES) {

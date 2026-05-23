@@ -23,10 +23,7 @@ function getSystemConnectorStatus(): SystemConnectorStatus {
     anthropic: isEnvSet("ANTHROPIC_API_KEY"),
     newsapi: isEnvSet("NEWSAPI_KEY"),
     slack: isEnvSet("SLACK_WEBHOOK_URL"),
-    // Inbox accepts either the SendGrid Inbound Parse path-secret OR the
-    // Mailgun webhook signing key. Either env var enables a working inbox.
-    inbox:
-      isEnvSet("INBOUND_WEBHOOK_SECRET") || isEnvSet("MAILGUN_SIGNING_KEY"),
+    inbox: isEnvSet("AGENTMAIL_WEBHOOK_SECRET"),
   };
 }
 
