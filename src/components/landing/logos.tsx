@@ -246,6 +246,13 @@ const BRANDS: Record<string, BrandSpec> = {
     glyph: <LetterGlyph letter="§" />,
     domain: "sec.gov",
   },
+  firecrawl: {
+    name: "Firecrawl",
+    bg: "#F97316",
+    fg: "white",
+    glyph: <LetterGlyph letter="F" />,
+    domain: "firecrawl.dev",
+  },
   dock: {
     name: "Dock",
     bg: "#1F2937",

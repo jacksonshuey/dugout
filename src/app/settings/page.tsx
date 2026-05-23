@@ -22,6 +22,7 @@ function getSystemConnectorStatus(): SystemConnectorStatus {
   return {
     anthropic: isEnvSet("ANTHROPIC_API_KEY"),
     newsapi: isEnvSet("NEWSAPI_KEY"),
+    firecrawl: isEnvSet("FIRECRAWL_API_KEY"),
     slack: isEnvSet("SLACK_WEBHOOK_URL"),
     inbox: isEnvSet("AGENTMAIL_WEBHOOK_SECRET"),
   };
