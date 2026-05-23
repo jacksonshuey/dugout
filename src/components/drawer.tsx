@@ -13,6 +13,7 @@ import type {
 } from "@/lib/types";
 import type { Task } from "@/lib/tasks";
 import type { ExternalSignal } from "@/lib/external-signals";
+import type { MeetingSignalRow } from "@/lib/meeting-signals";
 import { HealthBadge, StageBadge } from "./ui";
 import { computeDealHealth } from "@/lib/signal-engine";
 import { TaskCard } from "./task-card";
@@ -99,6 +100,10 @@ export function Drawer({
   // Lazy-loaded when the drawer opens; not part of the seed data.
   const [externalSignals, setExternalSignals] = useState<ExternalSignal[]>([]);
   const [signalsLoading, setSignalsLoading] = useState(true);
+  // Granola meeting signals — same lazy-load pattern. Independent of
+  // external signals so one query failing doesn't blank the other.
+  const [meetingSignals, setMeetingSignals] = useState<MeetingSignalRow[]>([]);
+  const [meetingsLoading, setMeetingsLoading] = useState(true);
   const opp = data.opportunities.find((o) => o.id === oppId);
   useEffect(() => {
     if (!opp) return;
@@ -107,6 +112,7 @@ export function Drawer({
     // would require lifting the promise upstream with memoization; deferred.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSignalsLoading(true);
+    setMeetingsLoading(true);
     fetch(`/api/external-signals?account=${opp.accountId}`)
       .then((r) => r.json())
       .then((d) => {
@@ -118,6 +124,18 @@ export function Drawer({
         if (cancelled) return;
         setExternalSignals([]);
         setSignalsLoading(false);
+      });
+    fetch(`/api/meeting-signals?account=${opp.accountId}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelled) return;
+        setMeetingSignals(d.signals ?? []);
+        setMeetingsLoading(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setMeetingSignals([]);
+        setMeetingsLoading(false);
       });
     return () => {
       cancelled = true;
@@ -391,6 +409,12 @@ export function Drawer({
           <ExternalSignalsSection
             signals={externalSignals}
             loading={signalsLoading}
+          />
+
+          {/* Meeting signals — Granola-sourced buying-process signals */}
+          <MeetingSignalsSection
+            signals={meetingSignals}
+            loading={meetingsLoading}
           />
 
           {/* Call transcripts */}
@@ -722,5 +746,105 @@ function Section({
       </div>
       <div>{children}</div>
     </section>
+  );
+}
+
+// Meeting signals — Granola-sourced buying-process signals extracted from
+// meeting summaries. Same visual language as external signals so they read
+// as part of the same "what's happening on this deal" surface.
+
+const MEETING_SIGNAL_LABEL: Record<string, string> = {
+  finance_mentioned_not_engaged: "Finance gap",
+  new_stakeholder_introduced: "New stakeholder",
+  champion_role_change: "Champion change",
+  competitor_mentioned: "Competitor",
+  legal_review_requested: "Legal review",
+  timeline_signal: "Timeline",
+  budget_concern: "Budget concern",
+};
+
+function MeetingSignalsSection({
+  signals,
+  loading,
+}: {
+  signals: MeetingSignalRow[];
+  loading: boolean;
+}) {
+  const sub = loading
+    ? "Loading…"
+    : signals.length === 0
+      ? "No meeting signals yet — connect Granola in Settings"
+      : `${signals.length} signal${signals.length === 1 ? "" : "s"} across ${
+          new Set(signals.map((s) => s.note_id)).size
+        } meeting${new Set(signals.map((s) => s.note_id)).size === 1 ? "" : "s"}`;
+
+  return (
+    <Section title="Meeting signals (Granola)" sub={sub}>
+      {loading ? (
+        <div className="text-xs text-muted italic">Loading meetings…</div>
+      ) : signals.length === 0 ? (
+        <div className="text-xs text-muted italic">
+          Granola hasn&rsquo;t produced any buying-process signals for this
+          account in the lookback window. Connect a key in Settings or run
+          Sync now.
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {signals.map((s) => {
+            const severityClass =
+              s.severity === "blocking"
+                ? "bg-severity-blocking-bg text-severity-blocking border-severity-blocking/20"
+                : s.severity === "action"
+                  ? "bg-severity-action-bg text-severity-action border-severity-action/20"
+                  : "bg-severity-awareness-bg text-severity-awareness border-severity-awareness/20";
+            return (
+              <div
+                key={s.id}
+                className="rounded-lg border border-border p-3 space-y-1.5"
+              >
+                <div className="flex items-baseline justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span
+                      className={`text-[10px] font-semibold tracking-wider uppercase px-1.5 py-0.5 rounded border ${severityClass}`}
+                    >
+                      {MEETING_SIGNAL_LABEL[s.signal_type] ?? s.signal_type}
+                    </span>
+                    <span className="text-[10px] font-semibold tracking-wider uppercase px-1.5 py-0.5 rounded bg-severity-green-bg text-severity-green border border-severity-green/20">
+                      Live · Granola
+                    </span>
+                  </div>
+                  {s.meeting_date && (
+                    <span className="text-[11px] text-muted font-mono">
+                      {formatDate(s.meeting_date)}
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm leading-relaxed">{s.summary}</p>
+                {s.raw_excerpt && (
+                  <div className="text-xs italic text-muted border-l-2 border-border pl-2 ml-1">
+                    &ldquo;{s.raw_excerpt}&rdquo;
+                  </div>
+                )}
+                <div className="flex items-baseline justify-between text-[11px] text-muted">
+                  <span className="truncate max-w-[60%]">
+                    {s.meeting_title ?? "(untitled meeting)"}
+                  </span>
+                  {s.granola_url && (
+                    <a
+                      href={s.granola_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:text-brand"
+                    >
+                      Open in Granola ↗
+                    </a>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Section>
   );
 }

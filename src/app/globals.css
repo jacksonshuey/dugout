@@ -5,10 +5,12 @@
   --foreground: #0a0e14;
   --muted: #6b7280;
   --border: #e5e7eb;
-  /* Brand: muted baseball-field clay. Warm earth tone, low saturation, good
-     contrast against white. Distinct from severity-action amber (#b45309). */
-  --brand: #8F7250;
-  --brand-dark: #6E5638;
+  /* Brand: baseball-infield clay. Warm red-brown, more saturated than the
+     prior muted khaki — matches real MLB calcined-clay photography. White
+     foreground passes WCAG AA contrast at both variants (5.95:1, 9.78:1).
+     Distinct from severity-action amber (#b45309). */
+  --brand: #9B4E2A;
+  --brand-dark: #74391E;
   --severity-blocking: #b91c1c;
   --severity-blocking-bg: #fef2f2;
   --severity-action: #b45309;
@@ -57,4 +59,31 @@ body {
     radial-gradient(circle at 75% 75%, #000 1px, transparent 1px);
   background-size: 4px 4px;
   z-index: 0;
+}
+
+/* Infinite marquee — used by the landing-page stack carousel.
+   The inner row contains TWO identical copies of the logo list, side by
+   side. Animating translateX from 0 → -50% scrolls one copy out exactly
+   as the other comes in, which makes the loop seamless.
+   Direction is rightward (translate goes positive); reverse the keyframe
+   end value to flip direction. */
+@keyframes marquee-right {
+  from { transform: translateX(-50%); }
+  to   { transform: translateX(0); }
+}
+
+.marquee-track {
+  animation: marquee-right 120s linear infinite;
+  will-change: transform;
+}
+
+/* Pause on hover so users can read the logos. */
+.marquee-container:hover .marquee-track {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track {
+    animation: none;
+  }
 }

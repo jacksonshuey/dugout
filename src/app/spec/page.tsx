@@ -38,7 +38,7 @@ export default async function SpecPage() {
           <AnchorLink href="#rollout">Rollout</AnchorLink>
           <AnchorLink href="#companion">Companion system</AnchorLink>
           <Link
-            href="/"
+            href="/console"
             className="text-muted hover:text-foreground ml-auto"
           >
             ← Back to console

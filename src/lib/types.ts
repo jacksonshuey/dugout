@@ -70,6 +70,11 @@ export interface Account {
   linkedinSlug?: string;
   // Buyer website — fallback link target and scope for future enrichment.
   website?: string;
+  // Bare apex domain (e.g. "stripe.com"). Used by the Granola adapter to
+  // match meetings → accounts via attendee email domain. Distinct from
+  // `website` so the matching key stays a clean apex even if `website` ever
+  // becomes a full URL.
+  domain?: string;
   // Stock ticker for public-co accounts. Drives SEC EDGAR adapter coverage.
   ticker?: string;
   // True when the account is a real company but the layered CRM scenario

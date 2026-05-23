@@ -114,7 +114,7 @@ async function classifyAndPersist(
 //     retry windows.
 export async function processInboundEmail(
   email: NormalizedInboundEmail,
-  provider: "sendgrid" | "mailgun",
+  provider: "sendgrid" | "mailgun" | "cloudflare",
 ): Promise<ProcessOutcome> {
   const totalBytes = email.text_body.length + email.html_body.length;
   if (totalBytes > MAX_BODY_BYTES) {

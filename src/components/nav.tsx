@@ -9,50 +9,43 @@ import { cn } from "@/lib/utils";
 
 export function Nav() {
   const pathname = usePathname();
-  const isActive = (href: string) =>
-    href === "/" ? pathname === "/" : pathname?.startsWith(href);
-
-  const linkBase =
-    "px-2.5 py-1 rounded-md transition-colors";
-  const linkInactive = "text-muted hover:text-foreground hover:bg-black/[0.04]";
-  const linkActive = "text-foreground bg-black/[0.06] font-medium";
 
   return (
     <header className="border-b border-border bg-background sticky top-0 z-30">
       <div className="px-4 h-12 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2" aria-current={isActive("/") ? "page" : undefined}>
+        <Link href="/" className="flex items-center gap-2">
+          {/* Logo mark — a baseball base seen in 3/4 forward perspective.
+              Trapezoidal foreshortening (wider top edge than bottom) reads
+              as a flat tile tilted toward the viewer. Thin inner outline
+              gives subtle dimension without selling it as 3D. */}
           <span
             aria-hidden
-            className="w-5 h-5 rounded-[5px] bg-brand flex items-center justify-center text-white text-[9px] font-bold"
+            className="w-5 h-5 rounded-[5px] bg-brand flex items-center justify-center"
             title="Dugout — the dugout view of your pipeline"
           >
-            ◆
+            <svg
+              viewBox="0 0 24 18"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinejoin="round"
+              className="w-3.5 h-3.5 text-white"
+            >
+              <polygon points="6,3 21,3 18,14 3,14" />
+              <polygon points="8,5 19,5 16.5,12.5 5.5,12.5" strokeOpacity="0.4" />
+            </svg>
           </span>
           <span className="font-semibold tracking-tight text-sm">Dugout</span>
         </Link>
         <nav className="flex items-center gap-1 text-xs">
           <Link
-            href="/market-intel"
-            aria-current={isActive("/market-intel") ? "page" : undefined}
-            className={cn(linkBase, isActive("/market-intel") ? linkActive : linkInactive)}
+            href={pathname === "/" ? "#demo" : "/#demo"}
+            scroll={true}
+            className={cn(
+              "inline-flex items-center px-3 h-7 rounded-md bg-foreground text-background font-medium hover:bg-foreground/90 transition-colors",
+            )}
           >
-            Market intel
-          </Link>
-          <Link
-            href="/spec"
-            aria-current={isActive("/spec") ? "page" : undefined}
-            className={cn(linkBase, isActive("/spec") ? linkActive : linkInactive)}
-          >
-            Spec
-          </Link>
-          <Link
-            href="/settings"
-            aria-current={isActive("/settings") ? "page" : undefined}
-            className={cn(linkBase, isActive("/settings") ? linkActive : linkInactive, "inline-flex items-center gap-1")}
-            title="Settings"
-          >
-            <span aria-hidden>⚙</span>
-            <span>Settings</span>
+            Jump to demo ↓
           </Link>
         </nav>
       </div>
