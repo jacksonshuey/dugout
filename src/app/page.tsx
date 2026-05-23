@@ -211,9 +211,9 @@ function StatusKey({ color, label }: { color: string; label: string }) {
 }
 
 // ---------------------------------------------------------------------------
-// 3. Onboarding walkthrough — 5 steps, each with a visualization that
-// integrates the real product UI elements (presets, priorities, stack
-// chips, integration logos, signal cards).
+// 3. Onboarding walkthrough — 4 steps, each with a visualization that
+// integrates the real product UI elements (priorities, stack chips,
+// integration logos, signal cards).
 // ---------------------------------------------------------------------------
 
 function OnboardingWalkthrough() {
@@ -221,10 +221,9 @@ function OnboardingWalkthrough() {
     <section className="max-w-6xl mx-auto px-6 py-20 sm:py-24 border-b border-border">
       <SectionEyebrow>Onboarding · end to end</SectionEyebrow>
       <h2 className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight max-w-3xl">
-        From paste-a-key to first signal — five steps.
+        From paste-a-key to first signal — four steps.
       </h2>
       <div className="mt-12 space-y-6">
-        <StepOne />
         <StepTwo />
         <StepThree />
         <StepFour />
@@ -250,7 +249,7 @@ function StepShell({
       <div className="md:col-span-4 space-y-2">
         <div className="flex items-center gap-2">
           <span className="font-mono text-xs text-muted">
-            STEP 0{num} / 05
+            STEP 0{num} / 04
           </span>
         </div>
         <h3 className="text-xl sm:text-2xl font-semibold tracking-tight">
@@ -263,76 +262,11 @@ function StepShell({
   );
 }
 
-function StepOne() {
-  // Pick a preset — visualized as 3 selectable cards.
-  return (
-    <StepShell
-      num={1}
-      title="Pick a preset"
-      sub="Workspace config flows to every downstream surface: signal engine, digest prompt, drawer copy. Same engine, different workspace = different product."
-    >
-      <div className="grid sm:grid-cols-3 gap-3">
-        <PresetCard
-          name="Checkbox"
-          industry="Legal-tech SaaS"
-          icp="Enterprise in-house legal · $20k–$400k ACV"
-          selected
-        />
-        <PresetCard
-          name="B2B SaaS"
-          industry="Generic"
-          icp="Mid-market + enterprise · 5–12wk cycles"
-        />
-        <PresetCard
-          name="Custom"
-          industry="Edit any preset"
-          icp="ICP · priorities · stack · assets"
-        />
-      </div>
-    </StepShell>
-  );
-}
-
-function PresetCard({
-  name,
-  industry,
-  icp,
-  selected,
-}: {
-  name: string;
-  industry: string;
-  icp: string;
-  selected?: boolean;
-}) {
-  return (
-    <div
-      className={`rounded-xl border p-4 space-y-2 transition-colors ${
-        selected
-          ? "border-foreground bg-foreground/[0.04]"
-          : "border-border bg-background"
-      }`}
-    >
-      <div className="flex items-center justify-between">
-        <span className="font-semibold tracking-tight text-sm">{name}</span>
-        {selected && (
-          <span className="text-[10px] font-semibold tracking-wider uppercase text-severity-green">
-            ✓ selected
-          </span>
-        )}
-      </div>
-      <div className="text-xs text-muted">{industry}</div>
-      <div className="text-xs text-foreground/70 leading-relaxed pt-1 border-t border-border">
-        {icp}
-      </div>
-    </div>
-  );
-}
-
 function StepTwo() {
   // Priorities + ICP — show real CHECKBOX_PRESET data.
   return (
     <StepShell
-      num={2}
+      num={1}
       title="Define priorities + kill point"
       sub="Strategic priorities tag every signal rule. The kill-point sentence is the single thing your engine optimizes around."
     >
@@ -407,7 +341,7 @@ function StepThree() {
   ];
   return (
     <StepShell
-      num={3}
+      num={2}
       title="Map your stack"
       sub="What you already use. Stack identity flows into the digest prompt and the drawer — 'Gong call excerpts' shows up as 'Granola' if you picked Granola."
     >
@@ -462,7 +396,7 @@ function StepFour() {
   ];
   return (
     <StepShell
-      num={4}
+      num={3}
       title="Connect data sources"
       sub="API keys live in Supabase Vault — encrypted at rest, never returned to the browser. Paste once, the daily cron handles the rest."
     >
@@ -518,7 +452,7 @@ function StepFive() {
   ];
   return (
     <StepShell
-      num={5}
+      num={4}
       title="Signals start flowing"
       sub="13 deterministic rules over your CRM data. News + SEC + meetings classified by Haiku. Severity routing: blocking → page, action → digest, awareness → weekly."
     >
