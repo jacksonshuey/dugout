@@ -67,14 +67,23 @@ export interface Task {
 // ---------------------------------------------------------------------------
 // Storage helpers — client-only (localStorage). Safe to call from server
 // components; they'll return empty arrays since `window` is undefined.
+//
+// Storage is scoped per workspace: switching presets (Checkbox → Generic SaaS)
+// uses a different key so tasks don't bleed across. Without scoping, every
+// preset switch produces a wall of "auto-resolved" toasts as the old tasks'
+// signal IDs no longer match the new ruleset's outputs.
 // ---------------------------------------------------------------------------
 
-const STORAGE_KEY = "dugout-tasks";
+const STORAGE_PREFIX = "dugout-tasks";
 
-export function loadTasks(): Task[] {
+function storageKey(workspaceKey: string): string {
+  return `${STORAGE_PREFIX}:${workspaceKey}`;
+}
+
+export function loadTasks(workspaceKey: string): Task[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = window.localStorage.getItem(storageKey(workspaceKey));
     if (!raw) return [];
     const parsed = JSON.parse(raw) as Task[];
     if (!Array.isArray(parsed)) return [];
@@ -84,18 +93,18 @@ export function loadTasks(): Task[] {
   }
 }
 
-export function saveTasks(tasks: Task[]): void {
+export function saveTasks(workspaceKey: string, tasks: Task[]): void {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+    window.localStorage.setItem(storageKey(workspaceKey), JSON.stringify(tasks));
   } catch {
     // localStorage quota or disabled — fail silently. Production would alert.
   }
 }
 
-export function clearTasks(): void {
+export function clearTasks(workspaceKey: string): void {
   if (typeof window === "undefined") return;
-  window.localStorage.removeItem(STORAGE_KEY);
+  window.localStorage.removeItem(storageKey(workspaceKey));
 }
 
 // ---------------------------------------------------------------------------
@@ -117,12 +126,13 @@ export interface ReconciliationResult {
 }
 
 export function reconcile(
+  workspaceKey: string,
   signals: Signal[],
   reps: { id: string }[],
   oppOwnerLookup: Record<string, string>,
   now: Date = TODAY,
 ): ReconciliationResult {
-  const stored = loadTasks();
+  const stored = loadTasks(workspaceKey);
   const signalsById = new Map(signals.map((s) => [s.id, s]));
   const storedById = new Map(stored.map((t) => [t.id, t]));
 
@@ -211,7 +221,7 @@ export function reconcile(
     merged.push(task);
   }
 
-  saveTasks(merged);
+  saveTasks(workspaceKey, merged);
   return { tasks: merged, autoResolved };
 }
 
@@ -248,6 +258,7 @@ function findAndUpdate(
 }
 
 export function markDone(
+  workspaceKey: string,
   tasks: Task[],
   taskId: string,
   by?: string,
@@ -260,11 +271,12 @@ export function markDone(
     resolutionReason: "manual_done",
     history: [...t.history, { at: nowIso, by, action: "marked done" }],
   }));
-  saveTasks(next);
+  saveTasks(workspaceKey, next);
   return next;
 }
 
 export function snooze(
+  workspaceKey: string,
   tasks: Task[],
   taskId: string,
   hours: number,
@@ -281,11 +293,12 @@ export function snooze(
       { at: nowIso, by, action: `snoozed ${hours}h` },
     ],
   }));
-  saveTasks(next);
+  saveTasks(workspaceKey, next);
   return next;
 }
 
 export function mute(
+  workspaceKey: string,
   tasks: Task[],
   taskId: string,
   reason: string,
@@ -303,11 +316,16 @@ export function mute(
       { at: nowIso, by, action: "muted", detail: reason },
     ],
   }));
-  saveTasks(next);
+  saveTasks(workspaceKey, next);
   return next;
 }
 
-export function reopen(tasks: Task[], taskId: string, by?: string): Task[] {
+export function reopen(
+  workspaceKey: string,
+  tasks: Task[],
+  taskId: string,
+  by?: string,
+): Task[] {
   const nowIso = new Date().toISOString();
   const next = findAndUpdate(tasks, taskId, (t) => ({
     ...t,
@@ -318,11 +336,12 @@ export function reopen(tasks: Task[], taskId: string, by?: string): Task[] {
     muteReason: undefined,
     history: [...t.history, { at: nowIso, by, action: "reopened" }],
   }));
-  saveTasks(next);
+  saveTasks(workspaceKey, next);
   return next;
 }
 
 export function addNote(
+  workspaceKey: string,
   tasks: Task[],
   taskId: string,
   text: string,
@@ -342,6 +361,6 @@ export function addNote(
       },
     ],
   }));
-  saveTasks(next);
+  saveTasks(workspaceKey, next);
   return next;
 }

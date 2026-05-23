@@ -10,7 +10,7 @@ import {
 } from "@/data/seed";
 import { signalsForRep, sortSignals } from "@/lib/signal-engine";
 import { chat } from "@/lib/claude";
-import { formatCurrency, daysBetween } from "@/lib/utils";
+import { formatCurrency, daysBetween, lookupBy } from "@/lib/utils";
 import type { Signal } from "@/lib/types";
 import { getWorkspaceConfig } from "@/lib/workspace-server";
 import type { WorkspaceConfig } from "@/lib/workspace";
@@ -18,6 +18,7 @@ import {
   getWorkspaceSignals,
   type ExternalSignal,
 } from "@/lib/external-signals";
+import { requireUiSession } from "@/lib/ui-auth-server";
 
 // The morning digest synthesizer. The signal engine produces structured
 // signals; this endpoint serializes them into the prompt context Claude
@@ -106,8 +107,8 @@ interface DigestRequest {
 }
 
 function describeSignal(s: Signal): string {
-  const opp = opportunities.find((o) => o.id === s.oppId)!;
-  const acc = accounts.find((a) => a.id === opp.accountId)!;
+  const opp = lookupBy(opportunities, s.oppId, "opportunity");
+  const acc = lookupBy(accounts, opp.accountId, "account");
   return `[${s.severity.toUpperCase()}] ${acc.name} (${opp.stage}, ${formatCurrency(opp.amount)}, ${daysBetween(opp.enteredStageAt)}d in stage)
   Signal: ${s.title}
   Detail: ${s.body}
@@ -115,6 +116,9 @@ function describeSignal(s: Signal): string {
 }
 
 export async function POST(req: Request) {
+  const unauthorized = await requireUiSession();
+  if (unauthorized) return unauthorized;
+
   let body: DigestRequest;
   try {
     const parsed = await req.json();
