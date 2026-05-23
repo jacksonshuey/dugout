@@ -10,13 +10,28 @@ This means the build order is: ship the signal model (synthesis.md) once → ren
 
 ---
 
+## The four product surfaces (per HANDOFF §3.5)
+
+Dugout's actual product architecture is four surfaces, one thesis ("no AE walks into a meeting cold"). The AE + Manager surfaces below are *inside* surfaces 2 and 4; surfaces 1 and 3 are independent.
+
+| Surface | What it is | Status today |
+|---|---|---|
+| **1. Stack integration** | Pluggable API-key onboarding — paste once, verify-on-connect, Vault-encrypted, daily sync. The Granola Settings → Connectors flow is the template. UX is the integration moat. | **Live for Granola** (session 5). Pattern documented in [`tools/granola.md`](../tools/granola.md). Every future adapter inherits it. |
+| **2. Per-account knowledge base** | Synthesized view per account: who's engaged on the buyer side, what's happened, what's next. The drawer is the surface. | Live (drawer with external signals + meetings section). Hero surfaces in this doc all live here. |
+| **3. News + vertical inbox** | Newsletter ingestion + NewsAPI + SEC EDGAR keeping AEs informed about both their accounts AND the verticals they live in. | Live (`/market-intel` + drawer per-account signals). |
+| **4. Rep + manager metrics** | Task completion, action latency, deal velocity. Manager view is first-class, not an afterthought. | Implied today via the task layer; explicit manager view at `/manager` (session 5 in progress). The 6 surfaces below are this surface's UX spec. |
+
+**The wedge sits inside this.** Selected-Vendor deal-death is the demo example *within* surface 2. The architecture supports any "AE walks in cold" pain — Checkbox-specific framing is per-org content in `workspace.md`, not engine logic.
+
+---
+
 ## What both personas independently demanded
 
 Both the AE and the Manager research surfaced the same root needs in different language. This convergence is the strongest signal that the synthesis.md schema is right.
 
 | Need | AE language | Manager language | Backend signal_type |
 |---|---|---|---|
-| Detect dying late-stage deals | "Selected-Vendor Procurement Tracker" | "Risk-ranked deal list" | `committee_gap` + `champion_disengagement` + `momentum_stall` |
+| Detect dying late-stage deals | "Selected-Vendor Procurement Tracker" | "Risk-ranked deal list" | `committee_gap` + `champion_disengagement` + `momentum_change` |
 | Champion change visibility | "Champion-changed alert" | "Champion silence pattern" | `champion_loss` + `champion_disengagement` |
 | Competitive pressure | "Competitor mention timeline" | "Competitor mention trending" | `competitive_threat` |
 | Procurement/legal engagement | "Did Finance open the order form?" | "Procurement-stage evidence" | `committee_gap` + `shadow_research` (Dock asset opens) |
@@ -31,7 +46,7 @@ Both the AE and the Manager research surfaced the same root needs in different l
 | `dock_engagement_decay` | `champion_disengagement` |
 | `legal_redline_received` | `committee_engagement` (positive, sub-type of `committee_expansion`) |
 | `champion_silence` | `champion_disengagement` |
-| `meeting_no_show` | `momentum_stall` |
+| `meeting_no_show` | `momentum_change` |
 | `competitor_mention` | `competitive_threat` |
 | `contact_change` | `champion_loss` (when active OCR contact) |
 | `web_visit`, `intent` | `shadow_research` |
@@ -59,6 +74,34 @@ This split is what determines the routes:
 - `/team` (new) → Manager portfolio-centric view
 - `/account/[slug]` (new) → shared deep-dive (both personas use)
 - `/ask` (new) → both personas, different default prompts per persona
+
+---
+
+## Hero Surface #0 — Selected Vendor Health Score
+
+> Added after reading the Checkbox case PDF. See `../metrics.md` for the full formula and rationale.
+
+This is the surface the CEO, SVP Revenue, Director of Finance, and RevOps Lead (the interview panel) will look at first. It sits above all 6 surfaces below and is the **single number that justifies the entire system.**
+
+**What it is:** Every open opportunity in Selected Vendor or later gets a 0–100 composite health score, refreshed daily, with the contributing components and signals exposed inline. Score thresholds: 80–100 Healthy / 60–79 Watch / 40–59 At Risk / <40 Critical.
+
+**Why it's surface #0:** The case publishes Selected Vendor → Close = 60% and explicitly says *"deals that reach here are dying at budget approval."* A 10pp lift on that gate = ~$1.3M recovered ARR per year. Every other surface either feeds this score or drills into it.
+
+**Audiences (one surface, three lenses):**
+- **CEO / SVP Rev:** the team-average and trend ("our SV Health is 64 this week, up from 59 last week, driven by better committee coverage")
+- **Manager:** the risk-ranked list (every red and orange opp by AE)
+- **AE:** the per-opp drilldown with suggested play
+
+**Components** (weighted sum, all 0–100):
+- 20% time-in-stage vs historical p75
+- 30% buying-committee coverage (5 required roles: Champion / EB / Finance / IT / Legal) — heaviest weight because Priority #4
+- 20% enablement-asset deployment (the 3 assets from Priority #2: CFO Leave-Behind, IT one-pager, Finance Brief)
+- 20% champion engagement (days since last touch)
+- 10% subtracted for active risk correlations (`champion_loss`, `committee_gap`, `competitive_threat`, `momentum_change`)
+
+**Backend:** uses every correlation pattern from `synthesis.md` + custom SFDC fields for the enablement-asset deployment check. Every component score traces to source signal_ids per the traceability principle.
+
+**This is the demo opening shot.** Three Selected Vendor opps side-by-side, scored 87 / 52 / 10. The 10 has 4 red components and one click reveals exactly which source events drove each.
 
 ---
 
@@ -201,15 +244,15 @@ These prefills double as **product proof** — they show, on day one, that the A
 
 | Phase | Ships | Why this order | Effort |
 |---|---|---|---|
-| **Phase 0** (already done) | dictionary.md + synthesis.md + tools/* | Foundation, no UX | done |
+| **Phase 0** (already done) | dictionary.md + synthesis.md + tools/* + metrics.md | Foundation, no UX | done |
 | **Phase 1** | Tiered storage + `/account/[slug]` route (the unified timeline view) | Single deepest-evidence view — the substrate for everything | ~3 days |
-| **Phase 2** | Pre-Call Brief + Risk-Ranked Deal List | Shared backend; both personas get high-impact surface; lands the wedge story | ~2 days (after Phase 1) |
-| **Phase 3** | `/ask` route with 6 prefilled questions | The "free-flowing hub" framing made concrete | ~3 days |
-| **Phase 4** | Procurement Tracker | Wedge made *visible* — the Checkbox-specific killer feature for the interview | ~1.5 days |
+| **Phase 2** | **Selected Vendor Health Score (Hero Surface #0)** + Procurement Tracker | The metric the interview panel cares about most; the wedge made visible | ~2.5 days |
+| **Phase 3** | Pre-Call Brief + Risk-Ranked Deal List | Shared backend with Hero #0; AE + Manager activation | ~2 days |
+| **Phase 4** | `/ask` route with 6 prefilled questions | The "free-flowing hub" framing made concrete | ~3 days |
 | **Phase 5** | Daily Deal Delta (Slack) + Per-Rep Coaching Brief | Habit-forming + manager-side adoption | ~2 days |
 | **Phase 6** | Forecast Confidence Panel | Stretch — the highest-ceiling feature but most accuracy risk | ~3 days |
 
-**Total: ~14.5 days** if every adapter were already wired. Realistically, since the *backend signals* feeding these surfaces don't all exist yet, Phase 1-4 is the demoable scope.
+**Total: ~15.5 days** if every adapter were already wired. Realistically, since the *backend signals* feeding these surfaces don't all exist yet, Phase 1-4 is the demoable scope.
 
 ---
 
@@ -218,14 +261,17 @@ These prefills double as **product proof** — they show, on day one, that the A
 If you have only ~1 week of build time before the interview, ship:
 
 1. **`/account/[slug]` route** (Phase 1) — the deep timeline view. Renders fake data from `src/data/seed.ts` augmented with synthesized signals. Proves the unified-store concept.
-2. **Procurement Tracker** (Phase 4) — the wedge made visible. The single most defensible artifact for *Checkbox specifically*.
-3. **`/ask` route** (Phase 3) with one working question: "Why is {seedAccount} stalling?" — Sonnet 4.6 answer with citations into the timeline.
+2. **Selected Vendor Health Score (Hero Surface #0)** — the dashboard centerpiece. Three opps shown side-by-side, scored, with the contributing components and signals exposed. This is the demo opening shot.
+3. **Procurement Tracker** (Phase 2) — the wedge made visible at per-opp level. Drill-down from the Hero score.
+4. **`/ask` route** (Phase 4) with one working question: "Why is {seedAccount} stalling?" — Sonnet 4.6 answer with citations into the timeline.
 
-That's three surfaces, ~5 days of focused work, and a demo arc that goes:
-- "Here's the data architecture" (synthesis.md slide)
-- "Here's the timeline view of one account" (`/account/[slug]`)
-- "Here's the wedge-specific surface that catches dying deals 2 weeks early" (Procurement Tracker)
-- "Here's the AI layer that lets anyone ask anything across the stack" (`/ask` live demo)
+That's four surfaces, ~6 days of focused work, and a demo arc that goes:
+- *"Here's the architecture and the schema."* (synthesis.md slide)
+- *"Here's the dashboard. SV Health Score — the one number that justifies the system. 10pp improvement is ~$1.3M ARR."* (Hero #0)
+- *"Click any score → contributing components → contributing signals → source webhooks."* (account timeline + traceability)
+- *"Here's the procurement-track view per opp — the wedge made visible."* (Procurement Tracker)
+- *"And here's the AI layer that lets anyone ask anything across the stack."* (`/ask`)
+- *"For Part 2: Trial Intake Orchestrator — automates Priority #1, the case's highest-leverage change."*
 
 That's the interview win.
 

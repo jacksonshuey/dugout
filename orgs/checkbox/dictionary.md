@@ -1,15 +1,17 @@
 # Checkbox — Signal Dictionary (Index)
 
 > The structured catalog of what Dugout knows about Checkbox's world. Per-tool details live in `tools/*.md`.
+> - **The metrics this all powers (Selected Vendor Health Score + case-derived numbers):** [metrics.md](metrics.md) *(backstop, not the lead pitch)*
 > - **The unified relational model + tiered storage + AI query layer:** [synthesis.md](synthesis.md)
 > - **AE + Manager workflow research + UX prioritization:** [discovery/](discovery/) — start with [information-requirements.md](discovery/information-requirements.md)
+> - **What to build next beyond the Checkbox stack:** [../../docs/gtm-tool-expansion-research.md](../../docs/gtm-tool-expansion-research.md) *(Dugout-wide roadmap; identifies G2 Buyer Intent, Common Room, real Gong API as the next must-haves)*
 
 ## What this is
 
-A "dictionary" in Dugout's sense is **not** a glossary of terms. It is the structured contract between Checkbox's operating systems (the 12 tools below + the live-world feeds Dugout already ingests) and Dugout's signal engine. Each entry answers:
+A "dictionary" in Dugout's sense is **not** a glossary of terms. It is the structured contract between Checkbox's operating systems (the 13 tools below + the live-world feeds Dugout already ingests) and Dugout's signal engine. Each entry answers:
 
 - *What data does this source emit?*
-- *Which 2–4 signals from it actually move the needle on the wedge?*
+- *Which 2–4 signals from it actually move the needle?*
 - *What rule consumes the signal? At what severity tier?*
 - *What's the realistic cost to wire it?*
 - *What would we ignore — and why?*
@@ -18,9 +20,13 @@ The dictionary is read by humans (sales ops authoring playbooks, AEs understandi
 
 ---
 
-## The wedge, restated
+## The broader product, and where the wedge sits inside it
 
-Checkbox deals die at **Selected Vendor** — the gap between verbal champion buy-in and procurement/finance/IT/legal approval. Every signal in this dictionary is graded on a single question: *does it shorten the time between "deal stall begins" and "AE knows about it"?*
+**The product (per HANDOFF §3.5):** *a centralized intelligence layer for sales teams — no AE walks into a meeting cold.* Every tool, every signal, every news cycle and vertical trend, synthesized so neither the AE nor their manager is operating blind.
+
+**The wedge is the demo anchor, not the whole product.** Checkbox-specifically, deals die at **Selected Vendor** — the gap between verbal champion buy-in and procurement/finance/IT/legal approval. That's the case-aligned story we use in the interview. The architecture below applies whether the customer's pain is "Selected Vendor stalls" (Checkbox) or "Series A founders going dark in week 6" (a different ICP). The signals are universal; the *priority weighting* is per-customer.
+
+Every signal in this dictionary is graded on: *does it shorten the time between "thing happens on the buyer side" and "AE knows about it"?*
 
 Severity tiers:
 
@@ -32,7 +38,9 @@ Severity tiers:
 
 ---
 
-## The 12 internal operating systems
+## The 13 internal operating systems
+
+12 from the Checkbox case PDF + **Granola** (the 13th, added in session 5 — the only one Dugout has actually wired end-to-end).
 
 | Tool | Category | Signals | Top tier | Wedge fit | Wire effort |
 |---|---|---|---|---|---|
@@ -48,11 +56,15 @@ Severity tiers:
 | [Zendesk](tools/zendesk.md) | CS / support | 3 | BLOCKING | B — expansion plays + reference health | ~250 LOC / 1.5d |
 | [Webflow](tools/webflow.md) | Website / CMS | 2 standalone, 1 layered | ACTION | C — low standalone, depends on de-anon layer | ~120 LOC / 2-3h |
 | [Xero](tools/xero.md) | Finance / billing | 4 | BLOCKING | B — retention/renewal wedge (downstream) | ~450 LOC / 2-3d |
+| [**Granola**](tools/granola.md) | **Meeting notes (live in Dugout)** | **7** | **BLOCKING** | **S — `finance_mentioned_not_engaged` is the literal wedge signal** | **0 (already built end-to-end, session 5)** |
 
-**Totals:** 42 signals across 12 tools. 12 BLOCKING-tier, ~20 ACTION-tier, ~10 AWARENESS-tier. Estimated full-wire effort: ~3,500 LOC, ~3-4 weeks single-engineer.
+**Totals:** 49 signals across 13 tools. ~14 BLOCKING-tier, ~22 ACTION-tier, ~13 AWARENESS-tier. Granola is built; the other 12 are deeply researched but not wired.
+
+> **Granola matters disproportionately as a card** because it's the only one with shipping code — it documents the **canonical pattern** (REST adapter → Haiku classifier → Supabase Vault for the API key → daily cron sync → drawer surface) that every other adapter in this dictionary will follow.
 
 ### Tier S (wedge anchors — wire first)
 
+- **Granola** *(actually live)* — `finance_mentioned_not_engaged` and `it_mentioned_not_engaged` are the most direct signals for the Selected Vendor wedge in the entire dictionary. Already shipping.
 - **Dock** — the only system in the stack that sees who from the buying committee is *actually reading* the late-stage assets. No substitute.
 - **Gong** — only source of "no committed next step" and verified competitor mentions. Critical for the Selected Vendor → procurement transition.
 - **Salesforce** — system of record. Every other adapter joins back through it.
@@ -137,6 +149,19 @@ The point of the dictionary is not the 12 individual cards — it's the **relati
 | Webflow | High-intent form from new contact at named account (ACTION) |
 
 **Rule shape:** This is a *positive* signal — a new buying-committee member just revealed themselves. Any source = ACTION task to identify and add to OCR within 24h.
+
+### Pattern 6: Pre-meeting intel — `account_context` + `vertical_context` (live-world feeds, no committee data required)
+
+| Source | Signal |
+|---|---|
+| NewsAPI | Account-named news article in last 30d (AWARENESS, promotes to ACTION on funding/layoffs/exec-change) |
+| SEC EDGAR | 8-K filing for the account (AWARENESS, promotes to ACTION on Item 5.02 director/officer change) |
+| Inbound newsletter inbox | Vertical-level market intel mentioning account's industry (AWARENESS) |
+| Inbound newsletter inbox | Account explicitly named in a newsletter (ACTION) |
+
+**Rule shape:** This pattern doesn't require multi-source correlation — even one item is useful for pre-meeting prep. The product surface is the **"no AE walks in cold"** drawer block on every account, rendered into a Pre-Meeting Brief 15 min before any external calendar event. Powers the broader anti-cold-meeting product, not just the wedge.
+
+**Why this matters for the product framing:** Patterns 1–5 are wedge-focused (deal-state signals about specific opps). Pattern 6 is the *broader product* — the live-world layer that makes Dugout useful even when there's no specific stall to detect. The two work together: Patterns 1–5 catch the dying deals; Pattern 6 prevents reps from walking in cold to *healthy* deals too.
 
 ---
 

@@ -1,10 +1,13 @@
 # Synthesis — The Unified Signal Model
 
 > The relational backbone. Every signal from every source — internal SaaS or live-world — fits one shape. That shape is the product.
+> **For what this schema actually MEASURES — the Selected Vendor Health Score formula and the case-derived metrics it powers — see [metrics.md](metrics.md)** *(backstop, not the lead demo pitch)*.
 
 ## The thesis
 
-The 12 per-tool dictionaries describe **42 distinct signals from 12 internal operating systems**, plus 3 live-world adapters already in production (NewsAPI, SEC EDGAR, inbound email). Without synthesis they're 45 dashboards. With synthesis they're a single queryable model where any signal can corroborate any other, any new source plugs into the same shape, and any cross-source correlation becomes a defensible product feature.
+**Dugout's product is anti-cold-meetings** — a centralized intelligence layer so no AE walks into a buyer conversation under-informed. The Selected Vendor wedge is the demo anchor; the schema below is what makes the broader product possible.
+
+The 13 per-tool dictionaries describe **49 distinct signals across 13 internal operating systems** (12 from the Checkbox case + Granola, which is actually built), plus 3 live-world adapters already in production (NewsAPI, SEC EDGAR, inbound email). Without synthesis they're 46+ dashboards. With synthesis they're a single queryable model where any signal can corroborate any other, any new source plugs into the same shape, and any cross-source correlation becomes a defensible product feature.
 
 This document defines:
 1. The **canonical signal taxonomy** (10 signal types every source-signal maps to)
@@ -21,22 +24,26 @@ If `dictionary.md` is the input catalog, **this is the operating system**.
 
 ## 1. The canonical signal taxonomy
 
-All 42 source-signals collapse into **10 canonical signal types**. The signal_type is the abstraction that makes cross-source correlation possible — different tools observing the same underlying phenomenon get the same `signal_type`, even though their raw payloads differ.
+All 49 source-signals collapse into **12 canonical signal types**. The signal_type is the abstraction that makes cross-source correlation possible — different tools observing the same underlying phenomenon get the same `signal_type`, even though their raw payloads differ. Polarity (good news vs bad news) is carried on the `direction` field of each signal, not in the type name — so `momentum_change` with `direction='positive'` is "next step committed" and `direction='negative'` is "stage stagnated."
 
 | `signal_type` | What it means | Sources that observe it | Tiers |
 |---|---|---|---|
 | `champion_loss` | Primary champion left, fired, deactivated, or is unreachable | ZoomInfo (job change), Salesforce (Contact.IsActive flip), Outreach (bounce/opt-out), Nooks (wrong-person cluster) | BLOCKING |
 | `champion_disengagement` | Champion still present but going dark | Dock (room visit drop-off), Outreach (reply latency decay), Gong (sentiment cliff), HubSpot (lifecycle regression), Chili Piper (reschedule streak) | ACTION → BLOCKING |
-| `committee_gap` | Required persona (Finance/Legal/IT/Procurement) absent from deal | Salesforce (missing OCR), Dock (asset never opened), Gong (no participant on call), Swyft (Economic Buyer field empty) | ACTION → BLOCKING |
-| `committee_expansion` | New buying-committee member surfaced — positive signal | HubSpot (new contact form fill), Dock (unknown buyer-org viewer), Outreach (net-new prospect reply), Chili Piper (first meeting w/ new persona), ZoomInfo (new buyer hired), Webflow (form from new contact at named account) | ACTION |
-| `momentum_stall` | Stage stagnation, slipping dates, missed/postponed meetings, no next step | Salesforce (stage stagnation, close-date slip), Chili Piper (no-show after progression, reschedule streak), Gong (no next step committed), Swyft (next steps decay), HubSpot (dormant-deal reengagement is inverse signal) | ACTION → BLOCKING |
-| `data_hygiene_gap` | Structured deal metadata is missing or stale — rules can't fire reliably | Swyft (MEDDPICC field staleness), Salesforce (missing contact roles) | BLOCKING for rule viability |
-| `competitive_threat` | Buyer is evaluating a competitor mid-cycle | Gong (tracker hit), Swyft (Competitor field added), HubSpot (`/vs/` page view), Nooks (AI summary mention) | ACTION |
-| `shadow_research` | Buyer activity outside known channels — diligence happening you don't see | HubSpot (form fill from new contact at active-opp domain), Dock (unknown viewer), ZoomInfo (intent surge, WebSights anon visit), Webflow (high-intent form), HubSpot (dormant-deal reengagement) | ACTION → BLOCKING |
+| `committee_gap` | Required persona (Finance/Legal/IT/Procurement) absent from deal | Salesforce (missing OCR), Dock (asset never opened), Gong (no participant on call), Swyft (Economic Buyer field empty), **Granola (`finance_mentioned_not_engaged`, `it_mentioned_not_engaged`)** | ACTION → BLOCKING |
+| `committee_expansion` | New buying-committee member surfaced | HubSpot (new contact form fill), Dock (unknown buyer-org viewer), Outreach (net-new prospect reply), Chili Piper (first meeting w/ new persona), ZoomInfo (new buyer hired), Webflow (form from new contact at named account) | ACTION |
+| `momentum_change` | Anything that moves the deal's momentum — stage moves, slips, next-step commits, missed/postponed meetings, objections raised. Polarity on `direction`. | Salesforce (stage transitions, close-date slip), Chili Piper (no-show, reschedule streak), Gong (no next step / next step committed), Swyft (next steps decay), HubSpot (dormant-deal reengagement), **Granola (`objection_raised`, `next_step_committed`, `champion_signal`)** | ACTION → BLOCKING |
+| `competitive_threat` | Buyer is evaluating a competitor mid-cycle | Gong (tracker hit), Swyft (Competitor field added), HubSpot (`/vs/` page view), Nooks (AI summary mention), **Granola (`competitor_named`)** | ACTION |
+| `shadow_research` | Buyer activity outside known channels — diligence happening you don't see | HubSpot (form fill from new contact at active-opp domain), Dock (unknown viewer), ZoomInfo (intent surge, WebSights anon visit), Webflow (high-intent form) | ACTION → BLOCKING |
 | `account_health_decline` | Existing customer in trouble — kills expansion deals and reference plays | Zendesk (ticket spike, champion angry ticket, reference degradation), Xero (payment health degradation, customer downgrade) | ACTION → BLOCKING |
-| `lifecycle_milestone` | Time-based event: renewal window, first invoice, intent surge timing | Xero (renewal window, first invoice), ZoomInfo (intent_surge_cold on no-pipeline ICP account) | AWARENESS → ACTION → BLOCKING by proximity |
+| `lifecycle_milestone` | Time-based event tied to an account or deal | Xero (renewal window, first invoice), ZoomInfo (intent_surge_cold on no-pipeline ICP account), **Granola (`timeline_signal`)** | AWARENESS → ACTION → BLOCKING by proximity |
+| **`account_context`** *(new)* | **External world reporting about a specific account — anything in the news layer that the AE should know before walking in** | **NewsAPI (live), SEC EDGAR (live), inbound email when classified to a specific account** | **AWARENESS → ACTION** |
+| **`vertical_context`** *(new)* | **Industry-level intel — trends, regulations, competitor moves at the category level, not tied to one account. Powers the "vertical their clients live in" framing.** | **Inbound newsletter inbox (live), market intel pipeline (live)** | **AWARENESS** |
+| `data_hygiene_gap` *(future-state)* | Structured deal metadata is missing or stale — rules can't fire reliably. **No live adapter produces this yet; defined for when Swyft is wired.** | Swyft (MEDDPICC field staleness), Salesforce (missing contact roles) | BLOCKING for rule viability |
 
 **Why this matters:** when 3 different tools observe `champion_loss` on the same account in 14 days, that's not 3 alerts — it's *one event* with high confidence. The signal_type is the join key.
+
+**Why 12, not 10:** earlier drafts had 10. The two adds (`account_context`, `vertical_context`) cover the *live* live-world feeds — NewsAPI, SEC, inbound newsletter — that already ship today but didn't have a home in the deal-focused taxonomy. The `momentum_change` rename absorbs the awkward "positive momentum_stall" case (next step committed, champion signaled strength) by leaning on the existing `direction` field rather than fighting it with naming.
 
 ---
 
@@ -636,10 +643,43 @@ The reason this synthesis is non-skippable: **every `signal_type` correlation th
 | **Expansion-Deal Red Flag** | `account_health_decline` correlation across Zendesk + Xero on active expansion opps | "Don't pitch the upsell — they have 3 open P1s and AR is 60 days overdue." |
 | **Reference Customer Watchlist** | `account_health_decline` on accounts tagged `reference_status=active` | Stop using a now-unhappy customer on reference calls before the AE finds out the hard way. |
 | **Renewal Quarterback** | `lifecycle_milestone` (renewal_window) + 90d signal history per account | Auto-briefs the AE with what happened over the year, who engaged when, what risks accumulated. |
-| **MEDDPICC Completeness Score** | `data_hygiene_gap` correlation per opp | RevOps dashboard: which AEs have the cleanest deal hygiene, where Swyft is failing to extract. |
+| **MEDDPICC Completeness Score** | `data_hygiene_gap` correlation per opp *(future — awaits Swyft wiring)* | RevOps dashboard: which AEs have the cleanest deal hygiene, where Swyft is failing to extract. |
+| **Pre-meeting Intel Brief** *(new — powered by `account_context` + `vertical_context`)* | Account news + vertical trends in last 30d auto-rendered 15 min before any external calendar event | The "no cold meetings" product principle made literal. NewsAPI + SEC + newsletter inbox are already producing the signals; just need to render them per-meeting. |
 | **Newsletter Intelligence (already shipping)** | Inbound email classifier → `shadow_research` or `competitive_threat` signals attached to accounts | The "subscribe Dugout to your buyer's reading list" feature. No competitor has this. |
 
 **10 products. One schema.** Adding tool #13 doesn't require new product surface — it slots into existing signal_types and the existing 10 products get more accurate.
+
+---
+
+## How this schema powers the case-derived metrics
+
+The schema is the substrate; the metrics it produces are what the interview panel cares about. Full formula in [metrics.md](metrics.md). Here's the schema→metric chain for the hero metric (**Selected Vendor Health Score**):
+
+```
+Source webhook  →  signals row  →  signal_correlations row  →  component score  →  SV Health Score
+─────────────      ─────────────    ───────────────────────    ──────────────       ────────────────
+Dock asset       Dock relay        committee_gap                Buying-committee     Weighted sum,
+view event   →   write to       →  (3 sources agree:        →  coverage = 40    →   0–100 per opp
+(Salesforce      signals with       SFDC OCR + Dock           (×0.30 weight)
+managed pkg)     signal_type=       silence + Gong call
+                 committee_gap      attendance)
+                 + source_event_id
+                 (idempotency)
+```
+
+Every component score in the SV Health formula has this same shape:
+
+| Component | Weight | Reads from | Powered by signal_type(s) |
+|---|---|---|---|
+| Time-in-stage | 20% | `opportunities.stage_changed_at` | Salesforce stage change |
+| Committee coverage | 30% | `signals` joined to `people` by role | `committee_gap`, `committee_expansion` |
+| Enablement deployment | 20% | `signals` filtered to `asset_class IN (cfo_brief, it_brief, finance_brief)` | `shadow_research` (asset views by external viewers) |
+| Champion engagement | 20% | `signals` filtered to `person_id = primary_champion` | `champion_disengagement` |
+| Risk penalty | -10% to 0 | Active `signal_correlations` on the opp | All BLOCKING-tier correlations |
+
+**Traceability:** any score on the dashboard can be drilled to: component score → signals that fed it (with `source_event_id`) → source webhook payload at `occurred_at` → click into source system. This is what makes the system defensible when an AE asks "why did Dugout flag this deal?"
+
+The schema was designed for this from day one — no retrofit needed.
 
 ---
 
