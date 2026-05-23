@@ -611,7 +611,13 @@ function ExternalSignalsSection({
                   {formatDate(s.occurred_at)}
                 </span>
               </div>
-              <p className="text-sm leading-relaxed">{s.summary}</p>
+              <p className="text-sm leading-relaxed">
+                <span className="font-medium text-muted">
+                  {formatDate(s.occurred_at)}
+                </span>
+                {" · "}
+                {s.summary}
+              </p>
             </div>
           ))}
         </div>
