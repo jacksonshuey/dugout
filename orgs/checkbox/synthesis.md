@@ -239,7 +239,7 @@ create table signal_instances (
   signal_type     text not null,                          -- champion_loss | committee_gap | ...
   severity        text not null,                          -- 'blocking' | 'action' | 'awareness'
   direction       text not null default 'negative',       -- 'negative' | 'positive' | 'neutral'
-  confidence      smallint not null default 50,           -- 0–100
+  -- NOTE: no per-signal `confidence` column. See "Design note: confidence" below for rationale.
 
   -- entity references (all nullable as appropriate)
   account_id      uuid not null references accounts(id),
@@ -289,7 +289,8 @@ create table signal_correlations (
   source_count    int generated always as (cardinality(source_tools)) stored,
 
   derived_severity text not null,                         -- correlations can elevate
-  confidence      smallint not null,                      -- typically > any single signal
+  -- NOTE: no `confidence` column. The correlation's strength IS its `source_count`.
+  -- 2 sources agreeing = elevated; 3+ = strong. Numeric confidence would just re-encode count.
 
   first_observed_at timestamptz not null,
   last_reinforced_at timestamptz not null,
@@ -302,6 +303,18 @@ create table signal_correlations (
 create index sc_account_open on signal_correlations (workspace_id, account_id, resolved_at)
   where resolved_at is null;
 ```
+
+### Design note: why no per-signal `confidence`
+
+Earlier drafts of this schema carried `confidence smallint (0–100)` on every `signal_instances` row, and again on every `signal_correlations` row. We've dropped both. Two reasons:
+
+1. **It's not actually confidence — it's vibes.** With no customers and no outcome data, any numeric confidence per source tool is hardcoded ("Salesforce=95, Granola=70, NewsAPI=60") and never calibrated against acted-on vs. dismissed outcomes. That's a knob that pretends to be data.
+
+2. **It dilutes the "single query across the schema" goal.** Source-tool *agreement* is already the confidence signal — if 3 tools independently observe the same `signal_type` on the same account in 14 days, that's structurally stronger than 1 tool reporting it with self-assigned confidence=95. The schema already expresses this via `count(distinct source_tool)` in correlation queries. Adding a confidence column just re-encodes the count badly.
+
+**When confidence earns its way back:** once we have ≥90 days of "AE clicked Acted-On vs Dismissed" data per rule, the `rules.acted_on_count / rules.hit_count` ratio becomes the real, *learned* confidence signal — and it lives at the rule level, not the signal level. Per-instance confidence isn't useful at any stage.
+
+**What we kept:** `confidence` columns on `graph` namespace tables (`entity_aliases.confidence`, `entity_match_candidates.match_score`, `account_contacts.confidence`, `object_relationships.confidence`) and on `transcript_segments.confidence` (ASR confidence from Gong/Granola). Those are real numbers from real sources — identity-match scores have concrete probabilistic meaning, and ASR confidence comes from the provider. The `intel`-namespace per-signal confidence was the only made-up one, and it's gone.
 
 ### Rules: data, not code
 
@@ -374,8 +387,7 @@ with recent as (
     s.contact_id,
     s.id as signal_id,
     s.source_tool,
-    s.occurred_at,
-    s.confidence
+    s.occurred_at
   from signal_instances s
   where s.signal_type = 'champion_loss'
     and s.occurred_at > now() - interval '14 days'
@@ -501,7 +513,7 @@ User: Why is the Helios deal stalling?
 Agent calls get_account_context("acc_helios", 90):
   → Helios Manufacturing, stage=Selected Vendor (23d), $185K, owner=sarah@checkbox
   → Champion: Maria Chen (VP Eng), EB: Tom Wright (CFO)
-  → 1 active correlation: champion_disengagement, confidence=82, 3 sources
+  → 1 active correlation: champion_disengagement, 3 sources agreeing
 
 Agent calls get_account_timeline("acc_helios", 30):
   → 14 events. Notable:
@@ -629,7 +641,7 @@ The reason this synthesis is non-skippable: **every `signal_type` correlation th
 |---|---|---|
 | **Multi-source Champion Departure Detection** | `champion_loss` correlation ≥2 sources | UserGems sees ZoomInfo only. We see 4 sources — and we explain which 2+ agreed. |
 | **Buying Committee Health Score** | `committee_gap` correlation across SFDC + Dock + Gong + Swyft | Per-opp 0–100 score with the missing roles named. No one else combines deal-room + call-attendance + CRM-structure. |
-| **Deal Stall Early Warning** | `champion_disengagement` correlation across Dock + Outreach + Gong + HubSpot + Chili Piper | 5 sources, confidence-weighted. The "your champion is going dark" alert with receipts. |
+| **Deal Stall Early Warning** | `champion_disengagement` correlation across Dock + Outreach + Gong + HubSpot + Chili Piper | 5 sources. Source-count IS the strength signal. The "your champion is going dark" alert with receipts. |
 | **Competitive Threat Radar** | `competitive_threat` correlation, with Gong-verified verbal mention as highest weight | Distinguishes "buyer said it on a call" from "buyer's coworker viewed a comparison page" — and weights accordingly. |
 | **Cold-Account Activation** | `shadow_research` correlation on accounts with `lifecycle_stage='target'` | Intent surge + WebSights visit + form fill from same account = the SDR's pre-warmed lead. |
 | **Expansion-Deal Red Flag** | `account_health_decline` correlation across Zendesk + Xero on active expansion opps | "Don't pitch the upsell — they have 3 open P1s and AR is 60 days overdue." |
@@ -680,7 +692,7 @@ These are the calls Jackson needs to make (or get RevOps input on) before code:
 
 1. **Asset category taxonomy** — the spec's `assets.category` enum is narrower than the previous Checkbox draft. Edge cases: do invoice PDFs warrant a category, or live as `assets.asset_type='pdf'` without category? Does newsletter content even land in `assets`, or only in `external_articles`? Editing this enum after launch is expensive.
 
-2. **Confidence scoring policy** — every object in `intel` carries `confidence 0–100`. Two open questions: (a) does each `signal_definition` carry its own scoring function, or is there a universal one? (b) does `signal_correlations.confidence` cap at 100 or compound?
+2. **When (if ever) to re-introduce per-rule learned confidence.** The schema dropped per-signal confidence because we have no customers and no calibration data. The natural successor is `rules.acted_on_count / rules.hit_count` — but that requires ≥90 days of outcome data. Open: do we add a `rules.learned_trust` materialized column at that point, or compute live? And: do we ever surface trust to the rep, or keep it RevOps-internal?
 
 3. **`signal_correlations` materialization cadence** — every 5 min (cheap, near-real-time) vs. on-demand at task-list query time (expensive at query, no staleness). BLOCKING-tier should be 5 min; AWARENESS can be hourly.
 
