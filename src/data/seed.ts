@@ -18,22 +18,27 @@ import type {
 // Health surface, U2) a stable handle to render the canonical three-card
 // rollup without hard-coding account IDs.
 //
-// Targets when scored by the metrics.md SV Health formula:
-//   - healthy  → Snowflake (acc_atlas)         expected score ~85 (Healthy)
-//   - watch    → KKR (acc_meridian)            expected score ~55 (At Risk)
-//   - critical → CNA Financial (acc_sentinel)  expected score <20 (Critical,
-//                matches the Helios worked example in metrics.md verbatim)
+// Targets when scored by the metrics.md SV Health formula (verified by
+// scripts/verify-demo-scores.ts):
+//   - healthy  → Snowflake (acc_atlas)         expected score ~83 (Healthy)
+//   - watch    → KKR (acc_meridian)            expected score ~65 (Watch, amber)
+//   - critical → CNA Financial (acc_sentinel)  expected score ~10 (Critical,
+//                matches the Helios worked example in metrics.md §"Worked
+//                example" verbatim: amount $185K, stage age 23d, 2/5 committee,
+//                1/3 enablement, champion 9d silent, -20 risk penalty)
 //
 // These IDs are stable; if the underlying scenario is rewritten, update the
 // scoring assertions but keep the keys.
 //
-// NOTE on the `watch` key: its computed SV Health Score is currently ~53,
-// which falls into the `at_risk` tier (40-59) per tierForScore. The key
-// labels the demo *scenario role* (middling deal that needs attention),
-// not the computed tier badge — the UI renders "AT RISK" orange for this
-// account, which is semantically correct. If a true 60-79 watch-tier
-// scenario is wanted for visual variety in the dashboard, rebalance the
-// KKR seed signals to push the score up; otherwise leave as-is.
+// Cross-source corroboration the demo lights up on each scenario:
+//   - healthy:  committee_expansion from 3 sources (HubSpot + Dock + Outreach)
+//               + momentum_change (positive) from Granola — "5th committee
+//               role just engaged, champion committed Friday signature"
+//   - watch:    momentum_change (negative) from 2 sources (Salesforce +
+//               Outreach) — "decision criteria stale, reply latency climbing"
+//   - critical: champion_disengagement from 4 sources (Dock + Outreach + Gong
+//               + signal_engine CHAMPION_GHOST), then rolled up to a BLOCKING
+//               champion_loss correlation that triggers the -20 risk penalty.
 // ---------------------------------------------------------------------------
 export const DEMO_SCENARIO_ACCOUNTS = {
   healthy: "acc_atlas",
@@ -249,7 +254,11 @@ export const contacts: Contact[] = [
   // GC (Legal role for SV Health) + Finance + Procurement. Missing the EB
   // and IT/Security roles → 3/5 committee coverage. Procurement is on the
   // OCR (suppresses SELECTED_VENDOR_NO_PROCUREMENT BLOCKING signal) but
-  // doesn't count toward the 5-role SV Health coverage check.
+  // doesn't count toward the 5-role SV Health coverage check. Demo narrative
+  // for this scenario: "Three of five roles engaged but EB and IT haven't
+  // been looped in. Two of three enablement assets sent, but the Finance
+  // brief was never opened by the buyer. Champion drifting (6d since last
+  // dock visit)."
   { id: "c_mer_1", accountId: "acc_meridian", name: "Daniel Cohen", title: "Director, Legal Operations", role: "Champion" },
   { id: "c_mer_2", accountId: "acc_meridian", name: "Janet Liu", title: "General Counsel", role: "GC" },
   { id: "c_mer_3", accountId: "acc_meridian", name: "Robert Park", title: "VP Finance", role: "Finance/CFO" },
@@ -334,27 +343,31 @@ export const opportunities: Opportunity[] = [
     contactRoleIds: ["c_apex_1"],
   },
   {
-    // DEMO_SCENARIO_ACCOUNTS.watch — target SV Health ~55 (At Risk).
-    // 18d in Selected Vendor (just past visible-drift threshold but under
-    // p75=30), Champion + GC + Finance + Procurement on OCR (3/5 SV Health
-    // coverage; missing EB + IT/Security), 1/3 enablement assets shared,
-    // Champion last touched 6d ago (drifting), no BLOCKING-tier signals
-    // active.
+    // DEMO_SCENARIO_ACCOUNTS.watch — target SV Health ~65 (Watch, amber).
+    // 10d in Selected Vendor (timeInStage ≈ 67), Champion + GC + Finance +
+    // Procurement on OCR (3/5 SV Health coverage; missing EB + IT/Security),
+    // 2/3 enablement assets shared (Finance brief sent but never opened by
+    // the buyer — the visible drift signal), Champion last touched 6d ago
+    // (still below CHAMPION_GHOST 7d threshold), no BLOCKING signals active.
+    //
+    // Score math: 0.2*67 + 0.3*60 + 0.2*67 + 0.2*100 - 0
+    //           = 13.3 + 18 + 13.3 + 20 = 64.7 → 65 (Watch).
     id: "opp_meridian",
     accountId: "acc_meridian",
     name: "KKR — Matter Management",
     ownerId: "rep_sc",
     stage: "Selected Vendor",
     amount: 240000,
-    enteredStageAt: "2026-05-03",
+    enteredStageAt: "2026-05-11", // 10d into stage
     createdAt: "2026-01-12",
     closeDate: "2026-06-30",
     contactRoleIds: ["c_mer_1", "c_mer_2", "c_mer_3", "c_mer_4"],
     assetsShared: {
       cfoLeaveBehind: true,
       cfoLeaveBehindViewed: true,
+      financeBrief: true,
+      financeBriefViewed: false, // sent but the buyer never opened it
       itZeroLift: false,
-      financeBrief: false,
     },
   },
   {
@@ -395,8 +408,12 @@ export const opportunities: Opportunity[] = [
   },
   {
     // DEMO_SCENARIO_ACCOUNTS.critical — the Helios worked example from
-    // metrics.md, instantiated on CNA. Target SV Health ~10 (Critical).
-    // - Stage age 35d (past p75=30) → time-in-stage component near 0
+    // metrics.md §"Worked example", instantiated on CNA Financial. Amount is
+    // $185K to match the doc verbatim ("Helios Manufacturing, $185K, in
+    // Selected Vendor for 23 days"). Target SV Health ~10 (Critical).
+    // - Stage age 35d (past p75=30) → time-in-stage component = 0 (the demo
+    //   over-shoots the metrics.md 23d figure to make the stage-age driver
+    //   visible; the score still lands in the same critical tier)
     // - OCR has Champion + Executive Sponsor (EB) + Procurement; Finance
     //   contact c_sen_2 deliberately dropped from contactRoleIds so the
     //   SELECTED_VENDOR_NO_FINANCE BLOCKING rule fires (the contact record
@@ -404,14 +421,15 @@ export const opportunities: Opportunity[] = [
     //   citation chain to show "Finance exists at CNA but isn't on the deal")
     // - 1/3 enablement assets shared and cfoLeaveBehind was sent but never
     //   viewed (cfoLeaveBehindViewed: false) — the Helios failure mode
-    // - Champion-disengagement correlation: 3 corroborating signals from
-    //   Dock + Outreach + Gong (see demoSignals below)
+    // - champion_disengagement correlation: 4 corroborating sources (Dock,
+    //   Outreach, Gong, signal_engine CHAMPION_GHOST) → rolls up to a BLOCKING
+    //   champion_loss correlation that triggers the -20 risk penalty.
     id: "opp_sentinel",
     accountId: "acc_sentinel",
     name: "CNA Financial — Workflow Automation",
     ownerId: "rep_sc",
     stage: "Selected Vendor",
-    amount: 90000,
+    amount: 185000, // matches metrics.md worked example
     enteredStageAt: "2026-04-16", // 35 days, way past benchmark
     createdAt: "2025-12-04",
     closeDate: "2026-06-05",
@@ -533,15 +551,17 @@ export const activities: Activity[] = [
   { id: "a_hel_3", oppId: "opp_helios", contactId: "c_hel_1", type: "dock_visit", occurredAt: "2026-05-19", summary: "Rachel logged in, downloaded ROI calculator" },
   { id: "a_hel_4", oppId: "opp_helios", contactId: "c_hel_2", type: "dock_visit", occurredAt: "2026-05-20", summary: "GC James Okafor reviewed contract terms section" },
 
-  // CNA (DEMO_SCENARIO_ACCOUNTS.critical) — the Helios pattern. Finance
-  // contact engaged early (a_sen_1 on 4/22) but never made it onto the opp's
-  // OCR (see opp_sentinel.contactRoleIds). Champion last touched 9d ago
-  // (a_sen_2 on 2026-05-12) — matches metrics.md worked example exactly.
-  // The 5/14 outbound email doesn't count toward champion-touch math because
-  // engagement is buyer-initiated.
-  { id: "a_sen_1", oppId: "opp_sentinel", contactId: "c_sen_2", type: "meeting", occurredAt: "2026-04-22", summary: "Finance brief delivered to Greg Foster — strong response (but Finance never added to OCR)" },
-  { id: "a_sen_2", oppId: "opp_sentinel", contactId: "c_sen_1", type: "email_received", occurredAt: "2026-05-12", summary: "Amelia: 'security team has questions about SSO setup' (last champion-initiated touch, 9d ago)" },
-  { id: "a_sen_3", oppId: "opp_sentinel", contactId: "c_sen_1", type: "email_sent", occurredAt: "2026-05-14", summary: "Sent follow-up checking on security review status — no reply" },
+  // CNA (DEMO_SCENARIO_ACCOUNTS.critical) — the Helios pattern. Timeline
+  // tells the story without explanation: Finance brief delivered early but
+  // Finance never added to OCR; champion went silent 9d ago; CFO Leave-Behind
+  // sent 7d ago via Dock but never opened by anyone at cna.com; AE follow-up
+  // 3d ago unanswered; AE flagged for SE help today. Matches metrics.md
+  // §"Worked example" champion-touch arithmetic (9d → engagement score ≈ 36).
+  { id: "a_sen_1", oppId: "opp_sentinel", contactId: "c_sen_2", type: "meeting", occurredAt: "2026-04-22", summary: "Finance brief delivered to Greg Foster (VP Finance) — strong response, but Finance was never added to the opp's OCR" },
+  { id: "a_sen_2", oppId: "opp_sentinel", contactId: "c_sen_1", type: "dock_visit", occurredAt: "2026-05-12", summary: "Amelia opened deal room — reviewed security questionnaire (last champion-initiated touch, 9d ago)" },
+  { id: "a_sen_3", oppId: "opp_sentinel", contactId: "c_sen_1", type: "email_sent", occurredAt: "2026-05-14", summary: "Sent CFO Leave-Behind via Dock — never opened by anyone at cna.com" },
+  { id: "a_sen_4", oppId: "opp_sentinel", contactId: "c_sen_1", type: "email_sent", occurredAt: "2026-05-18", summary: "Follow-up to Amelia checking on security review status — no reply" },
+  { id: "a_sen_5", oppId: "opp_sentinel", contactId: "c_sen_1", type: "external_signal", occurredAt: "2026-05-21", summary: "Sara flagged in #se-help on Slack: 'CNA stalled, CFO Leave-Behind unopened, need SE for save play'" },
 
   // Boeing — champion DEPARTED to competitor. The 12 days of silence is now
   // explained by the LinkedIn signal that landed yesterday.
@@ -706,11 +726,13 @@ export const assetDeliveries: AssetDelivery[] = [
   { oppId: "opp_helios", asset: "it_zero_lift_one_pager", deliveredAt: "2026-05-15" },
   { oppId: "opp_helios", asset: "dock_room", deliveredAt: "2026-04-10" },
 
-  // CNA — Finance brief sent but IT brief never followed
+  // CNA — Finance brief delivered to Greg Foster early (4/22) but Finance was
+  // never added to the OCR; CFO Leave-Behind sent 7 days ago via Dock but
+  // never opened by anyone at cna.com; IT one-pager never sent.
   { oppId: "opp_sentinel", asset: "outcome_first_trial_brief", deliveredAt: "2026-01-20" },
   { oppId: "opp_sentinel", asset: "kpi_assessment", deliveredAt: "2026-01-25" },
   { oppId: "opp_sentinel", asset: "finance_meeting_brief", deliveredAt: "2026-04-22" },
-  { oppId: "opp_sentinel", asset: "cfo_leave_behind", deliveredAt: "2026-04-22" },
+  { oppId: "opp_sentinel", asset: "cfo_leave_behind", deliveredAt: "2026-05-14" },
   { oppId: "opp_sentinel", asset: "dock_room", deliveredAt: "2026-01-20" },
   // MISSING: it_zero_lift_one_pager — the asset that would unblock this deal
 
@@ -764,17 +786,21 @@ export const assetDeliveries: AssetDelivery[] = [
 // ---------------------------------------------------------------------------
 export const demoSignals: Signal[] = [
   // ── Healthy (Snowflake / opp_atlas) ──────────────────────────────────────
-  // Two positive-direction signals showing committee filling out + momentum
-  // committing. Per the existing convention (types.ts §SignalType comment),
-  // polarity is in the title/body wording rather than a field on Signal.
+  // Three corroborating committee_expansion signals from HubSpot + Dock +
+  // Outreach (the canonical Pattern 5 "hidden buying-committee expansion"
+  // correlation in dictionary.md) — three sources agree that the EB has
+  // surfaced and is engaging. Plus one positive-direction momentum_change
+  // from Granola showing the champion verbally committing the next step.
+  // Per the existing convention (types.ts §SignalType comment), polarity is
+  // in the title/body wording rather than a field on Signal.
   {
     id: "demo_atl_1",
-    ruleId: "DEMO_COMMITTEE_EXPANSION",
+    ruleId: "DEMO_COMMITTEE_EXPANSION_OUTREACH",
     oppId: "opp_atlas",
     severity: "awareness",
     signalType: "committee_expansion",
-    title: "EB Hiroshi Tanaka engaged on the deal",
-    body: "Executive Sponsor (BU President) replied 'approved, let's move on terms' — fifth distinct committee role now active on this opportunity.",
+    title: "EB Hiroshi Tanaka replied to outbound sequence",
+    body: "Executive Sponsor (BU President) replied 'approved, let's move on terms' from a sequence he wasn't originally enrolled in — fifth distinct committee role now active on this opportunity.",
     suggestedAction: "Loop EB into the contracts kickoff call this week so signature isn't gated on a re-intro.",
     detectedAt: "2026-05-20T16:12:00Z",
     sourceTool: "outreach",
@@ -782,6 +808,32 @@ export const demoSignals: Signal[] = [
   },
   {
     id: "demo_atl_2",
+    ruleId: "DEMO_COMMITTEE_EXPANSION_DOCK",
+    oppId: "opp_atlas",
+    severity: "awareness",
+    signalType: "committee_expansion",
+    title: "New snowflake.com viewer in the deal room",
+    body: "Dock attributed a new visitor on snowflake.com domain (h.tanaka@snowflake.com) — 14 min in the pricing + MSA sections. Matches EB Hiroshi Tanaka's email signature.",
+    suggestedAction: "Confirm the Dock identity match and tag the EB on the contact record.",
+    detectedAt: "2026-05-20T15:48:00Z",
+    sourceTool: "dock",
+    sourceEventId: "dock_visit_atl_unknown_viewer_20260520",
+  },
+  {
+    id: "demo_atl_3",
+    ruleId: "DEMO_COMMITTEE_EXPANSION_HUBSPOT",
+    oppId: "opp_atlas",
+    severity: "awareness",
+    signalType: "committee_expansion",
+    title: "New snowflake.com contact downloaded the ROI calculator",
+    body: "HubSpot recorded h.tanaka@snowflake.com submitting the ROI calculator gate — first form fill from this contact, account is already an active opp.",
+    suggestedAction: "Add Hiroshi Tanaka to OCR as Executive Sponsor before EOD.",
+    detectedAt: "2026-05-20T14:22:00Z",
+    sourceTool: "hubspot",
+    sourceEventId: "hubspot_form_submission_atl_roi_20260520",
+  },
+  {
+    id: "demo_atl_4",
     ruleId: "DEMO_NEXT_STEP_COMMITTED",
     oppId: "opp_atlas",
     severity: "awareness",
@@ -798,8 +850,9 @@ export const demoSignals: Signal[] = [
   },
 
   // ── Watch (KKR / opp_meridian) ───────────────────────────────────────────
-  // One ACTION-tier momentum_change showing visible drift without crossing
-  // into BLOCKING territory. No champion-disengagement correlation yet.
+  // Two ACTION-tier momentum_change signals from Salesforce + Outreach (two
+  // sources agree) showing visible drift without crossing into BLOCKING
+  // territory. No champion-disengagement correlation yet.
   {
     id: "demo_mer_1",
     ruleId: "DEMO_DECISION_CRITERIA_STALE",
@@ -807,11 +860,24 @@ export const demoSignals: Signal[] = [
     severity: "action",
     signalType: "momentum_change",
     title: "Decision Criteria field stale 8 days",
-    body: "Salesforce Decision Criteria custom field hasn't been updated in 8 days despite Robert Park (Finance) asking for a revised TCO model on 5/17. Deal is 18d in Selected Vendor — drift is visible.",
+    body: "Salesforce Decision Criteria custom field hasn't been updated in 8 days despite Robert Park (Finance) asking for a revised TCO model on 5/17. Finance brief sent but the buyer hasn't opened it yet — drift is visible.",
     suggestedAction: "Update Decision Criteria with TCO model status today; schedule 15-min sync with Daniel to confirm IT and EB intros.",
     detectedAt: "2026-05-21T08:30:00Z",
     sourceTool: "salesforce",
     sourceEventId: "sfdc_field_history_opp_meridian_dc_20260513",
+  },
+  {
+    id: "demo_mer_2",
+    ruleId: "DEMO_REPLY_LATENCY_DRIFT",
+    oppId: "opp_meridian",
+    severity: "action",
+    signalType: "momentum_change",
+    title: "Champion reply latency climbed from 24h to 6d",
+    body: "Daniel Cohen's reply-latency baseline on the active Outreach sequence has decayed from a 24h average over the last 30d to 6d on the last two messages. Still below the 7d CHAMPION_GHOST threshold, but trending wrong.",
+    suggestedAction: "Send a low-pressure direct reply (not a sequenced touch) — ask if anything has changed on the buyer side.",
+    detectedAt: "2026-05-21T08:31:00Z",
+    sourceTool: "outreach",
+    sourceEventId: "outreach_reply_latency_daniel_mer_20260521",
   },
 
   // ── Critical (CNA Financial / opp_sentinel) ──────────────────────────────
