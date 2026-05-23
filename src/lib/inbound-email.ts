@@ -97,6 +97,28 @@ export async function getRecentInboundEmails(
   return (data ?? []) as InboundEmail[];
 }
 
+// Pull rows that haven't been classified yet — the work queue for the
+// backfill sweeper cron. Inline classification in the webhook covers the
+// happy path; this catches Haiku outages, Supabase blips, and any other
+// transient failure that left a row with classified_at IS NULL.
+//
+// Oldest-first so a backlog drains in arrival order. Limit keeps each
+// sweeper invocation under the Vercel function cap (one Haiku call ~3s,
+// so 10 rows ≈ 30s).
+export async function getUnclassifiedInboundEmails(
+  limit = 10,
+): Promise<InboundEmail[]> {
+  const sb = supabaseAdmin();
+  const { data, error } = await sb
+    .from("inbound_emails")
+    .select("*")
+    .is("classified_at", null)
+    .order("received_at", { ascending: true })
+    .limit(limit);
+  if (error) throw new Error(`inbound_emails read failed: ${error.message}`);
+  return (data ?? []) as InboundEmail[];
+}
+
 // Counts for the settings-page health card. Cheap query: one filter + count.
 export interface InboundStats {
   received24h: number;
