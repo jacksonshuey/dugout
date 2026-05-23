@@ -1,6 +1,8 @@
 # Metrics — What This Dashboard Actually Tracks
 
 > Drawn from `GTM Engineer Case.pdf` and `GTM Engineer Case Context.pdf` (the interview case Checkbox provided). Every metric here is either explicit in the case or directly implied by the strategic priorities. Nothing invented.
+>
+> **Product spec context:** This doc is the Checkbox-customer-specific instantiation of measurement for the broader Dugout product. Generic product vision: [`/Users/jacksonshuey/Desktop/Checkbox/dugout_product_spec_v_0_1.md`](../../../dugout_product_spec_v_0_1.md). Spec §12 confirms Checkbox priorities (Budget Approval Risk, Finance/IT Engagement Sequencing, Trial Execution SLA as P0 modules); the SV Health Score formula below is the measurement layer on top of those modules.
 
 > **Framing note:** This doc is the **backstop**, not the lead demo pitch. The demo leads with the *story* — "no AE walks into a meeting cold" — and the *artifacts* (live Granola integration, unified drawer, paste-and-sync onboarding). These formulas are here for the moment a Director of Finance or RevOps Lead asks "and how would you measure whether this is working?" — at which point you have a numerical answer with weights, source signals, and a worked example. Do not lead with the formula. Lead with the artifact.
 
