@@ -1,4 +1,4 @@
-import { scrapeUrl, type FirecrawlScrapeResult } from "./firecrawl-client";
+import { scrapeUrl } from "./firecrawl-client";
 import { insertWebScrape } from "./web-scrapes";
 import type { Account } from "./types";
 
@@ -56,24 +56,19 @@ async function scrapeAndStore(
   account: Account,
   url: string,
 ): Promise<AccountScrapeResult["pages"][number]> {
-  let result: FirecrawlScrapeResult;
-  try {
-    result = await scrapeUrl(url);
-  } catch (e) {
-    // Rate-limit and network errors throw. Record the page-level failure
-    // and let the caller decide whether to keep going.
-    return {
-      url,
-      status: "error",
-      statusCode: null,
-      error: e instanceof Error ? e.message : String(e),
-    };
-  }
+  // scrapeUrl throws ONLY on hard rate-limit (Firecrawl 429). That throw
+  // is what tells the cron handler to break out of the per-account loop
+  // and stop burning credits. Don't catch it here — let it propagate up
+  // through Promise.all → scrapeAccount → cron handler's catch → break.
+  // Network/transport errors come back as `{ ok: false }` already.
+  const result = await scrapeUrl(url);
 
   if (!result.ok) {
     // Soft failure (404, target 5xx, parse error). Insert an error row so
     // we have a paper trail — useful for spotting which paths are wrong
-    // for a given account.
+    // for a given account. dedup hit (same-day re-scrape) returns null;
+    // any other DB error rethrows so the run halts loudly rather than
+    // showing up as a fake "dedup" in the logs.
     const row = await insertWebScrape({
       account_id: account.id,
       url,
@@ -81,7 +76,7 @@ async function scrapeAndStore(
       markdown: null,
       raw_size_bytes: 0,
       error: result.error,
-    }).catch(() => null);
+    });
     return {
       url,
       status: row === null ? "dedup" : "error",
@@ -96,8 +91,6 @@ async function scrapeAndStore(
     status_code: result.statusCode,
     markdown: result.markdown,
     raw_size_bytes: result.sizeBytes,
-  }).catch((e) => {
-    throw e instanceof Error ? e : new Error(String(e));
   });
 
   return {
