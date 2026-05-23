@@ -21,8 +21,11 @@ import { insertSignalsDedup } from "@/lib/external-signals";
 //
 // Batching: ten rows per run. Each row is one Haiku call (~3s) so ten fits
 // comfortably under the Vercel Hobby 60s cap with headroom. Cron schedule
-// (in vercel.json) is hourly — most days this finds nothing to do and exits
-// in milliseconds.
+// (in vercel.json) is daily at 20:00 UTC (~end of US business day) — picks
+// up anything that arrived during the day and failed inline classification
+// before the next morning's digest synthesis reads them. Hobby plan caps
+// crons at once-per-day; upgrade to Pro and tighten this to hourly if
+// realtime classification becomes important.
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
