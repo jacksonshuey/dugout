@@ -4,9 +4,7 @@
 
 A working deal intelligence layer for GTM teams. Configurable per workspace, built by Jackson Shuey.
 
-Dugout tells sellers and managers what's happening in their pipeline before they have to ask — routed by severity tier, weighted by close-date proximity, and tied to playbooks when the moment is big enough to need one. The engine is workspace-agnostic; load a preset, edit it, or build your own from scratch in the settings.
-
-This repo ships with a **Checkbox** preset preloaded — the workspace was originally built as the deliverable for Checkbox's GTM Engineer case. The Generic B2B SaaS preset is included to demonstrate the platform isn't tied to legal-tech or any one company.
+Tells sellers and managers what's happening in their pipeline before they have to ask.
 
 → **Live demo:** _link to be added after Vercel deploy_
 
