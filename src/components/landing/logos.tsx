@@ -57,9 +57,20 @@ interface BrandSpec {
   domain?: string;
 }
 
-// Brandfetch client ID. Safe to expose client-side per their docs — it's
-// the public half of a credential pair. Restricted to read-only CDN access.
-const BRANDFETCH_CLIENT_ID = "1id8_s2KEypf14PogTa";
+// Brand artwork CDN. Was Brandfetch, but their CDN refused to serve images
+// without a paid + domain-allowlisted client ID (every URL 302'd to their
+// docs page). Switched to Google's free favicon API:
+//   - No auth, no client ID, no Referer check
+//   - Returns real brand favicons sized via `sz` param
+//   - Quality varies: brands with high-res favicons get good output
+//     (Notion, Pandadoc); brands that only ship 32×32 favicons get small
+//     output centered with `object-contain` against the chip bg color
+//
+// Trade-off: favicons are usually the "small mark" version of a brand,
+// not the full logomark. Acceptable for a marquee where the brand color
+// + the mark together is what carries recognition.
+const FAVICON_URL = (domain: string, size: number) =>
+  `https://www.google.com/s2/favicons?domain=${domain}&sz=${size}`;
 
 // ---------------------------------------------------------------------------
 // Helper to render a simple-icons SVG path. Takes the icon object directly
@@ -369,8 +380,12 @@ export function BrandLogo({
   const dim = `${size}px`;
 
   if (spec.domain) {
-    const retinaSize = size * 2;
-    const src = `https://cdn.brandfetch.io/${spec.domain}/w/${retinaSize}/h/${retinaSize}?c=${BRANDFETCH_CLIENT_ID}`;
+    // Request a size 4x larger than the chip so we get the best resolution
+    // the brand publishes. Google's API picks the closest available favicon
+    // (some brands ship only 32×32, others go up to 512×512). object-contain
+    // + padding makes small favicons look intentional rather than cropped.
+    const fetchSize = Math.max(128, size * 4);
+    const src = FAVICON_URL(spec.domain, fetchSize);
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
@@ -379,7 +394,10 @@ export function BrandLogo({
         width={size}
         height={size}
         loading="lazy"
-        className={cn("rounded-[8px] shrink-0 object-cover", className)}
+        className={cn(
+          "rounded-[8px] shrink-0 object-contain p-1",
+          className,
+        )}
         style={{ width: dim, height: dim, backgroundColor: spec.bg }}
         title={title ?? spec.name}
       />
