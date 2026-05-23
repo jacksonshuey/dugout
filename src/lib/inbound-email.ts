@@ -66,6 +66,24 @@ export async function insertInboundEmail(
   return data as InboundEmail;
 }
 
+// Stamp an inbound email as classified, recording how many signals it
+// produced. Used by the webhook after the newsletter-adapter run. Idempotent:
+// safe to call multiple times if classification ever gets retried.
+export async function markClassified(
+  id: string,
+  signalCount: number,
+): Promise<void> {
+  const sb = supabaseAdmin();
+  const { error } = await sb
+    .from("inbound_emails")
+    .update({
+      classified_at: new Date().toISOString(),
+      signals_emitted: signalCount,
+    })
+    .eq("id", id);
+  if (error) throw new Error(`inbound_emails update failed: ${error.message}`);
+}
+
 export async function getRecentInboundEmails(
   limit = 50,
 ): Promise<InboundEmail[]> {

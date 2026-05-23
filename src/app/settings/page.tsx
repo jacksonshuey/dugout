@@ -1,8 +1,19 @@
 import { SettingsForm } from "@/components/settings-form";
 import { getWorkspaceConfig } from "@/lib/workspace-server";
+import { getInboundStats, type InboundStats } from "@/lib/inbound-email";
 
 export default async function SettingsPage() {
   const config = await getWorkspaceConfig();
+
+  // Stats query touches Supabase; fail soft so the settings page still
+  // renders if the inbound_emails migration hasn't been run yet or
+  // Supabase env vars aren't set locally.
+  let inboundStats: InboundStats | null = null;
+  try {
+    inboundStats = await getInboundStats();
+  } catch {
+    inboundStats = null;
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
@@ -20,7 +31,7 @@ export default async function SettingsPage() {
         </p>
       </div>
 
-      <SettingsForm initial={config} />
+      <SettingsForm initial={config} inboundStats={inboundStats} />
     </div>
   );
 }

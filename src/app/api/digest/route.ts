@@ -14,6 +14,10 @@ import { formatCurrency, daysBetween, lookupBy } from "@/lib/utils";
 import type { Signal } from "@/lib/types";
 import { getWorkspaceConfig } from "@/lib/workspace-server";
 import type { WorkspaceConfig } from "@/lib/workspace";
+import {
+  getWorkspaceSignals,
+  type ExternalSignal,
+} from "@/lib/external-signals";
 import { requireUiSession } from "@/lib/ui-auth-server";
 
 // The morning digest synthesizer. The signal engine produces structured
@@ -56,11 +60,46 @@ VOICE AND RULES
 - Group the rest as ACTION items — each with the specific account, the specific gap, the specific next move.
 - Skip awareness items unless they are surprising.
 - Reference asset names from the list above verbatim. Reference priorities by their name when it sharpens the why.
+- If a MARKET INTELLIGENCE block is provided, add a short "### Market intel" section at the end. One bullet per item. Skip the section entirely if nothing is materially relevant to this rep's book. Never lead with market intel — it follows the deal-specific work.
 - No filler. No "Here's your morning digest" intros. Get to the work.
-- Format: markdown with ### headers ("### Blocking", "### Action"), bullets under each.
+- Format: markdown with ### headers ("### Blocking", "### Action", optionally "### Market intel"), bullets under each.
 - Total length: 150–250 words.
 
 Do NOT invent signals, deals, or facts not in the structured context. If you're tempted to add color, don't.`;
+}
+
+// Render workspace-scoped market intel signals (account_id =
+// WORKSPACE_ACCOUNT_ID) for the prompt. Returns an empty string when no
+// items qualify so the prompt stays clean.
+const MARKET_INTEL_LOOKBACK_DAYS = 7;
+const MARKET_INTEL_MAX_ITEMS = 8;
+
+function describeMarketSignal(s: ExternalSignal): string {
+  const dateOnly = s.occurred_at.slice(0, 10);
+  const sender =
+    (s.meta && typeof s.meta === "object" && "sender_domain" in s.meta
+      ? String((s.meta as Record<string, unknown>).sender_domain)
+      : null) ?? "newsletter";
+  return `- [${s.type}] ${s.summary} (${sender}, ${dateOnly})`;
+}
+
+async function fetchMarketIntelBlock(): Promise<string> {
+  try {
+    const since = new Date(
+      Date.now() - MARKET_INTEL_LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
+    ).toISOString();
+    const signals = await getWorkspaceSignals(since, MARKET_INTEL_MAX_ITEMS);
+    if (signals.length === 0) return "";
+    return `\n\nMARKET INTELLIGENCE (workspace-wide, past ${MARKET_INTEL_LOOKBACK_DAYS} days):\n${signals.map(describeMarketSignal).join("\n")}`;
+  } catch (e) {
+    // Supabase unreachable or table missing — non-fatal. The digest still
+    // works without the market intel block; the rep just doesn't get one.
+    console.warn(
+      "[digest] market intel fetch failed (continuing without)",
+      e instanceof Error ? e.message : String(e),
+    );
+    return "";
+  }
 }
 
 interface DigestRequest {
@@ -127,11 +166,13 @@ export async function POST(req: Request) {
     });
   }
 
+  const marketIntelBlock = await fetchMarketIntelBlock();
+
   const userPrompt = `Rep: ${rep.name}
 As-of: 2026-05-21 (Wednesday)
 
 SIGNALS (sorted by severity):
-${signals.map(describeSignal).join("\n\n")}
+${signals.map(describeSignal).join("\n\n")}${marketIntelBlock}
 
 Write ${rep.name.split(" ")[0]}'s morning digest now.`;
 
