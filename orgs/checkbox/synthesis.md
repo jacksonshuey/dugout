@@ -288,21 +288,61 @@ create table signal_correlations (
   source_tools    text[] not null,                        -- denormalized for fast query
   source_count    int generated always as (cardinality(source_tools)) stored,
 
-  derived_severity text not null,                         -- correlations can elevate
+  -- inherit direction from the underlying signals (all signals in a correlation share polarity).
+  -- v1 only ACTS on direction='negative' correlations; positive correlations are stored but
+  -- only consumed by manager-side forecast/coaching views. Removing this column later would
+  -- require a backfill — present from day one to keep that door open.
+  direction       text not null default 'negative',       -- 'negative' | 'positive' | 'neutral'
+
+  derived_severity text not null,                         -- 'blocking' | 'action' | 'awareness'
   -- NOTE: no `confidence` column. The correlation's strength IS its `source_count`.
   -- 2 sources agreeing = elevated; 3+ = strong. Numeric confidence would just re-encode count.
 
   first_observed_at timestamptz not null,
   last_reinforced_at timestamptz not null,
   recommendation_id uuid references recommendations(id),  -- the action this drove
+
+  -- Lifecycle (aligned with signal_instances.status enum for consistency)
+  status          text not null default 'open',           -- 'open' | 'acknowledged' | 'dismissed' | 'resolved' | 'expired'
   resolved_at     timestamptz,
-  resolution      text,                                   -- 'true_positive' | 'false_positive' | 'auto_expired'
+  resolution_reason text,                                 -- free-text or enum: 'champion_replied' | 'role_added' | 'manual' | 'rule_disabled' | 'auto_expired_after_30d' | etc.
 
   created_at      timestamptz not null default now()
 );
-create index sc_account_open on signal_correlations (workspace_id, account_id, resolved_at)
-  where resolved_at is null;
+create index sc_account_open on signal_correlations (workspace_id, account_id, status)
+  where status = 'open';
+create index sc_workspace_type_open on signal_correlations (workspace_id, correlation_type, last_reinforced_at desc)
+  where status = 'open';
 ```
+
+### Derived severity — the elevation rule
+
+`derived_severity` is computed (not arbitrary). Rule:
+
+```
+derived_severity = max(severity across signal_ids)        -- floor: never softer than any contributing signal
+elevate one tier if source_count >= 3                     -- 3+ tools agreeing promotes one tier
+elevate to BLOCKING if any signal is BLOCKING            -- already covered by floor but explicit
+cap at BLOCKING                                          -- no tier above BLOCKING
+```
+
+Worked example: a `champion_disengagement` correlation with 4 contributing signals — Outreach (ACTION) + Dock (ACTION) + Gong (AWARENESS) + Chili Piper (AWARENESS). Floor = ACTION (max of 4). Source count = 4 ≥ 3, so elevate one tier → **BLOCKING**. The correlation pages the AE even though no individual signal was urgent enough on its own.
+
+### Materialization cadence — the design decision (not an open question)
+
+Correlations are materialized by a cron job, not computed at query time. Different tiers run at different cadences:
+
+| Tier | Cron cadence | Why |
+|---|---|---|
+| BLOCKING | **every 5 minutes** | AE-paging latency budget; <1hr per severity tier definition |
+| ACTION | **hourly** | "today's task list" doesn't need sub-hour freshness |
+| AWARENESS | **on-demand at query time** | Weekly digest reads correlations once; no point storing pre-computed |
+
+12 signal types × 3 cadences = 36 scheduled queries total. Each query <100ms with the proper indexes (`si_type_account_time` on signal_instances, `sc_workspace_type_open` on signal_correlations). Negligible compute cost.
+
+**Why not on-demand for everything:** every page load would run 12 correlation queries. Page latency goes from 100ms → 1-2s. Cron is the right call for BLOCKING + ACTION; on-demand is fine for AWARENESS because it's read rarely.
+
+**Why not cron for everything:** AWARENESS correlations age out fast (we don't care about a 6-day-old "vertical context" signal once the rep has read it). Pre-materializing them wastes writes.
 
 ### Design note: why no per-signal `confidence`
 
@@ -694,7 +734,7 @@ These are the calls Jackson needs to make (or get RevOps input on) before code:
 
 2. **When (if ever) to re-introduce per-rule learned confidence.** The schema dropped per-signal confidence because we have no customers and no calibration data. The natural successor is `rules.acted_on_count / rules.hit_count` — but that requires ≥90 days of outcome data. Open: do we add a `rules.learned_trust` materialized column at that point, or compute live? And: do we ever surface trust to the rep, or keep it RevOps-internal?
 
-3. **`signal_correlations` materialization cadence** — every 5 min (cheap, near-real-time) vs. on-demand at task-list query time (expensive at query, no staleness). BLOCKING-tier should be 5 min; AWARENESS can be hourly.
+3. ~~`signal_correlations` materialization cadence~~ — **Decided.** BLOCKING = 5min cron, ACTION = hourly cron, AWARENESS = on-demand at query time. See "Materialization cadence" section above for rationale.
 
 4. **Auto-resolution rules** — when does a correlation auto-close? E.g., `champion_loss` correlation should auto-resolve when a new `opportunity_contacts` row with `role='champion'` is added. Without this, the task list becomes a graveyard.
 
