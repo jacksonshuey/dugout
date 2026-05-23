@@ -10,32 +10,177 @@ import {
 } from "@/app/actions/granola";
 import type { WorkspaceIntegrationStatus } from "@/lib/workspace-integrations";
 import type { SyncResult } from "@/lib/granola-adapter";
+import { BrandLogo, type BrandKey } from "@/components/landing/logos";
 import { Button, Card } from "./ui";
 
-// Connectors section — third-party API key management. Currently houses
-// Granola; designed so future connectors slot in as additional cards.
+// Connectors section — every data source Dugout reads from, in one place.
 //
-// API key is paste-only (write-only field). We NEVER read the plaintext back
-// to the browser — once Vault has it, the only client-side state is "is it
-// connected" and "when was the last sync."
+// Two tiers:
+//   1. Workspace-scoped connectors with paste-in keys (Granola today). Keys go
+//      to Supabase Vault; plaintext never returns to the browser.
+//   2. System connectors backed by env vars (Anthropic / NewsAPI / Slack /
+//      Inbox / SEC EDGAR). These are configured once in Vercel rather than
+//      per-workspace — but the visual treatment matches so the "easy to plug
+//      in" principle reads as one product, not two.
+
+export interface SystemConnectorStatus {
+  anthropic: boolean;
+  newsapi: boolean;
+  slack: boolean;
+  inbox: boolean;
+  // SEC EDGAR has no auth — always "live".
+}
+
+// Feature flag — Granola is built end-to-end but the Supabase migration
+// hasn't been run in the production project yet (see HANDOFF §11). Clicking
+// "Connect" with a real key would fail with a confusing "function does not
+// exist" error from Vault. Until the migration ships, the card is hidden.
+// Re-enable by flipping this to true and running the migration.
+const SHOW_GRANOLA_CONNECTOR = false;
 
 export function ConnectorsSection({
   granolaStatus,
+  systemStatus,
 }: {
   granolaStatus: WorkspaceIntegrationStatus;
+  systemStatus: SystemConnectorStatus;
 }) {
   return (
     <section className="space-y-3">
       <div>
         <h2 className="text-base font-semibold">Connectors</h2>
         <p className="text-xs text-muted mt-0.5 max-w-2xl">
-          Bring meeting + CRM signals into Dugout. API keys are stored
-          encrypted via Supabase Vault (libsodium); plaintext never returns
-          to the browser after you paste it.
+          Every source that informs the engine, in one place. Workspace keys go
+          to Supabase Vault (libsodium); plaintext never returns to the browser
+          after you paste it. Adding a new connector is a file — not an
+          architecture change.
         </p>
       </div>
-      <GranolaConnector status={granolaStatus} />
+
+      {/* Workspace-scoped (paste-in keys) — Granola is hidden until the
+          migration ships; see SHOW_GRANOLA_CONNECTOR above. */}
+      {SHOW_GRANOLA_CONNECTOR && <GranolaConnector status={granolaStatus} />}
+
+      {/* System connectors (env-var backed) */}
+      <SystemConnectorsGrid status={systemStatus} />
     </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// SystemConnectorsGrid — env-var backed integrations, surfaced visually so
+// "easy to plug in" reads as one consistent product. Doesn't expose the raw
+// env-var names in the UI (those live in HANDOFF.md §8); just shows what's
+// live and what isn't.
+// ---------------------------------------------------------------------------
+
+interface SystemConnector {
+  brand: BrandKey;
+  name: string;
+  role: string;
+  envHint: string; // shown only when disconnected
+  status: "live" | "missing" | "noauth";
+}
+
+function SystemConnectorsGrid({ status }: { status: SystemConnectorStatus }) {
+  const connectors: SystemConnector[] = [
+    {
+      brand: "anthropic",
+      name: "Anthropic",
+      role: "Sonnet 4.6 digest · Haiku 4.5 classifiers",
+      envHint: "ANTHROPIC_API_KEY",
+      status: status.anthropic ? "live" : "missing",
+    },
+    {
+      brand: "newsapi",
+      name: "NewsAPI",
+      role: "Material news per tracked account",
+      envHint: "NEWSAPI_KEY",
+      status: status.newsapi ? "live" : "missing",
+    },
+    {
+      brand: "sec",
+      name: "SEC EDGAR",
+      role: "8-K filings for public-co accounts",
+      envHint: "(public · no auth)",
+      status: "noauth",
+    },
+    {
+      brand: "slack",
+      name: "Slack",
+      role: "Severity-routed delivery to channels",
+      envHint: "SLACK_WEBHOOK_URL",
+      status: status.slack ? "live" : "missing",
+    },
+    {
+      brand: "inbox",
+      name: "Newsletter inbox",
+      role: "Inbound email → Haiku → market intel",
+      envHint: "INBOUND_WEBHOOK_SECRET",
+      status: status.inbox ? "live" : "missing",
+    },
+  ];
+
+  return (
+    <Card className="p-5 space-y-3">
+      <div className="flex items-baseline justify-between gap-3 flex-wrap">
+        <div>
+          <h3 className="text-sm font-semibold">System connectors</h3>
+          <p className="text-xs text-muted mt-0.5 max-w-md">
+            Configured once in Vercel env vars. Status shown live below.
+          </p>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+        {connectors.map((c) => (
+          <SystemConnectorRow key={c.brand} connector={c} />
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function SystemConnectorRow({ connector }: { connector: SystemConnector }) {
+  const badge =
+    connector.status === "live"
+      ? {
+          cls:
+            "bg-severity-green-bg text-severity-green border-severity-green/20",
+          label: "Live",
+        }
+      : connector.status === "noauth"
+        ? {
+            cls: "bg-slate-100 text-muted border-border",
+            label: "No auth",
+          }
+        : {
+            cls:
+              "bg-severity-action-bg text-severity-action border-severity-action/20",
+            label: "Set env var",
+          };
+
+  return (
+    <div className="rounded-lg border border-border bg-background p-3 flex items-center gap-3">
+      <BrandLogo brand={connector.brand} size={36} />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="font-semibold tracking-tight text-sm truncate">
+            {connector.name}
+          </span>
+          <span
+            className={`text-[9px] font-semibold tracking-wider uppercase px-1.5 py-0.5 rounded border ${badge.cls}`}
+          >
+            {badge.label}
+          </span>
+        </div>
+        <div className="text-[11px] text-muted truncate">{connector.role}</div>
+        {connector.status === "missing" && (
+          <div className="text-[10px] text-muted font-mono mt-0.5">
+            {connector.envHint}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 

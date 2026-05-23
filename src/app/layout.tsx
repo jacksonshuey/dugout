@@ -15,9 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Dugout — Deal Intelligence Layer",
+  title: "Dugout — The Intelligence Layer for Sales Teams",
   description:
-    "A working deal intelligence layer for GTM teams. Configurable per workspace; built by Jackson Shuey.",
+    "Centralized knowledge layer so no AE walks into a meeting cold. Every tool, every signal, every news cycle synthesized into the next action. Built by Jackson Shuey.",
 };
 
 export default function RootLayout({

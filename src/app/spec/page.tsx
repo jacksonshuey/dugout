@@ -263,7 +263,7 @@ export default async function SpecPage() {
           <Step n="06" title="Champion notification (auto)" body={`Email + Slack to champion. Engagement tracked back to the deal in ${workspace.stack.crm}.`} />
         </Card>
 
-        <H3>Why it compounds with the deal intelligence layer</H3>
+        <H3>Why it compounds with the rest of the intelligence layer</H3>
         <ul className="space-y-2 text-sm text-muted">
           <Bullet>Signal detects the gap. Orchestrator removes the work between detection and delivery. Together: &ldquo;we should run a trial&rdquo; → &ldquo;trial is live&rdquo; in two days.</Bullet>
           <Bullet>Operationalizes existing assets ({trialBrief}, {financeBrief}, {itPager}) at the moment they matter.</Bullet>

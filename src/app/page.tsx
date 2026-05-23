@@ -63,7 +63,78 @@ export default async function LandingPage() {
           workspace={workspace}
         />
       </section>
+      <Footer />
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Footer — quiet admin links to the other surfaces. The top nav was
+// stripped to just the demo button to keep the marketing experience
+// uncluttered; this footer makes the operator surfaces (manager view,
+// settings, spec, etc.) reachable without typing URLs.
+// ---------------------------------------------------------------------------
+
+function Footer() {
+  const links: { href: string; label: string; sub: string }[] = [
+    { href: "/console", label: "AE Console", sub: "Pipeline · Today · Digest" },
+    { href: "/manager", label: "Manager view", sub: "Team aggregates · per-rep" },
+    { href: "/market-intel", label: "Market intel", sub: "Workspace-wide news inbox" },
+    { href: "/settings", label: "Settings", sub: "Workspace + connectors" },
+    { href: "/spec", label: "Spec", sub: "Architecture + rollout" },
+  ];
+  return (
+    <footer className="border-t border-border bg-background">
+      <div className="max-w-6xl mx-auto px-6 py-12 space-y-6">
+        <div className="flex items-baseline justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-2">
+            <span
+              aria-hidden
+              className="w-5 h-5 rounded-[5px] bg-brand flex items-center justify-center"
+            >
+              <svg
+                viewBox="0 0 24 18"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinejoin="round"
+                className="w-3.5 h-3.5 text-white"
+              >
+                <polygon points="6,3 21,3 18,14 3,14" />
+                <polygon
+                  points="7.8,4.65 18.3,4.65 16.2,12.35 5.7,12.35"
+                  strokeOpacity="0.4"
+                />
+              </svg>
+            </span>
+            <span className="font-semibold tracking-tight">Dugout</span>
+            <span className="text-xs text-muted ml-1">
+              · the intelligence layer for sales teams
+            </span>
+          </div>
+          <span className="text-[11px] text-muted font-mono">
+            Built by Jackson Shuey
+          </span>
+        </div>
+        <nav
+          aria-label="Operator surfaces"
+          className="grid grid-cols-2 sm:grid-cols-5 gap-4 pt-4 border-t border-border"
+        >
+          {links.map((l) => (
+            <Link
+              key={l.href}
+              href={l.href}
+              className="group block space-y-0.5"
+            >
+              <div className="text-sm font-medium group-hover:text-brand transition-colors">
+                {l.label} <span aria-hidden>→</span>
+              </div>
+              <div className="text-[11px] text-muted">{l.sub}</div>
+            </Link>
+          ))}
+        </nav>
+      </div>
+    </footer>
   );
 }
 
@@ -124,7 +195,7 @@ function Hero() {
 interface IntegrationSlot {
   brand: BrandKey;
   role: string;
-  status: "live" | "v1.5" | "config";
+  status: "live" | "beta" | "config";
 }
 
 const INTEGRATIONS: IntegrationSlot[] = [
@@ -134,7 +205,7 @@ const INTEGRATIONS: IntegrationSlot[] = [
   { brand: "anthropic", role: "Sonnet 4.6 + Haiku 4.5", status: "live" },
   { brand: "slack", role: "Severity-tiered delivery", status: "live" },
   { brand: "supabase", role: "Signals + Vault-encrypted keys", status: "live" },
-  { brand: "granola", role: "Meeting signal extraction", status: "v1.5" },
+  { brand: "granola", role: "Meeting signal extraction", status: "beta" },
   { brand: "salesforce", role: "CRM read · workspace config", status: "config" },
   { brand: "gong", role: "Call transcripts · workspace config", status: "config" },
   { brand: "outreach", role: "Sales engagement · workspace config", status: "config" },
@@ -161,7 +232,7 @@ function IntegrationConstellation() {
           </p>
           <div className="mt-6 flex items-center gap-4 text-xs">
             <StatusKey color="bg-severity-green" label="Live" />
-            <StatusKey color="bg-severity-action" label="v1.5" />
+            <StatusKey color="bg-severity-action" label="Beta" />
             <StatusKey color="bg-slate-400" label="Display" />
           </div>
         </div>
@@ -181,7 +252,7 @@ function IntegrationChip({ integration }: { integration: IntegrationSlot }) {
   const dot =
     integration.status === "live"
       ? "bg-severity-green"
-      : integration.status === "v1.5"
+      : integration.status === "beta"
         ? "bg-severity-action"
         : "bg-slate-400";
   return (

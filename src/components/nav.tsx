@@ -21,7 +21,7 @@ export function Nav() {
           <span
             aria-hidden
             className="w-5 h-5 rounded-[5px] bg-brand flex items-center justify-center"
-            title="Dugout — the dugout view of your pipeline"
+            title="Dugout — the intelligence layer for sales teams"
           >
             <svg
               viewBox="0 0 24 18"
@@ -32,7 +32,7 @@ export function Nav() {
               className="w-3.5 h-3.5 text-white"
             >
               <polygon points="6,3 21,3 18,14 3,14" />
-              <polygon points="8,5 19,5 16.5,12.5 5.5,12.5" strokeOpacity="0.4" />
+              <polygon points="7.8,4.65 18.3,4.65 16.2,12.35 5.7,12.35" strokeOpacity="0.4" />
             </svg>
           </span>
           <span className="font-semibold tracking-tight text-sm">Dugout</span>
