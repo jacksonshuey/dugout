@@ -245,7 +245,7 @@ function StepShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="grid md:grid-cols-12 gap-6 items-start rounded-2xl border border-border bg-background p-6 sm:p-8">
+    <div className="grid md:grid-cols-12 gap-6 items-center rounded-2xl border border-border bg-background p-6 sm:p-8">
       <div className="md:col-span-4 space-y-2">
         <div className="flex items-center gap-2">
           <span className="font-mono text-xs text-muted">
