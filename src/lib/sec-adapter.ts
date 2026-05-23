@@ -195,7 +195,6 @@ export async function fetchSignalsForTicker(
 
   const recent = data.filings?.recent;
   if (!recent || !recent.form) {
-    console.log(`[sec-adapter] ${ticker}: no recent filings array`);
     return { signals: [], rawResponseLength: 0 };
   }
 
@@ -234,10 +233,6 @@ export async function fetchSignalsForTicker(
       is_demo: false,
     });
   }
-
-  console.log(
-    `[sec-adapter] ${ticker}: ${eightKCount} 8-K filing${eightKCount === 1 ? "" : "s"} in last ${lookbackDays}d`,
-  );
 
   return { signals, rawResponseLength: eightKCount };
 }

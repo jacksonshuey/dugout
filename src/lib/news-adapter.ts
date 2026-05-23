@@ -267,7 +267,6 @@ export async function fetchSignalsForCompany(
   industry: string,
 ): Promise<AdapterResult> {
   const articles = await fetchArticles(companyName);
-  console.log(`[news-adapter] ${companyName}: fetched ${articles.length} articles`);
   if (articles.length === 0) {
     return { signals: [], rawResponseLength: 0 };
   }
@@ -296,10 +295,6 @@ export async function fetchSignalsForCompany(
       .map((a, i) => heuristicClassify(a, i))
       .filter((c): c is Classification => c !== null);
   }
-
-  console.log(
-    `[news-adapter] ${companyName}: classified ${classifications.length}${usedFallback ? " (heuristic fallback)" : ""}`,
-  );
 
   const signals: NewExternalSignal[] = classifications.map((c) => {
     const article = articles[c.original_index];
