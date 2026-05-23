@@ -505,7 +505,9 @@ order by source_count desc, last_signal_at desc;
 
 ## 7. The AI query layer — "ask questions across integrations"
 
-The schema + tiered storage make this layer cheap and obvious. Architecture: a **tool-use agent** (Anthropic SDK, which Dugout already uses for the digest) given a small set of typed query tools over the unified store. User asks a natural-language question; the agent picks tools, retrieves grounded data, synthesizes an answer with citations.
+The schema + tiered storage make this layer cheap and obvious. Architecture: a **tool-use agent** given a small set of typed query tools over the unified store. User asks a natural-language question; the agent picks tools, retrieves grounded data, synthesizes an answer with citations.
+
+**Model provider: OpenAI** (GPT-5 / GPT-4o with function calling) for `/ask`. Dugout already uses Anthropic Sonnet 4.6 for the morning digest and Haiku 4.5 for inbound-email classification — keeping those on Anthropic, putting `/ask` on OpenAI is intentional multi-provider hedging. Failure modes are independent (Anthropic 529 doesn't take down `/ask`; OpenAI rate-limit doesn't take down the digest). The query-tool interface is provider-agnostic — same 8 functions, swappable client. `src/lib/claude.ts` gets a sibling `src/lib/openai.ts`; the rest of the codebase doesn't care which provider answers any given question.
 
 ### The tool set (~8 functions)
 
@@ -601,7 +603,7 @@ Citations: [signal_instance_id_1, signal_instance_id_2, ...] each clickable to s
 
 ### Cost model
 
-- Sonnet 4.6 per question: ~$0.02-0.10 depending on how many tools the agent uses
+- OpenAI GPT-5 / GPT-4o per question: ~$0.02-0.10 depending on how many tools the agent uses
 - **Prompt caching** on hot accounts: cache the account_context + recent timeline; subsequent questions on same account drop to <$0.01
 - At 9 AEs × ~5 questions/day = ~45 questions/day → ~$1-5/day per Checkbox-scale customer
 

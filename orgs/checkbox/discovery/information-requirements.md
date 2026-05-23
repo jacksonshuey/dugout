@@ -316,7 +316,7 @@ If you have only ~1 week of build time before the interview, ship:
 1. **`/account/[slug]` route** (Phase 1) — the deep timeline view. Renders fake data from `src/data/seed.ts` augmented with synthesized signals. Proves the unified-store concept.
 2. **Selected Vendor Health Score (Hero Surface #0)** — the dashboard centerpiece. Three opps shown side-by-side, scored, with the contributing components and signals exposed. This is the demo opening shot.
 3. **Procurement Tracker** (Phase 2) — the wedge made visible at per-opp level. Drill-down from the Hero score.
-4. **`/ask` route** (Phase 4) with one working question: "Why is {seedAccount} stalling?" — Sonnet 4.6 answer with citations into the timeline.
+4. **`/ask` route** (Phase 4) with one working question: "Why is {seedAccount} stalling?" — OpenAI GPT-5/4o tool-use answer with citations into the timeline. (Multi-provider hedging: Anthropic Sonnet 4.6 stays as the digest model; OpenAI powers `/ask`.)
 
 That's four surfaces, ~6 days of focused work, and a demo arc that goes:
 - *"Here's the architecture and the schema."* (synthesis.md slide)
