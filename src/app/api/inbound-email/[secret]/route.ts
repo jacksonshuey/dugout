@@ -1,77 +1,39 @@
 import { NextResponse } from "next/server";
-import { insertInboundEmail, markClassified } from "@/lib/inbound-email";
-import { classifyNewsletter } from "@/lib/newsletter-adapter";
-import { insertSignalsDedup } from "@/lib/external-signals";
-import { accounts } from "@/data/seed";
+import {
+  processInboundEmail,
+  type NormalizedInboundEmail,
+} from "@/lib/inbound-pipeline";
 
 // SendGrid Inbound Parse webhook receiver.
 //
-// Phase 1: persist the raw email into `inbound_emails`.
-// Phase 2: classify with Haiku (newsletter-adapter) and insert resulting
-// signals into `external_signals`. Account matching folds newsletter
-// mentions onto trackable accounts; unmatched material items become
-// workspace-scoped market intel.
-//
-// Auth: path-segment secret matched against INBOUND_WEBHOOK_SECRET. Fail-closed
-// when the env var is missing, mirroring the CRON_SECRET pattern in the cron
-// route. The secret is in the URL path so we don't need custom headers (which
-// SendGrid Inbound Parse doesn't support).
-//
-// Sender allowlist: from_domain must be in INBOUND_SENDER_ALLOWLIST (or be a
-// subdomain of an allowlisted domain). Off-allowlist mail is dropped with a
-// 200 OK so SendGrid doesn't retry — those will never succeed.
+// Auth: path-segment secret matched against INBOUND_WEBHOOK_SECRET. Fail-
+// closed when the env var is missing, mirroring the CRON_SECRET pattern in
+// the cron route. The secret is in the URL path so we don't need custom
+// headers (which SendGrid Inbound Parse doesn't support).
 //
 // SendGrid Inbound Parse POSTs multipart/form-data with fields:
 //   from        — "Display Name <user@example.com>" or bare address
-//   to          — recipient
 //   subject     — email subject
 //   text        — plaintext body (extracted from MIME)
 //   html        — HTML body
 //   headers     — raw email headers (newline-separated)
-//   attachments — count of attached files (we ignore attachments in v1)
 //
-// Response policy: return 5xx on transient storage failure so SendGrid retries
-// (its retry window is ~3 days). Return 200 on payload-level rejections (bad
-// sender, body too large, dedup) — retries won't fix those.
+// Provider-shared business logic (validate, store, classify) lives in
+// src/lib/inbound-pipeline.ts so the Mailgun route can reuse it.
+//
+// Response policy: 5xx on transient storage failure so SendGrid retries
+// (its window is ~3 days). 200 on payload-level rejections — retries won't
+// fix those.
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 30; // SendGrid webhook timeout is 30s
-
-// 2 MB ceiling on combined text+html. Real newsletters land at 50-300 KB; any-
-// thing past 2 MB is almost certainly spam or a malformed payload.
-const MAX_BODY_BYTES = 2 * 1024 * 1024;
-
-interface ParsedFrom {
-  address: string;
-  domain: string;
-}
-
-function parseFromAddress(raw: string): ParsedFrom | null {
-  // "Display Name <user@example.com>" or bare "user@example.com"
-  const angle = raw.match(/<([^>]+)>/);
-  const addr = (angle ? angle[1] : raw).trim().toLowerCase();
-  const at = addr.lastIndexOf("@");
-  if (at < 1 || at === addr.length - 1) return null;
-  return { address: addr, domain: addr.slice(at + 1) };
-}
+export const maxDuration = 30; // SendGrid webhook timeout
 
 function parseMessageId(headers: string): string | null {
   // headers is a newline-separated list of raw header lines. Message-ID is
   // typically wrapped in angle brackets per RFC 5322; strip them.
   const match = headers.match(/^message-id:\s*<?([^>\r\n]+)>?$/im);
   return match ? match[1].trim() : null;
-}
-
-function senderAllowed(domain: string): boolean {
-  const allowlist = (process.env.INBOUND_SENDER_ALLOWLIST ?? "")
-    .split(",")
-    .map((s) => s.trim().toLowerCase())
-    .filter(Boolean);
-  if (allowlist.length === 0) return false;
-  return allowlist.some(
-    (allowed) => domain === allowed || domain.endsWith(`.${allowed}`),
-  );
 }
 
 export async function POST(
@@ -89,7 +51,7 @@ export async function POST(
     form = await req.formData();
   } catch (e) {
     console.warn(
-      "[inbound-email] failed to parse multipart payload",
+      "[inbound-email/sendgrid] failed to parse multipart payload",
       e instanceof Error ? e.message : String(e),
     );
     return NextResponse.json(
@@ -98,102 +60,55 @@ export async function POST(
     );
   }
 
-  const fromRaw = String(form.get("from") ?? "").slice(0, 500);
-  const subject = String(form.get("subject") ?? "").slice(0, 1000);
-  const textBody = String(form.get("text") ?? "");
-  const htmlBody = String(form.get("html") ?? "");
-  const headers = String(form.get("headers") ?? "");
+  const normalized: NormalizedInboundEmail = {
+    from_raw: String(form.get("from") ?? "").slice(0, 500),
+    subject: String(form.get("subject") ?? "").slice(0, 1000),
+    text_body: String(form.get("text") ?? ""),
+    html_body: String(form.get("html") ?? ""),
+    message_id: parseMessageId(String(form.get("headers") ?? "")),
+  };
 
-  const totalBytes = textBody.length + htmlBody.length;
-  if (totalBytes > MAX_BODY_BYTES) {
-    console.warn(
-      `[inbound-email] body too large (${totalBytes} bytes) from=${fromRaw.slice(0, 80)} — dropping`,
-    );
-    return NextResponse.json(
-      { ok: false, dropped: "body_too_large" },
-      { status: 200 },
-    );
-  }
+  const outcome = await processInboundEmail(normalized, "sendgrid");
 
-  const parsed = parseFromAddress(fromRaw);
-  if (!parsed) {
-    console.warn(`[inbound-email] unparseable from header: ${fromRaw.slice(0, 100)}`);
-    return NextResponse.json(
-      { ok: false, dropped: "bad_from_header" },
-      { status: 200 },
-    );
-  }
-
-  if (!senderAllowed(parsed.domain)) {
-    console.warn(`[inbound-email] sender not allowlisted: ${parsed.domain}`);
-    return NextResponse.json(
-      { ok: true, dropped: "sender_not_allowlisted" },
-      { status: 200 },
-    );
-  }
-
-  try {
-    const row = await insertInboundEmail({
-      from_address: parsed.address,
-      from_domain: parsed.domain,
-      subject: subject || null,
-      text_body: textBody || null,
-      html_body: htmlBody || null,
-      raw_size_bytes: totalBytes,
-      message_id: parseMessageId(headers),
-    });
-    if (!row) {
-      // unique_violation on message_id — SendGrid retried, we already have it
+  switch (outcome.kind) {
+    case "body_too_large":
+      return NextResponse.json(
+        { ok: false, dropped: "body_too_large" },
+        { status: 200 },
+      );
+    case "bad_from_header":
+      return NextResponse.json(
+        { ok: false, dropped: "bad_from_header" },
+        { status: 200 },
+      );
+    case "sender_not_allowlisted":
+      return NextResponse.json(
+        { ok: true, dropped: "sender_not_allowlisted" },
+        { status: 200 },
+      );
+    case "dedup":
       return NextResponse.json({ ok: true, dedup: true });
-    }
-    console.log(
-      `[inbound-email] stored ${row.id} from=${parsed.domain} subject="${subject.slice(0, 60)}"`,
-    );
-
-    // Phase 2: classify synchronously. Haiku averages 2-3s for a single
-    // newsletter; well under SendGrid's 30s webhook timeout. Failures here
-    // are non-fatal — the row is saved and a future re-run can pick it up
-    // (rows with classified_at IS NULL are the work queue).
-    try {
-      const trackable = accounts.filter((a) => a.trackable);
-      const result = await classifyNewsletter(row, trackable);
-      if (result.signals.length > 0) {
-        await insertSignalsDedup(result.signals);
+    case "stored":
+      if (outcome.classification.ok) {
+        return NextResponse.json({
+          ok: true,
+          id: outcome.id,
+          signals: outcome.classification.signals,
+          matched: outcome.classification.matched,
+          workspace: outcome.classification.workspace,
+        });
       }
-      await markClassified(row.id, result.signals.length);
-      console.log(
-        `[inbound-email] classified ${row.id}: ${result.signals.length} signals (${result.matched} matched, ${result.workspace} workspace) via ${result.classifier_used}`,
-      );
+      // Row stored but classification failed — sweeper will retry. Still 200
+      // so SendGrid doesn't re-send.
       return NextResponse.json({
         ok: true,
-        id: row.id,
-        signals: result.signals.length,
-        matched: result.matched,
-        workspace: result.workspace,
-      });
-    } catch (e) {
-      console.warn(
-        `[inbound-email] classification failed for ${row.id} (row saved, will retry later)`,
-        e instanceof Error ? e.message : String(e),
-      );
-      // Row is persisted; signal extraction will be re-attempted by a future
-      // run. Don't 5xx — SendGrid would re-send the email and we'd duplicate.
-      return NextResponse.json({
-        ok: true,
-        id: row.id,
+        id: outcome.id,
         classification: "deferred",
       });
-    }
-  } catch (e) {
-    // Transient storage failure. Return 5xx so SendGrid retries within its
-    // 3-day window — better than silently losing the message.
-    console.error(
-      "[inbound-email] storage failed",
-      e instanceof Error ? e.message : String(e),
-    );
-    return NextResponse.json(
-      { ok: false, error: "Storage failed" },
-      { status: 503 },
-    );
+    case "storage_failed":
+      return NextResponse.json(
+        { ok: false, error: "Storage failed" },
+        { status: 503 },
+      );
   }
 }
