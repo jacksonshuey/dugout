@@ -7,13 +7,10 @@ import {
 import { classifyNewsletter } from "./newsletter-adapter";
 import { insertSignalsDedup } from "./external-signals";
 
-// Shared orchestration for inbound webhooks. Both the SendGrid path
-// (src/app/api/inbound-email/[secret]/route.ts) and the Mailgun path
-// (src/app/api/inbound-email/mailgun/route.ts) end up doing the same work
-// once they've parsed their provider-specific payload: validate the email,
-// store, classify, return a structured outcome. This file owns that
-// pipeline so each route handler is just provider-specific auth + payload
-// parsing on top.
+// Shared orchestration for the Mailgun inbound webhook
+// (src/app/api/inbound-email/mailgun/route.ts). Owns the validate → store
+// → classify pipeline so the route handler is just auth + payload parsing
+// on top.
 //
 // Lives in its own file to avoid a circular import — `newsletter-adapter`
 // already imports the InboundEmail type from `inbound-email`, so we can't
@@ -76,7 +73,6 @@ function senderAllowed(domain: string): boolean {
 
 async function classifyAndPersist(
   row: InboundEmail,
-  provider: string,
 ): Promise<ClassificationOutcome> {
   try {
     const trackable = accounts.filter((a) => a.trackable);
@@ -86,7 +82,7 @@ async function classifyAndPersist(
     }
     await markClassified(row.id, result.signals.length);
     console.log(
-      `[inbound-email/${provider}] classified ${row.id}: ${result.signals.length} signals (${result.matched} matched, ${result.workspace} workspace) via ${result.classifier_used}`,
+      `[inbound-email/mailgun] classified ${row.id}: ${result.signals.length} signals (${result.matched} matched, ${result.workspace} workspace) via ${result.classifier_used}`,
     );
     return {
       ok: true,
@@ -98,7 +94,7 @@ async function classifyAndPersist(
   } catch (e) {
     const error = e instanceof Error ? e.message : String(e);
     console.warn(
-      `[inbound-email/${provider}] classification failed for ${row.id} (row saved, classified_at NULL; the daily sweeper will retry)`,
+      `[inbound-email/mailgun] classification failed for ${row.id} (row saved, classified_at NULL; the daily sweeper will retry)`,
       error,
     );
     return { ok: false, error };
@@ -107,19 +103,17 @@ async function classifyAndPersist(
 
 // Process a normalized email through the inbound pipeline. Callers should:
 //   - On `body_too_large` / `bad_from_header` / `sender_not_allowlisted` /
-//     `dedup` / `stored`: return 200 to the provider. These are terminal
-//     states; retrying won't help.
-//   - On `storage_failed`: return 5xx so the provider retries. Supabase
-//     blips clear within minutes; SendGrid/Mailgun both have multi-day
-//     retry windows.
+//     `dedup` / `stored`: return 200 to Mailgun. These are terminal states;
+//     retrying won't help.
+//   - On `storage_failed`: return 5xx so Mailgun retries. Supabase blips
+//     clear within minutes; Mailgun's retry window is multi-day.
 export async function processInboundEmail(
   email: NormalizedInboundEmail,
-  provider: "sendgrid" | "mailgun",
 ): Promise<ProcessOutcome> {
   const totalBytes = email.text_body.length + email.html_body.length;
   if (totalBytes > MAX_BODY_BYTES) {
     console.warn(
-      `[inbound-email/${provider}] body too large (${totalBytes} bytes) from=${email.from_raw.slice(0, 80)} — dropping`,
+      `[inbound-email/mailgun] body too large (${totalBytes} bytes) from=${email.from_raw.slice(0, 80)} — dropping`,
     );
     return { kind: "body_too_large", bytes: totalBytes };
   }
@@ -127,14 +121,14 @@ export async function processInboundEmail(
   const parsed = parseFromAddress(email.from_raw);
   if (!parsed) {
     console.warn(
-      `[inbound-email/${provider}] unparseable from header: ${email.from_raw.slice(0, 100)}`,
+      `[inbound-email/mailgun] unparseable from header: ${email.from_raw.slice(0, 100)}`,
     );
     return { kind: "bad_from_header", from_raw: email.from_raw };
   }
 
   if (!senderAllowed(parsed.domain)) {
     console.warn(
-      `[inbound-email/${provider}] sender not allowlisted: ${parsed.domain}`,
+      `[inbound-email/mailgun] sender not allowlisted: ${parsed.domain}`,
     );
     return { kind: "sender_not_allowlisted", domain: parsed.domain };
   }
@@ -152,7 +146,7 @@ export async function processInboundEmail(
     });
   } catch (e) {
     const error = e instanceof Error ? e.message : String(e);
-    console.error(`[inbound-email/${provider}] storage failed`, error);
+    console.error(`[inbound-email/mailgun] storage failed`, error);
     return { kind: "storage_failed", error };
   }
 
@@ -162,12 +156,12 @@ export async function processInboundEmail(
   }
 
   console.log(
-    `[inbound-email/${provider}] stored ${row.id} from=${parsed.domain} subject="${email.subject.slice(0, 60)}"`,
+    `[inbound-email/mailgun] stored ${row.id} from=${parsed.domain} subject="${email.subject.slice(0, 60)}"`,
   );
 
-  // Classify synchronously. Haiku averages 2-3s; well under provider webhook
-  // timeouts (SendGrid 30s, Mailgun 75s). Classification failures don't 5xx
-  // — the row is saved and the daily sweeper picks it up on next run.
-  const classification = await classifyAndPersist(row, provider);
+  // Classify synchronously. Haiku averages 2-3s; well under Mailgun's 75s
+  // webhook timeout. Classification failures don't 5xx — the row is saved
+  // and the daily sweeper picks it up on next run.
+  const classification = await classifyAndPersist(row);
   return { kind: "stored", id: row.id, classification };
 }

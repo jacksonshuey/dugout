@@ -43,11 +43,11 @@ Connect this repo to Vercel. Add `ANTHROPIC_API_KEY` (and optionally `SLACK_WEBH
 
 ## Newsletter inbox
 
-Dugout's account-scoped market intelligence (NewsAPI + SEC EDGAR) is complemented by a workspace-wide newsletter inbox. Inbound emails land in `inbound_emails`, get classified by Haiku, and produce signals into `external_signals` — either tagged to a tracked account (when a known company is named) or as workspace-scoped market intel. The morning digest reads the workspace-scoped items and adds a "Market intel" section when relevant.
+Dugout's account-scoped market intelligence (NewsAPI + SEC EDGAR) is complemented by a workspace-wide newsletter inbox. Inbound emails arrive via Mailgun, land in `inbound_emails`, get classified by Haiku, and produce signals into `external_signals` — either tagged to a tracked account (when a known company is named) or as workspace-scoped market intel. The morning digest reads the workspace-scoped items and adds a "Market intel" section when relevant.
 
-Two providers supported: **Mailgun** (recommended — HMAC-signed webhooks, cleaner signup) and **SendGrid** (works fine; harder to sign up for as of 2026). Pick one.
+Mailgun signs every webhook with HMAC-SHA256, which is verified server-side; the route rejects anything older than 5 minutes to prevent replay.
 
-### Setup (Mailgun)
+### Setup
 
 **1. Pick a domain.** You need a subdomain you control DNS on — e.g. `inbox.yourdomain.com`. The full inbox address will be anything-`@inbox.yourdomain.com`.
 
@@ -79,15 +79,10 @@ INBOUND_SENDER_ALLOWLIST=substack.com,beehiiv.com,tldrnewsletter.com,lennysnewsl
 
 **8. Subscribe to newsletters** from `<anything>@inbox.yourdomain.com`. Only senders whose domain is in `INBOUND_SENDER_ALLOWLIST` (or a subdomain of one) are persisted; others are dropped with a 200 OK so Mailgun doesn't retry.
 
-### Setup (SendGrid alternative)
-
-If using SendGrid instead of Mailgun: same flow, but use `mx.sendgrid.net` for the single MX record, configure Inbound Parse to POST to `/api/inbound-email/<INBOUND_WEBHOOK_SECRET>`, and set `INBOUND_WEBHOOK_SECRET` instead of `MAILGUN_SIGNING_KEY`. Generate the secret with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`.
-
 ### What lives where
 
-- Mailgun webhook handler: `src/app/api/inbound-email/mailgun/route.ts` (HMAC-verified)
-- SendGrid webhook handler: `src/app/api/inbound-email/[secret]/route.ts` (path-secret)
-- Shared pipeline (validation, storage, classification): `src/lib/inbound-pipeline.ts`
+- Webhook handler: `src/app/api/inbound-email/mailgun/route.ts` (HMAC-verified)
+- Pipeline (validation, storage, classification): `src/lib/inbound-pipeline.ts`
 - Classifier: `src/lib/newsletter-adapter.ts`
 - Storage lib: `src/lib/inbound-email.ts`
 - Migration: `supabase/migrations/20260522_inbound_emails.sql`
