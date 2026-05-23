@@ -224,7 +224,7 @@ function OnboardingWalkthrough() {
       <h2 className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight max-w-3xl">
         From paste-a-key to first signal in four steps.
       </h2>
-      <div className="mt-12 space-y-6">
+      <div className="mt-10">
         <StepTwo />
         <StepThree />
         <StepFour />
@@ -246,7 +246,7 @@ function StepShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className="grid md:grid-cols-12 gap-6 items-center rounded-2xl border border-border bg-background p-6 sm:p-8">
+    <div className="grid md:grid-cols-12 gap-6 items-center border-t border-border py-10 sm:py-12">
       <div className="md:col-span-4 space-y-2">
         <div className="flex items-center gap-2">
           <span className="font-mono text-xs text-muted">
@@ -690,6 +690,9 @@ function SectionEyebrow({
         centered ? "text-center" : ""
       }`}
     >
+      <span className="text-brand mr-2" aria-hidden>
+        →
+      </span>
       {children}
     </div>
   );
