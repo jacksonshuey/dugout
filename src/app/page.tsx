@@ -271,7 +271,7 @@ function StepTwo() {
       title="Define priorities + kill point"
       sub="Strategic priorities tag every signal rule. The kill-point sentence is the single thing your engine optimizes around."
     >
-      <div className="rounded-xl border border-border bg-foreground/[0.02] p-5 space-y-4">
+      <div className="space-y-5">
         <div>
           <div className="text-[10px] uppercase tracking-wider text-muted font-mono">
             Kill point
@@ -539,7 +539,7 @@ function StepFour() {
                 >
                   <polygon points="6,3 21,3 18,14 3,14" />
                   <polygon
-                    points="8,5 19,5 16.5,12.5 5.5,12.5"
+                    points="7.8,4.65 18.3,4.65 16.2,12.35 5.7,12.35"
                     strokeOpacity="0.4"
                   />
                 </svg>
