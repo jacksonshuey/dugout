@@ -85,17 +85,17 @@ function Hero() {
       />
       <div className="relative max-w-6xl mx-auto px-6 py-20 sm:py-24">
         <div className="text-xs uppercase tracking-[0.2em] text-background/60 font-mono mb-5">
-          Dugout · the information hub for sales teams
+          Dugout · the intelligence layer for sales teams
         </div>
         <h1 className="text-4xl sm:text-6xl font-semibold tracking-tight leading-[1.05] max-w-4xl">
-          Every signal.
+          Never walk into
           <br />
-          The next action.
+          a meeting cold.
         </h1>
         <p className="mt-5 text-lg sm:text-xl text-background/70 max-w-2xl leading-relaxed">
-          Sales teams run on seven tools. Dugout reads from all of them, applies
-          a deterministic engine, and surfaces what to do — on the right deal,
-          at the right moment.
+          Every tool, every signal, every news cycle, synthesized into a
+          knowledge layer your AEs and managers rely on before each meeting.
+          Deals stop dying because someone walked in unprepared.
         </p>
         <div className="mt-8 flex flex-wrap gap-3 items-center">
           <Link
@@ -154,9 +154,10 @@ function IntegrationConstellation() {
             over your stack.
           </h2>
           <p className="mt-4 text-base text-foreground/70 leading-relaxed">
-            Dugout reads from the systems that already capture buyer behavior.
-            Adapter pattern: adding a source is a file, not an architecture
-            change.
+            Dugout reads from the systems that already capture buyer behavior +
+            the news your buyers&apos; verticals run on. Pluggable adapters:
+            adding a source is a file, not an architecture change. Easy to
+            plug in: paste a key, verify, sync.
           </p>
           <div className="mt-6 flex items-center gap-4 text-xs">
             <StatusKey color="bg-severity-green" label="Live" />
@@ -221,7 +222,7 @@ function OnboardingWalkthrough() {
     <section className="max-w-6xl mx-auto px-6 py-20 sm:py-24 border-b border-border">
       <SectionEyebrow>Onboarding · end to end</SectionEyebrow>
       <h2 className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight max-w-3xl">
-        From paste-a-key to first signal — four steps.
+        From paste-a-key to first signal in four steps.
       </h2>
       <div className="mt-12 space-y-6">
         <StepTwo />
@@ -343,7 +344,7 @@ function StepThree() {
     <StepShell
       num={2}
       title="Map your stack"
-      sub="What you already use. Stack identity flows into the digest prompt and the drawer — 'Gong call excerpts' shows up as 'Granola' if you picked Granola."
+      sub="What you already use. Stack identity flows into the digest prompt and the drawer: 'Gong call excerpts' shows up as 'Granola' if you picked Granola."
     >
       <div className="marquee-container relative overflow-hidden">
         {/* Edge fades so logos enter/exit softly instead of clipping */}
@@ -467,7 +468,7 @@ function StepFour() {
     <StepShell
       num={3}
       title="Connect data sources"
-      sub="API keys live in Supabase Vault — encrypted at rest, never returned to the browser. Sources stream into Dugout; the engine routes signals to your team."
+      sub="API keys live in Supabase Vault, encrypted at rest, never returned to the browser. Sources stream into Dugout; the engine routes signals to your team."
     >
       <div className="relative w-full" style={{ aspectRatio: "600 / 340" }}>
         <svg
@@ -636,7 +637,7 @@ function SignalSampleCard({
           treatment used elsewhere on this card so the typography reads as
           one coherent system, not two. */}
       <span
-        className={`text-[10px] font-mono uppercase tracking-[0.1em] px-1.5 py-0.5 rounded border shrink-0 ${cls}`}
+        className={`text-[10px] font-mono uppercase tracking-[0.1em] py-0.5 rounded border shrink-0 inline-flex items-center justify-center w-[72px] ${cls}`}
       >
         {severity}
       </span>
@@ -662,7 +663,7 @@ function DemoDivider() {
         Scroll. It&apos;s real.
       </h2>
       <p className="mt-3 text-sm text-muted max-w-xl mx-auto">
-        Below this point is the actual console — same component, same seed,
+        Below this point is the actual console. Same component, same seed,
         same signal engine. 11 real public-company accounts. Click any row.
       </p>
       <div className="mt-6 text-muted text-xl" aria-hidden>
