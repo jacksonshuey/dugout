@@ -43,9 +43,9 @@ Open [http://localhost:3000](http://localhost:3000).
 
 Connect this repo to Vercel. Add `ANTHROPIC_API_KEY` (and optionally `SLACK_WEBHOOK_URL`) in Vercel's Environment Variables. Push to `main` to deploy.
 
-## Newsletter inbox (Phase 1: raw capture)
+## Newsletter inbox
 
-Dugout's account-scoped market intelligence (NewsAPI + SEC EDGAR) is complemented by a workspace-wide newsletter inbox. Newsletters POST'd by SendGrid Inbound Parse land in the `inbound_emails` table; a later phase classifies them into `external_signals`. Setup:
+Dugout's account-scoped market intelligence (NewsAPI + SEC EDGAR) is complemented by a workspace-wide newsletter inbox. Newsletters POST'd by SendGrid Inbound Parse land in the `inbound_emails` table, get classified by Haiku, and produce signals into `external_signals` — either tagged to a tracked account (when a known company is named) or as workspace-scoped market intel. The morning digest reads the workspace-scoped items and adds a "Market intel" section when relevant. Setup:
 
 **1. Pick a domain.** You need a subdomain you control DNS on — e.g. `inbox.yourdomain.com`. The full inbox address will be anything-`@inbox.yourdomain.com`.
 
@@ -62,7 +62,7 @@ inbox.yourdomain.com.   MX   10 mx.sendgrid.net.
 
 **4. Run the SQL migration.** Open Supabase Studio → SQL Editor → paste `supabase/migrations/20260522_inbound_emails.sql` → Run.
 
-**5. Set environment variables** (Vercel + `.env.local`):
+**5. Set environment variables** (`.env.example` documents both; copy to `.env.local` and set in Vercel):
 
 ```
 INBOUND_WEBHOOK_SECRET=...     # 16+ char random string; lives in the webhook URL path
@@ -75,14 +75,14 @@ Generate the secret with:
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 
-> **Note on `.env.example`:** these vars will be added to `.env.example` in a follow-up once [PR #1 (Triage Batch 4)](https://github.com/jacksonshuey/dugout/pull/1) lands — that PR introduces the file and there's no need for two branches to add to it concurrently.
-
 **6. Subscribe to newsletters** from `<anything>@inbox.yourdomain.com`. Only senders whose domain is in `INBOUND_SENDER_ALLOWLIST` (or a subdomain of one) are persisted; others are dropped with a 200 OK so SendGrid doesn't retry.
 
 What lives where:
 - Webhook handler: `src/app/api/inbound-email/[secret]/route.ts`
+- Classifier: `src/lib/newsletter-adapter.ts`
 - Storage lib: `src/lib/inbound-email.ts`
 - Migration: `supabase/migrations/20260522_inbound_emails.sql`
+- Digest integration: `src/app/api/digest/route.ts` (reads workspace-scoped signals into the morning briefing)
 
 ## What's real vs what's seamed
 
