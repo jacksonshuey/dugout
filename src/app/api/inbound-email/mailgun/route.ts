@@ -113,8 +113,24 @@ export async function POST(req: Request) {
 
   let form: FormData;
   try {
+    // Real Mailgun POSTs use multipart/form-data. Empty probes (curl with
+    // no body) hit formData() with nothing to parse and throw — we want
+    // those to look like the 401 they morally are, not a 200 dropped.
+    const contentType = req.headers.get("content-type") ?? "";
+    if (!contentType.startsWith("multipart/form-data")) {
+      return NextResponse.json(
+        {
+          error:
+            "Unauthorized — expected multipart/form-data from Mailgun Inbound",
+        },
+        { status: 401 },
+      );
+    }
     form = await req.formData();
   } catch (e) {
+    // Multipart Content-Type was present but the body itself is corrupt.
+    // Treat as a Mailgun-side hiccup; 200 so Mailgun doesn't retry forever
+    // on a payload we can't make sense of.
     console.warn(
       "[inbound-email/mailgun] failed to parse multipart payload",
       e instanceof Error ? e.message : String(e),
@@ -174,7 +190,7 @@ export async function POST(req: Request) {
         null) ?? extractMessageId(String(form.get("message-headers") ?? "")),
   };
 
-  const outcome = await processInboundEmail(normalized, "mailgun");
+  const outcome = await processInboundEmail(normalized);
 
   switch (outcome.kind) {
     case "body_too_large":
