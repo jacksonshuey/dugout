@@ -3,20 +3,22 @@
 import { useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import {
+  AskProviderPicker,
+  useAskChoice,
+} from "@/components/ask-provider-picker";
 
-// AskChatPanel — the drawer / account-page surface for the /ask agent.
-// Per synthesis.md "The AI query layer", there are two surfaces:
-//   - /ask (full page) — the deep-work surface
-//   - drawer chat panel — pre-scoped to the open account, the in-flow surface
+// AskChatPanel — drawer / account-page surface for the /ask agent
+// (D1 update).
 //
-// This component is the second. Mount it anywhere with an account in scope
-// (e.g. inside <Drawer> or on /account/[slug]). It POSTs to /api/ask with
-// the `accountSlug` body field, so the agent's resolver picks that account
-// without the user typing the slug.
+// Two surfaces per synthesis.md "The AI query layer":
+//   - /ask (full page) — deep-work surface
+//   - drawer chat panel — pre-scoped to the open account
 //
-// Kept intentionally minimal: a one-line input, an answer panel, a "brief
-// me on this account" pre-fill. No tool-call trace UI here — that lives on
-// the full /ask page. The drawer is for quick answers in the flow.
+// D1 additions match the /ask page: a provider picker (sticky via
+// useAskChoice) and a clear 429 message when the rate-limit cap is hit.
+// We intentionally keep this surface small — no tool-call trace — so the
+// drawer stays focused on quick in-flow answers.
 
 type Citation = {
   id: string;
@@ -30,7 +32,15 @@ type AskResponse = {
   citations: Citation[];
   toolCalls: unknown[];
   model: string;
+  provider: string;
   accountSlug: string | null;
+  stubReason?: string;
+};
+
+type RateLimitInfo = {
+  message: string;
+  reason: string;
+  retryAfterSeconds: number;
 };
 
 export function AskChatPanel({
@@ -44,12 +54,16 @@ export function AskChatPanel({
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState<AskResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [rateLimit, setRateLimit] = useState<RateLimitInfo | null>(null);
+
+  const { choice, setChoice, availability } = useAskChoice();
 
   async function submit() {
     if (!question.trim() || loading) return;
     setLoading(true);
     setError(null);
     setResponse(null);
+    setRateLimit(null);
     try {
       const res = await fetch("/api/ask", {
         method: "POST",
@@ -57,8 +71,23 @@ export function AskChatPanel({
         body: JSON.stringify({
           question: question.trim(),
           accountSlug,
+          provider: choice.provider,
+          model: choice.model,
         }),
       });
+      if (res.status === 429) {
+        const body = (await res.json()) as {
+          error?: string;
+          reason?: string;
+          retry_after_seconds?: number;
+        };
+        setRateLimit({
+          message: body.error ?? "Rate limit hit. Try again later.",
+          reason: body.reason ?? "unknown",
+          retryAfterSeconds: body.retry_after_seconds ?? 3600,
+        });
+        return;
+      }
       if (!res.ok) throw new Error((await res.text()) || `HTTP ${res.status}`);
       setResponse((await res.json()) as AskResponse);
     } catch (e) {
@@ -84,6 +113,11 @@ export function AskChatPanel({
           placeholder="Ask about this account…"
           className="flex-1 text-sm border border-border rounded-md px-2 h-8 bg-background focus:outline-none focus:border-foreground/40"
         />
+        <AskProviderPicker
+          choice={choice}
+          setChoice={setChoice}
+          availability={availability}
+        />
         <button
           type="button"
           onClick={() => void submit()}
@@ -97,6 +131,13 @@ export function AskChatPanel({
         </button>
       </div>
 
+      {rateLimit && (
+        <div className="border border-amber-400 bg-amber-50 rounded-md p-2 text-xs text-amber-900">
+          <p className="font-medium">Rate limit reached</p>
+          <p className="mt-0.5">{rateLimit.message}</p>
+        </div>
+      )}
+
       {error && (
         <p className="text-xs text-red-700">Request failed: {error}</p>
       )}
@@ -105,7 +146,9 @@ export function AskChatPanel({
         <div className="border border-border rounded-md p-3 bg-foreground/[0.02] space-y-2">
           {response.model === "stub-deterministic" && (
             <p className="text-[10px] text-amber-700">
-              Demo response (set OPENAI_API_KEY for live answers).
+              {response.stubReason
+                ? `Demo response (${response.stubReason}).`
+                : "Demo response — pick a provider above for live answers."}
             </p>
           )}
           <p className="text-xs leading-relaxed whitespace-pre-wrap">
@@ -115,10 +158,7 @@ export function AskChatPanel({
             <p className="text-[10px] text-muted">
               {response.citations.length} citation
               {response.citations.length === 1 ? "" : "s"} •{" "}
-              <Link
-                href={`/ask?account=${accountSlug}`}
-                className="underline"
-              >
+              <Link href={`/ask?account=${accountSlug}`} className="underline">
                 Open in /ask
               </Link>
             </p>

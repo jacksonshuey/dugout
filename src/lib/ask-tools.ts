@@ -421,8 +421,14 @@ export async function rollup(args: {
 // Descriptions are written FOR the model — they should tell it when to pick
 // this tool over another. Account slug examples are intentionally the
 // DEMO_SCENARIO_ACCOUNTS keys so the model has working defaults.
+//
+// We ALSO derive an Anthropic-shaped schema array below
+// (ASK_TOOL_SCHEMAS_ANTHROPIC). Both are generated from a single source of
+// truth so the 8 tools stay aligned across providers — only the wrapper
+// envelope differs. `ASK_TOOL_SCHEMAS` is kept as an alias for backwards
+// compatibility with callers that pre-date the dual-provider work.
 
-export const ASK_TOOL_SCHEMAS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
+export const ASK_TOOL_SCHEMAS_OPENAI: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   {
     type: "function",
     function: {
@@ -579,6 +585,50 @@ export const ASK_TOOL_SCHEMAS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
     },
   },
 ];
+
+// ─── Anthropic tool-use schemas ─────────────────────────────────────────
+//
+// Anthropic uses a different envelope than OpenAI:
+//   OpenAI:    { type: "function", function: { name, description, parameters } }
+//   Anthropic: { name, description, input_schema }
+//
+// `input_schema` body is the same JSON Schema shape we already build for
+// OpenAI's `parameters`. So we project the OpenAI schemas through a tiny
+// transform — one source of truth, no risk of the two arrays drifting.
+
+export type AnthropicToolSchema = {
+  name: string;
+  description: string;
+  input_schema: {
+    type: "object";
+    properties: Record<string, unknown>;
+    required?: string[];
+    additionalProperties?: boolean;
+  };
+};
+
+function toAnthropicSchema(
+  tool: OpenAI.Chat.Completions.ChatCompletionTool,
+): AnthropicToolSchema {
+  if (tool.type !== "function") {
+    throw new Error(`Cannot convert non-function tool to Anthropic shape: ${tool.type}`);
+  }
+  const params = tool.function.parameters as
+    | AnthropicToolSchema["input_schema"]
+    | undefined;
+  return {
+    name: tool.function.name,
+    description: tool.function.description ?? "",
+    input_schema: params ?? { type: "object", properties: {} },
+  };
+}
+
+export const ASK_TOOL_SCHEMAS_ANTHROPIC: AnthropicToolSchema[] =
+  ASK_TOOL_SCHEMAS_OPENAI.map(toAnthropicSchema);
+
+// Backwards-compatible alias — the original single-provider export. Existing
+// callers (and `/api/ask/route.ts` in its pre-D1 form) import this name.
+export const ASK_TOOL_SCHEMAS = ASK_TOOL_SCHEMAS_OPENAI;
 
 // ─── Tool dispatcher ────────────────────────────────────────────────────
 //

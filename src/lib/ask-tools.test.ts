@@ -7,6 +7,8 @@
 import { describe, expect, test } from "vitest";
 import {
   ASK_TOOL_SCHEMAS,
+  ASK_TOOL_SCHEMAS_ANTHROPIC,
+  ASK_TOOL_SCHEMAS_OPENAI,
   collectCitations,
   dispatchTool,
   findSignals,
@@ -55,6 +57,47 @@ describe("ASK_TOOL_SCHEMAS", () => {
       properties: { signal_type: { enum: string[] } };
     };
     expect(props.properties.signal_type.enum).toHaveLength(12);
+  });
+
+  test("ASK_TOOL_SCHEMAS is an alias for the OpenAI variant", () => {
+    expect(ASK_TOOL_SCHEMAS).toBe(ASK_TOOL_SCHEMAS_OPENAI);
+  });
+});
+
+describe("ASK_TOOL_SCHEMAS_ANTHROPIC", () => {
+  test("exports exactly 8 tools with the same names as the OpenAI variant", () => {
+    expect(ASK_TOOL_SCHEMAS_ANTHROPIC).toHaveLength(8);
+
+    const anthropicNames = ASK_TOOL_SCHEMAS_ANTHROPIC.map((t) => t.name).sort();
+    const openaiNames = ASK_TOOL_SCHEMAS_OPENAI.filter(
+      (t): t is Extract<typeof t, { type: "function" }> => t.type === "function",
+    )
+      .map((t) => t.function.name)
+      .sort();
+
+    expect(anthropicNames).toEqual(openaiNames);
+  });
+
+  test("every Anthropic schema has name, description, and input_schema.properties", () => {
+    for (const t of ASK_TOOL_SCHEMAS_ANTHROPIC) {
+      expect(t.name).toBeTruthy();
+      expect(typeof t.name).toBe("string");
+      expect(t.description).toBeTruthy();
+      expect(t.description.length).toBeGreaterThan(20);
+      expect(t.input_schema).toBeDefined();
+      expect(t.input_schema.type).toBe("object");
+      expect(t.input_schema.properties).toBeDefined();
+      expect(typeof t.input_schema.properties).toBe("object");
+    }
+  });
+
+  test("Anthropic find_signals schema preserves the 12-type enum constraint", () => {
+    const tool = ASK_TOOL_SCHEMAS_ANTHROPIC.find((t) => t.name === "find_signals");
+    expect(tool).toBeDefined();
+    const props = tool!.input_schema.properties as {
+      signal_type: { enum: string[] };
+    };
+    expect(props.signal_type.enum).toHaveLength(12);
   });
 });
 

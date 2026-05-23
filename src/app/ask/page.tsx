@@ -4,21 +4,24 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Card } from "@/components/ui";
 import { cn } from "@/lib/utils";
+import {
+  AskProviderPicker,
+  useAskChoice,
+} from "@/components/ask-provider-picker";
 
-// /ask — the natural-language query layer (U4).
-//
-// Simple chat-style UI: text input at the top, submit button, answer panel
-// below. POSTs to /api/ask and renders the response.
+// /ask — the natural-language query layer (U4 + D1).
 //
 // Two display affordances called out in the brief:
 //   1. Inline citation chips — every [citation:signal_id] in the answer body
-//      becomes a small badge linked to /account/<slug>#signal-<id>. Today
-//      that deep link doesn't resolve (the per-account drawer page doesn't
-//      exist yet), so we render the chip as a static label until the
-//      target page lands. The href format is set so it'll Just Work when
-//      that route ships.
-//   2. "How I got this answer" — collapsible tool-call trace, so the demo
-//      audience can see the agent picked tools deliberately, not magically.
+//      becomes a small badge linked to /account/<slug>#signal-<id>.
+//   2. "How I got this answer" — collapsible tool-call trace.
+//
+// D1 additions:
+//   - Provider/model picker above the input. Persisted to localStorage
+//     via useAskChoice(). Unavailable providers grey out via
+//     /api/ask/providers.
+//   - 429 from the server (rate-limit cap hit) renders a clear message
+//     instead of a generic error — caller knows what to do.
 
 type Citation = {
   id: string;
@@ -38,8 +41,16 @@ type AskResponse = {
   citations: Citation[];
   toolCalls: ToolCallRecord[];
   model: string;
+  provider: string;
   accountSlug: string | null;
   warnings?: string[];
+  stubReason?: string;
+};
+
+type RateLimitInfo = {
+  message: string;
+  reason: string;
+  retryAfterSeconds: number;
 };
 
 const SAMPLE_QUESTIONS = [
@@ -55,7 +66,10 @@ export default function AskPage() {
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState<AskResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [rateLimit, setRateLimit] = useState<RateLimitInfo | null>(null);
   const [showTrace, setShowTrace] = useState(false);
+
+  const { choice, setChoice, availability } = useAskChoice();
 
   // Rotate the placeholder every 4s so a passive viewer sees the canonical
   // demo questions cycle. Pause when the user has started typing.
@@ -72,13 +86,31 @@ export default function AskPage() {
     setLoading(true);
     setError(null);
     setResponse(null);
+    setRateLimit(null);
     setShowTrace(false);
     try {
       const res = await fetch("/api/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: question.trim() }),
+        body: JSON.stringify({
+          question: question.trim(),
+          provider: choice.provider,
+          model: choice.model,
+        }),
       });
+      if (res.status === 429) {
+        const body = (await res.json()) as {
+          error?: string;
+          reason?: string;
+          retry_after_seconds?: number;
+        };
+        setRateLimit({
+          message: body.error ?? "Rate limit hit. Try again later.",
+          reason: body.reason ?? "unknown",
+          retryAfterSeconds: body.retry_after_seconds ?? 3600,
+        });
+        return;
+      }
       if (!res.ok) {
         const text = await res.text();
         throw new Error(text || `HTTP ${res.status}`);
@@ -118,7 +150,7 @@ export default function AskPage() {
           rows={3}
           className="w-full resize-none bg-transparent text-sm focus:outline-none placeholder:text-muted"
         />
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <div className="flex flex-wrap gap-1.5">
             {SAMPLE_QUESTIONS.slice(0, 3).map((q) => (
               <button
@@ -131,26 +163,44 @@ export default function AskPage() {
               </button>
             ))}
           </div>
-          <button
-            type="button"
-            onClick={() => void submit()}
-            disabled={!question.trim() || loading}
-            className={cn(
-              "text-sm h-8 px-3 rounded-md bg-foreground text-background font-medium",
-              "disabled:opacity-40 disabled:cursor-not-allowed",
-              "hover:bg-foreground/90",
-            )}
-          >
-            {loading ? "Thinking…" : "Ask (⌘↵)"}
-          </button>
+          <div className="flex items-center gap-2">
+            <AskProviderPicker
+              choice={choice}
+              setChoice={setChoice}
+              availability={availability}
+            />
+            <button
+              type="button"
+              onClick={() => void submit()}
+              disabled={!question.trim() || loading}
+              className={cn(
+                "text-sm h-8 px-3 rounded-md bg-foreground text-background font-medium",
+                "disabled:opacity-40 disabled:cursor-not-allowed",
+                "hover:bg-foreground/90",
+              )}
+            >
+              {loading ? "Thinking…" : "Ask (⌘↵)"}
+            </button>
+          </div>
         </div>
       </Card>
 
+      {rateLimit && (
+        <Card className="p-4 border-amber-400 bg-amber-50">
+          <p className="text-sm font-medium text-amber-900">
+            Rate limit reached
+          </p>
+          <p className="text-sm text-amber-900 mt-1">{rateLimit.message}</p>
+          <p className="text-xs text-amber-800 mt-2">
+            Cap: <code className="font-mono">{rateLimit.reason}</code> · retry
+            in ~{Math.ceil(rateLimit.retryAfterSeconds / 60)} min
+          </p>
+        </Card>
+      )}
+
       {error && (
         <Card className="p-4 border-red-300 bg-red-50">
-          <p className="text-sm text-red-800">
-            Request failed: {error}
-          </p>
+          <p className="text-sm text-red-800">Request failed: {error}</p>
         </Card>
       )}
 
@@ -159,8 +209,9 @@ export default function AskPage() {
           {isStubMode && (
             <Card className="p-3 bg-amber-50 border-amber-300">
               <p className="text-xs text-amber-900">
-                Showing demo response. Real OpenAI integration activates when{" "}
-                <code>OPENAI_API_KEY</code> is configured.
+                {response.stubReason
+                  ? `Showing demo response (${response.stubReason}).`
+                  : "Showing demo response. Pick a provider above to run a live query."}
               </p>
             </Card>
           )}
@@ -213,7 +264,8 @@ export default function AskPage() {
             >
               <span>{showTrace ? "▼" : "▶"}</span>
               How I got this answer · {response.toolCalls.length} tool call
-              {response.toolCalls.length === 1 ? "" : "s"} · model:{" "}
+              {response.toolCalls.length === 1 ? "" : "s"} · provider:{" "}
+              <code className="font-mono">{response.provider}</code> · model:{" "}
               <code className="font-mono">{response.model}</code>
             </button>
             {showTrace && (
@@ -296,10 +348,6 @@ function CitationChip({
 }) {
   const id = citation?.id ?? fallbackId ?? "unknown";
   const tool = citation?.sourceTool ?? "?";
-  // Deep link target. The /account/[slug] route exists; when no slug is
-  // resolvable (cross-account question), fall back to a no-op chip so the
-  // user isn't bounced to a 404. The signal-<id> anchor lets the account
-  // page (or a future enhancement to it) scroll to the cited row.
   const href = accountSlug ? `/account/${accountSlug}#signal-${id}` : "#";
   const isKnown = Boolean(citation);
   const isLinkable = Boolean(accountSlug) && isKnown;
