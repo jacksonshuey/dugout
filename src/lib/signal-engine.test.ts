@@ -79,6 +79,7 @@ describe("SELECTED_VENDOR_NO_FINANCE", () => {
       makeCtx({ opportunities: [opp], contacts: [champion] }),
     );
     expect(signals.map((s) => s.oppId)).toEqual([opp.id]);
+    expect(signals[0].signalType).toBe("committee_gap");
   });
 
   test("does not fire when Finance contact is present", () => {
@@ -101,6 +102,7 @@ describe("SELECTED_VENDOR_NO_PROCUREMENT", () => {
       makeCtx({ opportunities: [opp], contacts: [champion] }),
     );
     expect(signals.map((s) => s.oppId)).toEqual([opp.id]);
+    expect(signals[0].signalType).toBe("committee_gap");
   });
 
   test("does not fire when Procurement contact is present", () => {
@@ -123,6 +125,7 @@ describe("NO_FINANCE_AT_EVALUATING", () => {
       makeCtx({ opportunities: [opp], contacts: [champion] }),
     );
     expect(signals).toHaveLength(1);
+    expect(signals[0].signalType).toBe("committee_gap");
   });
 
   test("does not fire when stage is not Evaluating", () => {
@@ -145,6 +148,7 @@ describe("NO_IT_AT_EVALUATING", () => {
       makeCtx({ opportunities: [opp], contacts: [champion] }),
     );
     expect(signals).toHaveLength(1);
+    expect(signals[0].signalType).toBe("committee_gap");
   });
 
   test("does not fire when IT/Security contact is present", () => {
@@ -166,6 +170,7 @@ describe("NO_TRIAL_BRIEF_AT_DEMO_SAT", () => {
       makeCtx({ opportunities: [opp] }),
     );
     expect(signals).toHaveLength(1);
+    expect(signals[0].signalType).toBe("momentum_change");
   });
 
   test("does not fire when trial brief has been delivered", () => {
@@ -196,6 +201,7 @@ describe("SINGLE_THREAD_RISK", () => {
       makeCtx({ opportunities: [opp], contacts: [champion] }),
     );
     expect(signals).toHaveLength(1);
+    expect(signals[0].signalType).toBe("committee_gap");
   });
 
   test("does not fire when deal has two contacts", () => {
@@ -225,6 +231,7 @@ describe("STAGE_AGE_EXCEEDED", () => {
       makeCtx({ opportunities: [opp] }),
     );
     expect(signals).toHaveLength(1);
+    expect(signals[0].signalType).toBe("momentum_change");
   });
 
   test("does not fire when stage age is under benchmark", () => {
@@ -249,6 +256,7 @@ describe("DEMO_NOT_BOOKED", () => {
       makeCtx({ opportunities: [opp], contacts: [champion] }),
     );
     expect(signals).toHaveLength(1);
+    expect(signals[0].signalType).toBe("momentum_change");
   });
 
   test("does not fire when a meeting happened in the last 7 days", () => {
@@ -283,6 +291,7 @@ describe("ASSET_GAP_FINANCE", () => {
       makeCtx({ opportunities: [opp], contacts: [finance] }),
     );
     expect(signals).toHaveLength(1);
+    expect(signals[0].signalType).toBe("committee_gap");
   });
 
   test("does not fire when the Finance brief has been delivered", () => {
@@ -321,6 +330,7 @@ describe("ASSET_GAP_IT", () => {
       makeCtx({ opportunities: [opp], activities: [activity] }),
     );
     expect(signals).toHaveLength(1);
+    expect(signals[0].signalType).toBe("committee_gap");
   });
 
   test("does not fire when no IT-related activity exists", () => {
@@ -361,6 +371,7 @@ describe("CHAMPION_GHOST", () => {
       }),
     );
     expect(signals).toHaveLength(1);
+    expect(signals[0].signalType).toBe("champion_disengagement");
   });
 
   test("does not fire when champion has recent activity", () => {
@@ -401,6 +412,7 @@ describe("CHAMPION_DEPARTED", () => {
     );
     expect(signals).toHaveLength(1);
     expect(signals[0].playbookId).toBe("champion-departure");
+    expect(signals[0].signalType).toBe("champion_loss");
   });
 
   test("does not fire when champion is active", () => {
@@ -436,6 +448,7 @@ describe("CALL_NEGATIVE_SENTIMENT", () => {
       makeCtx({ opportunities: [opp], calls: [call] }),
     );
     expect(signals).toHaveLength(1);
+    expect(signals[0].signalType).toBe("momentum_change");
   });
 
   test("does not fire when latest call has no risk flags", () => {
@@ -467,6 +480,12 @@ describe("computeDealHealth", () => {
       ruleId,
       oppId: "opp_1",
       severity,
+      // signalType is required on Signal. computeDealHealth doesn't read it —
+      // it keys off severity + ruleId — so any canonical value satisfies the
+      // shape. Use champion_loss for the CHAMPION_DEPARTED case to match the
+      // production mapping; everything else uses momentum_change as a generic
+      // fixture.
+      signalType: ruleId === "CHAMPION_DEPARTED" ? "champion_loss" : "momentum_change",
       title: "t",
       body: "b",
       suggestedAction: "a",

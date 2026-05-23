@@ -183,11 +183,43 @@ export interface AssetDelivery {
 // awareness -> weekly summary. This tiering is the core "noise vs signal" answer.
 export type SignalSeverity = "blocking" | "action" | "awareness";
 
+// Canonical signal taxonomy — the 12 types every source-signal across every
+// integration collapses into. Definitions live in
+// `orgs/checkbox/synthesis.md §1`. The signal_type is the join key that makes
+// cross-source correlation possible: different tools observing the same
+// underlying phenomenon get the same `signalType`, even though their raw
+// payloads differ.
+//
+// Polarity (good vs bad news) is carried on a separate `direction` column on
+// the persistent `signal_instances` table — NOT on this in-memory Signal
+// today. When a rule's polarity matters, document it in a comment near the
+// rule rather than adding a field here.
+//
+// `data_hygiene_gap` is future-state — no current rule emits it. It's defined
+// for when Swyft (MEDDPICC field staleness) is wired.
+export type SignalType =
+  | "champion_loss"
+  | "champion_disengagement"
+  | "committee_gap"
+  | "committee_expansion"
+  | "momentum_change"
+  | "competitive_threat"
+  | "shadow_research"
+  | "account_health_decline"
+  | "lifecycle_milestone"
+  | "account_context"
+  | "vertical_context"
+  | "data_hygiene_gap";
+
 export interface Signal {
   id: string; // unique per firing — `${ruleId}:${oppId}`
   ruleId: string;
   oppId: string;
   severity: SignalSeverity;
+  // Canonical signal taxonomy — required. One of the 12 values in synthesis.md §1.
+  // Source-specific subtypes (e.g., 'finance_mentioned_not_engaged') belong in
+  // a `derived` JSONB column on the persistent row, not in `signalType`.
+  signalType: SignalType;
   title: string; // short, scannable
   body: string; // 1-2 sentences of context
   suggestedAction: string; // imperative — what the AE should do next

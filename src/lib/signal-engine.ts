@@ -128,6 +128,8 @@ const ruleSelectedVendorNoFinance: SignalRule = {
         ruleId: "SELECTED_VENDOR_NO_FINANCE",
         oppId: o.id,
         severity: "blocking",
+        // Finance persona absent from a buying committee — canonical committee_gap.
+        signalType: "committee_gap",
         title: "Finance gate unmanned",
         body: "Deal is at Selected Vendor without a Finance contact identified. Budget approval is the most common kill point at this stage.",
         suggestedAction: `Send the ${assetName(ctx, "cfo_leave_behind", "CFO Leave-Behind")} to your champion today and ask for a Finance intro by EOW.`,
@@ -155,6 +157,8 @@ const ruleSelectedVendorNoProcurement: SignalRule = {
         ruleId: "SELECTED_VENDOR_NO_PROCUREMENT",
         oppId: o.id,
         severity: "blocking",
+        // Procurement persona absent — canonical committee_gap.
+        signalType: "committee_gap",
         title: "Procurement not engaged",
         body: "No Procurement contact on this deal. Once paperwork starts, you need a named procurement lead or you'll wait weeks for triage.",
         suggestedAction:
@@ -182,6 +186,9 @@ const ruleNoFinanceAtEvaluating: SignalRule = {
         ruleId: "NO_FINANCE_AT_EVALUATING",
         oppId: o.id,
         severity: "action",
+        // Finance persona absent earlier in the funnel — same canonical type
+        // as the Selected Vendor variant; severity is the difference.
+        signalType: "committee_gap",
         title: "No Finance contact on Evaluating deal",
         body: "You're at Evaluating with no Finance contact. We know deals die at Selected Vendor budget approval — this is when to fix it.",
         suggestedAction: `Send the ${assetName(ctx, "finance_meeting_brief", "Finance Meeting Brief")} to your champion today and request a 30-min intro to Finance this week.`,
@@ -209,6 +216,8 @@ const ruleNoITAtEvaluating: SignalRule = {
         ruleId: "NO_IT_AT_EVALUATING",
         oppId: o.id,
         severity: "action",
+        // IT/Security persona absent — canonical committee_gap.
+        signalType: "committee_gap",
         title: "No IT/Security contact on Evaluating deal",
         body: "IT review averages 2–4 weeks. If it hasn't started yet, you'll lose that time at Contracting.",
         suggestedAction: `Send the ${assetName(ctx, "it_zero_lift_one_pager", "IT Zero-Lift One-Pager")} to your champion and ask them to forward to their IT/Security lead.`,
@@ -236,6 +245,12 @@ const ruleNoTrialBriefAtDemoSat: SignalRule = {
         ruleId: "NO_TRIAL_BRIEF_AT_DEMO_SAT",
         oppId: o.id,
         severity: "action",
+        // Awkward fit: this is a playbook-step gap, not a clean fit for any of
+        // the 12 types. Closest is momentum_change (negative direction) —
+        // missing the trial brief stalls the deal's forward motion. Not
+        // data_hygiene_gap, which is specifically about structured deal
+        // metadata (MEDDPICC fields), not playbook execution.
+        signalType: "momentum_change",
         title: "No outcome-first trial brief delivered",
         body: `Per company playbook, every Demo Sat deal should have an ${assetName(ctx, "outcome_first_trial_brief", "outcome-first trial brief")} in place before the next meeting. This one doesn't.`,
         suggestedAction: `Request intake from your champion today. SE will return ${assetName(ctx, "kpi_assessment", "KPI Assessment")} + ${assetName(ctx, "pre_seeded_demo", "pre-seeded demo")} in 48 hours.`,
@@ -265,6 +280,9 @@ const ruleSingleThreadRisk: SignalRule = {
         ruleId: "SINGLE_THREAD_RISK",
         oppId: o.id,
         severity: "action",
+        // Only one contact role on a buying-stage deal — the broader buying
+        // committee is missing. Canonical committee_gap.
+        signalType: "committee_gap",
         title: "Single-thread risk",
         body: "Only one contact on this deal. If your champion leaves or goes quiet, the deal goes with them.",
         suggestedAction:
@@ -291,6 +309,9 @@ const ruleStageAgeExceeded: SignalRule = {
           ruleId: "STAGE_AGE_EXCEEDED",
           oppId: o.id,
           severity: "action" as const,
+          // Stage slipping past benchmark = canonical momentum_change
+          // (negative direction in the persistent schema).
+          signalType: "momentum_change" as const,
           title: `${age} days in ${o.stage} (benchmark: ${bench})`,
           body: `This deal has been in ${o.stage} for ${age} days — ${age - bench} days past benchmark. Either there's a blocker we haven't named, or the stage is wrong.`,
           suggestedAction:
@@ -327,6 +348,9 @@ const ruleDemoNotBooked: SignalRule = {
         ruleId: "DEMO_NOT_BOOKED",
         oppId: o.id,
         severity: "action" as const,
+        // No next-step meeting committed at a stage that needs one = canonical
+        // momentum_change (negative direction).
+        signalType: "momentum_change" as const,
         title: "Champion identified but no demo booked",
         body: "You have a champion but no demo on the calendar in the next 7 days. The Intro → Qualified hop is already a 37% step — don't let momentum die here.",
         suggestedAction:
@@ -354,6 +378,10 @@ const ruleAssetGapFinance: SignalRule = {
         ruleId: "ASSET_GAP_FINANCE",
         oppId: o.id,
         severity: "action" as const,
+        // Finance is on the OCR but not engaged with finance materials — this
+        // is the explicit `finance_mentioned_not_engaged` Granola subtype that
+        // synthesis.md §1 maps to committee_gap.
+        signalType: "committee_gap" as const,
         title: `Finance contact engaged but no ${assetName(ctx, "finance_meeting_brief", "Finance Meeting Brief")} sent`,
         body: "Finance is in the conversation but you haven't sent them the standard brief. We built it for exactly this moment.",
         suggestedAction: `Forward the ${assetName(ctx, "finance_meeting_brief", "Finance Meeting Brief")} from ${ctx.config?.stack.dealRooms ?? "Dock"} today.`,
@@ -384,6 +412,10 @@ const ruleAssetGapIT: SignalRule = {
         ruleId: "ASSET_GAP_IT",
         oppId: o.id,
         severity: "action" as const,
+        // IT was mentioned on a call but no IT-targeted asset has gone out —
+        // the `it_mentioned_not_engaged` Granola subtype that synthesis.md §1
+        // maps to committee_gap.
+        signalType: "committee_gap" as const,
         title: `IT signal detected, but ${assetName(ctx, "it_zero_lift_one_pager", "IT one-pager")} not sent`,
         body: `There's been talk of security/SSO on this deal and the ${assetName(ctx, "it_zero_lift_one_pager", "IT one-pager")} hasn't gone out. That's the asset that pre-empts most of the back-and-forth.`,
         suggestedAction: `Send the ${assetName(ctx, "it_zero_lift_one_pager", "IT Zero-Lift One-Pager")} today and offer a 20-min walkthrough with our SE.`,
@@ -422,6 +454,8 @@ const ruleChampionGhost: SignalRule = {
           ruleId: "CHAMPION_GHOST",
           oppId: o.id,
           severity: "blocking" as const,
+          // Champion still present but going dark — textbook champion_disengagement.
+          signalType: "champion_disengagement" as const,
           title: `Champion silent for ${days} days`,
           body: "Champion hasn't responded, joined a meeting, or visited the deal room in over a week. We need to know why before this fades to closed-lost.",
           suggestedAction:
@@ -459,6 +493,8 @@ const ruleChampionDeparted: SignalRule = {
           ruleId: "CHAMPION_DEPARTED",
           oppId: o.id,
           severity: "blocking" as const,
+          // Champion left the company — canonical champion_loss.
+          signalType: "champion_loss" as const,
           title: `Champion ${champion.name} has left the company`,
           body:
             champion.departureNote ??
@@ -494,6 +530,14 @@ const ruleCallNegativeSentiment: SignalRule = {
         ruleId: "CALL_NEGATIVE_SENTIMENT",
         oppId: opp.id,
         severity: "action",
+        // Objections/pricing pushback/no-next-step surfaced on a call — these
+        // are the `objection_raised` and "no next step" Granola/Gong subtypes
+        // that synthesis.md §1 maps to momentum_change (negative direction).
+        // Note: a competitor mention in riskFlags would more cleanly be a
+        // competitive_threat signal. Current rule emits one signal per call
+        // regardless of which flags fired; splitting by flag type is a
+        // follow-up — see open questions.
+        signalType: "momentum_change",
         title: `${latest.riskFlags.length} risk marker${latest.riskFlags.length > 1 ? "s" : ""} on last call`,
         body: `Last call (${latest.callDate}) surfaced: ${latest.riskFlags.join(", ")}.`,
         suggestedAction: `Watch the 30s clip flagged in ${ctx.config?.stack.conversationIntelligence ?? "Gong"} and address the specific objection in your next outreach.`,
@@ -559,9 +603,17 @@ export function sortSignals(signals: Signal[]): Signal[] {
 // weighting reflects that the same signal carries different urgency at 9
 // months out vs 30 days out.
 // ---------------------------------------------------------------------------
+// Accepts any object with the three fields computeDealHealth actually reads.
+// This lets callers pass either real Signal[] (from evaluateAll) or the
+// Task-derived signal-snapshots the UI constructs from localStorage tasks.
+// Tasks don't carry `signalType` — keeping this parameter as full Signal[]
+// would force every UI call site to fabricate a canonical signalType just to
+// satisfy the type checker. Pick the fields actually used instead.
+type DealHealthSignal = Pick<Signal, "oppId" | "severity" | "ruleId">;
+
 export function computeDealHealth(
   opp: Opportunity,
-  signals: Signal[],
+  signals: DealHealthSignal[],
 ): DealHealth {
   const ownSignals = signals.filter((s) => s.oppId === opp.id);
   const blocking = ownSignals.filter((s) => s.severity === "blocking");
