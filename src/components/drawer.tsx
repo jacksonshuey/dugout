@@ -22,7 +22,6 @@ import {
   formatCurrency,
   formatDate,
   lookupBy,
-  TODAY,
 } from "@/lib/utils";
 import type { WorkspaceConfig } from "@/lib/workspace";
 import {
@@ -725,5 +724,3 @@ function Section({
     </section>
   );
 }
-
-void TODAY; // silence unused warning if drawer doesn't use it directly
