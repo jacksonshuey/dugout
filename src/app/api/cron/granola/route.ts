@@ -22,11 +22,23 @@ interface WorkspaceRow {
   workspace_key: string;
 }
 
+// Constant-time string compare. Same approach as src/lib/ui-auth.ts —
+// keeps timing characteristics consistent with the rest of the codebase
+// (the granola cron is internal but Vercel cron URLs can leak via logs).
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
 function authorized(req: Request): boolean {
   const required = process.env.CRON_SECRET;
   if (!required) return false;
-  const header = req.headers.get("authorization");
-  return header === `Bearer ${required}`;
+  const header = req.headers.get("authorization") ?? "";
+  return timingSafeEqual(header, `Bearer ${required}`);
 }
 
 async function listConnectedWorkspaces(): Promise<string[]> {

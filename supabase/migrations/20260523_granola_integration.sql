@@ -104,6 +104,18 @@ create index if not exists meeting_account_overrides_workspace_idx
   on meeting_account_overrides (workspace_key);
 
 -- ---------------------------------------------------------------------------
+-- Row-Level Security. These tables are only ever read/written by the
+-- service-role client through application code; no policies are granted.
+-- Enabling RLS without policies locks the tables to service_role only and
+-- guards against accidental SELECT/INSERT grants to anon/authenticated
+-- elsewhere in the project.
+-- ---------------------------------------------------------------------------
+
+alter table workspace_integrations     enable row level security;
+alter table meeting_signals            enable row level security;
+alter table meeting_account_overrides  enable row level security;
+
+-- ---------------------------------------------------------------------------
 -- Vault helpers. SECURITY DEFINER so the service-role client (which doesn't
 -- have direct Vault privileges) can call them. Search path is pinned to
 -- prevent search_path injection.

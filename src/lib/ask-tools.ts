@@ -122,9 +122,17 @@ export type ToolResult<T> =
 
 // ─── Internal: full account-context build ───────────────────────────────
 //
-// Mirrors /api/account-context/route.ts. Kept private to this module so the
-// route stays the single owner of the public HTTP contract while the agent
-// gets the same numbers without an HTTP hop.
+// ⚠️ DUPLICATION HAZARD — this mirrors the body of
+// `src/app/api/account-context/route.ts`. The route is the canonical
+// shape; this version exists so the agent can call the same logic without
+// an HTTP hop. Any change to the route's signal-unification / correlation
+// / SV-health logic MUST be mirrored here, or the agent will silently
+// return different numbers than the UI.
+//
+// Long-term fix: extract the shared body into `src/lib/account-context.ts`
+// and have both the route and this function call it. Deferred because the
+// extraction touches three files (~200 lines) and would expand the current
+// PR's review surface significantly.
 
 async function buildAccountContext(
   accountId: string,

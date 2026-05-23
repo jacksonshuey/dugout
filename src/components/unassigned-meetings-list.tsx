@@ -147,11 +147,7 @@ function UnassignedRow({
 
 function ReasonChip({ reason }: { reason: UnassignedMeeting["reason"] }) {
   const label =
-    reason === "no_external_domain"
-      ? "internal-looking"
-      : reason === "title_no_match"
-        ? "title didn't match"
-        : "unknown domain";
+    reason === "no_external_domain" ? "internal-looking" : "unknown domain";
   return (
     <span className="text-[10px] font-semibold tracking-wider uppercase px-1.5 py-0.5 rounded bg-slate-100 text-muted border border-border">
       {label}

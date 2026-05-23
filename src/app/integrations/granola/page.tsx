@@ -326,9 +326,7 @@ function readUnassignedFromMeta(
       organiserEmail:
         typeof r.organiserEmail === "string" ? r.organiserEmail : null,
       reason:
-        r.reason === "no_external_domain" ||
-        r.reason === "domain_unknown" ||
-        r.reason === "title_no_match"
+        r.reason === "no_external_domain" || r.reason === "domain_unknown"
           ? r.reason
           : "domain_unknown",
     });

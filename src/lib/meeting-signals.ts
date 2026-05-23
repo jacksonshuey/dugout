@@ -171,5 +171,5 @@ export interface UnassignedMeeting {
   attendees: { name: string | null; email: string }[];
   organiserEmail: string | null;
   // Why we couldn't match (debug + UI hint).
-  reason: "no_external_domain" | "domain_unknown" | "title_no_match";
+  reason: "no_external_domain" | "domain_unknown";
 }
