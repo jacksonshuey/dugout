@@ -62,6 +62,18 @@
 - Integration keys live in Supabase Vault (per the Granola pattern), never in `.env.example` or hardcoded
 - Synthetic signal scenarios in `seed.ts` should be labeled with a `__demo__` flag so they're filterable in production
 
+### 11. AI provider neutrality (ships in commit `8c8c74e`)
+
+The `/ask` chatbot supports OpenAI AND Anthropic as user-chosen providers. Any future agent surface must follow the same pattern:
+
+- **Tokens server-side.** `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` in env vars. Dugout pays the bill. Never exposed to client (only env-key presence booleans via `/api/ask/providers`).
+- **Provider/model choice is per-question, user-facing.** Persisted to localStorage (`DUGOUT_ASK_CHOICE`). Options whose env key is missing are greyed out.
+- **Tool definitions are dual-schema.** `src/lib/ask-tools.ts` exports `ASK_TOOL_SCHEMAS_OPENAI` and `ASK_TOOL_SCHEMAS_ANTHROPIC` derived from the same source. Implementations are provider-blind. Adding a tool means adding it once.
+- **Routing through one wrapper.** `src/lib/ask-agent.ts` `runAskAgent({provider, model, ...})` picks the right client. UI/route code never imports `openai.ts` or `anthropic-ask.ts` directly — always through the wrapper.
+- **System prompt is provider-agnostic.** `src/lib/ask-system-prompt.ts` exports one prompt used by both. Same instructions, same ontology vocabulary, same citation requirement — anything provider-specific belongs in the wrapper, not the prompt.
+- **Per-session rate cap protects the budget.** 20/hr + 100/day per session + 500/day global. At cap = hard 429, no stub fallback. Provider 5xx errors DO fall back to stub (different failure mode); cap-breach does not.
+- **The other AI surfaces stay model-specific.** Morning digest stays on Sonnet 4.6; inbound-email classifier stays on Haiku 4.5. Those are single-shot prompts with stable cost where provider choice doesn't earn its keep. Don't generalize them unless a real customer asks.
+
 ---
 
 ## Where to look — quick reference
@@ -73,7 +85,7 @@
 | New correlation pattern | `synthesis.md §6` (correlation queries) + `dictionary.md` (the 6 patterns) |
 | New UX surface | `discovery/information-requirements.md` (the 6 prioritized + Hero #0) + spec §2.3 (modules) |
 | New integration adapter | `tools/granola.md` (the canonical template) + the target tool's existing card in `tools/*.md` |
-| AI query layer changes | `synthesis.md "The AI query layer"` + OpenAI function calling docs |
+| AI query layer changes | `synthesis.md "The AI query layer"` + `src/lib/ask-agent.ts` (provider routing) + both OpenAI function-calling + Anthropic tool-use docs. Honor principle #11. |
 | Onboarding UX | HANDOFF.md §3.5 ("UX is the integration moat") + `components/connectors-section.tsx` |
 | Schema metric calculation | `metrics.md` (SV Health Score formula) |
 
@@ -95,6 +107,7 @@ Walk this for every worker agent's diff:
 - [ ] **Demo data:** no real keys or PII. Synthetic scenarios labeled.
 - [ ] **Tests:** if the worker touched code with vitest cases, did they update tests appropriately? `npm test` should pass after the worker's diff.
 - [ ] **Build:** `npm run lint` and `npm run build` should pass.
+- [ ] **AI provider neutrality (when touching /ask or tools):** new tools added to ask-tools.ts have both OpenAI + Anthropic schemas; no UI/route code imports `openai.ts` or `anthropic-ask.ts` directly (must go through `ask-agent.ts`). Tokens stay server-side; new agent surfaces follow the dual-provider + rate-cap + shared-system-prompt pattern.
 
 For any item that fails, return a clear flag with:
 - File path + line number

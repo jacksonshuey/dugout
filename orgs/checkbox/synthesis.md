@@ -507,7 +507,63 @@ order by source_count desc, last_signal_at desc;
 
 The schema + tiered storage make this layer cheap and obvious. Architecture: a **tool-use agent** given a small set of typed query tools over the unified store. User asks a natural-language question; the agent picks tools, retrieves grounded data, synthesizes an answer with citations.
 
-**Model provider: OpenAI** (GPT-5 / GPT-4o with function calling) for `/ask`. Dugout already uses Anthropic Sonnet 4.6 for the morning digest and Haiku 4.5 for inbound-email classification — keeping those on Anthropic, putting `/ask` on OpenAI is intentional multi-provider hedging. Failure modes are independent (Anthropic 529 doesn't take down `/ask`; OpenAI rate-limit doesn't take down the digest). The query-tool interface is provider-agnostic — same 8 functions, swappable client. `src/lib/claude.ts` gets a sibling `src/lib/openai.ts`; the rest of the codebase doesn't care which provider answers any given question.
+**Model provider: user-chosen per question, OpenAI OR Anthropic.** Three model options ship today: **GPT-4o** (OpenAI), **Claude Sonnet 4.6** (Anthropic), **Claude Haiku 4.5** (Anthropic cheap). The user picks in a dropdown above the input on `/ask` (and inside the drawer chat panel). Choice is persisted to localStorage (`DUGOUT_ASK_CHOICE`); options whose API key isn't configured in env are greyed out with a "key missing" hint.
+
+**Token model: server-side only.** `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` live in env vars on the Dugout server — never exposed to the client, never stored per-workspace in Vault. Dugout pays the bill; the user picks the model. The other AI surfaces (morning digest on Sonnet 4.6, inbound-email classifier on Haiku 4.5) stay model-specific by design — they're single-shot prompts with stable cost where provider choice doesn't earn its keep.
+
+**Architecture (shipped — see commit `8c8c74e` on `claude/agentmail-rotation`):**
+
+```
+src/lib/ask-system-prompt.ts   — single prompt, both providers. Enumerates
+                                 12 canonical signal_types, 3 severity tiers,
+                                 3 direction values, 8 tools with "when to
+                                 pick" cues, citation requirement, voice,
+                                 read-only boundaries.
+
+src/lib/openai.ts              — OpenAI client wrapper (HAS_OPENAI_KEY,
+                                 getOpenAIClient).
+src/lib/anthropic-ask.ts       — Anthropic client wrapper (HAS_ANTHROPIC_KEY,
+                                 getAnthropicClient). Sibling pattern.
+
+src/lib/ask-tools.ts           — ASK_TOOL_SCHEMAS_OPENAI + 
+                                 ASK_TOOL_SCHEMAS_ANTHROPIC, both derived from
+                                 the same source so they cannot drift. 8 tool
+                                 TypeScript implementations are provider-blind.
+
+src/lib/ask-agent.ts           — runAskAgent({question, accountSlug, provider,
+                                 model}). Provider-agnostic. Max 8 tool calls
+                                 per turn, max 4 turns. On provider 5xx,
+                                 falls back to stub with stubReason set
+                                 (different from at-cap, which is a hard stop).
+
+src/lib/ask-rate-limit.ts      — Per-session caps: 20/hr, 100/day; global
+                                 500/day kill switch. Backed by Supabase
+                                 ask_request_log table. Row written only on
+                                 allow path so denied requests don't inflate
+                                 the count. Fails open on Supabase outage
+                                 (warning logged) — intentional v1 trade-off
+                                 for demo continuity.
+
+src/app/api/ask/route.ts       — POST. Reads {question, accountSlug, provider,
+                                 model}. Mints/reads dugout-ask-session
+                                 HttpOnly cookie (separate from the shared
+                                 UI_SESSION which is HMAC of a constant).
+                                 checkAndRecordAskRequest BEFORE runAskAgent.
+                                 At cap: 429 + Retry-After header +
+                                 retry_after_seconds in body. No stub fallback
+                                 at cap.
+
+src/app/api/ask/providers/route.ts — GET. Returns {openai: bool, anthropic:
+                                     bool} env-key presence. Never returns
+                                     the keys themselves. Gated by
+                                     requireUiSession().
+
+src/components/ask-provider-picker.tsx — useAskChoice() + <AskProviderPicker>.
+                                         Single source of truth used by both
+                                         /ask and the drawer chat panel.
+```
+
+The query-tool interface is provider-agnostic — same 8 functions, two schema serializations (OpenAI's `tools[].function.parameters` vs Anthropic's `tools[].input_schema`). The TypeScript implementations are identical. Adding a new tool means adding it once; both providers learn it for free.
 
 ### The tool set (~8 functions)
 
@@ -603,7 +659,8 @@ Citations: [signal_instance_id_1, signal_instance_id_2, ...] each clickable to s
 
 ### Cost model
 
-- OpenAI GPT-5 / GPT-4o per question: ~$0.02-0.10 depending on how many tools the agent uses
+- Per question (any provider): ~$0.02-0.10 depending on how many tools the agent uses. GPT-4o and Claude Sonnet 4.6 are at price parity for tool-use workloads. Haiku 4.5 ≈ $0.005/question for users who prefer cheap-and-fast.
+- **Hard cap to protect the budget:** 20 questions/hour and 100 questions/day per session; 500 questions/day global. At cap: 429 with `retry_after_seconds`. No stub fallback — hard stop. Backed by `ask_request_log` table; counts are per-session via the `dugout-ask-session` HttpOnly cookie.
 - **Prompt caching** on hot accounts: cache the account_context + recent timeline; subsequent questions on same account drop to <$0.01
 - At 9 AEs × ~5 questions/day = ~45 questions/day → ~$1-5/day per Checkbox-scale customer
 
