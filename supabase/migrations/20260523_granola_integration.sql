@@ -71,7 +71,10 @@ create table if not exists meeting_signals (
   classifier      text not null default 'haiku', -- 'haiku' | 'heuristic' | 'none'
   meta            jsonb not null default '{}'::jsonb,
   created_at      timestamptz not null default now(),
-  unique (account_id, note_id, signal_type)
+  -- workspace_key included so two workspaces processing the same seed
+  -- account_id can each carry their own meeting_signals rows. Without it,
+  -- the second workspace's upsert would clobber the first.
+  unique (workspace_key, account_id, note_id, signal_type)
 );
 
 create index if not exists meeting_signals_account_idx
@@ -126,18 +129,15 @@ begin
     raise exception 'API key must not be empty';
   end if;
 
-  v_secret_name := format('dugout_%s_%s_%s', p_integration, p_workspace_key, gen_random_uuid());
-
   select id, vault_secret_id into v_row_id, v_secret_id
   from workspace_integrations
   where workspace_key = p_workspace_key and integration = p_integration;
 
   if v_secret_id is not null then
-    -- Rotate the existing Vault secret in place.
-    update vault.secrets
-       set secret = p_api_key,
-           updated_at = now()
-     where id = v_secret_id;
+    -- Rotate the existing Vault secret. Must go through vault.update_secret()
+    -- so pgsodium re-encrypts the new value — a raw UPDATE on vault.secrets
+    -- would write plaintext into the encrypted column.
+    perform vault.update_secret(v_secret_id, p_api_key);
     update workspace_integrations
        set updated_at = now()
      where id = v_row_id;
@@ -145,6 +145,7 @@ begin
   end if;
 
   -- Fresh integration: create a new Vault secret then insert the row.
+  v_secret_name := format('dugout_%s_%s_%s', p_integration, p_workspace_key, gen_random_uuid());
   v_secret_id := vault.create_secret(
     p_api_key,
     v_secret_name,

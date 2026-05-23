@@ -160,9 +160,12 @@ export async function classifyMeeting(
     // Too little to classify — skip rather than spend tokens.
     return [];
   }
-  const c = anthropicClient();
   let text: string;
   try {
+    // Client init is inside the try block so a missing ANTHROPIC_API_KEY
+    // returns [] (the documented contract) instead of bubbling up as a
+    // per-note sync error.
+    const c = anthropicClient();
     const message = await c.messages.create({
       model: HAIKU_MODEL,
       max_tokens: 1500,
@@ -173,9 +176,9 @@ export async function classifyMeeting(
       .map((b) => (b as { type: "text"; text: string }).text)
       .join("\n");
   } catch (e) {
-    // 529 overloaded_error or transient failure — log and skip. The cron
-    // can re-classify on the next run when the same note is still within
-    // the lookback window.
+    // 529 overloaded_error, missing key, or transient failure — log and
+    // skip. The cron can re-classify on the next run when the same note is
+    // still within the lookback window.
     console.warn(
       "[granola-classifier] Haiku call failed",
       e instanceof Error ? e.message : String(e),

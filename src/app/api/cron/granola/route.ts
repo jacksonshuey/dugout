@@ -48,32 +48,43 @@ export async function GET(req: Request) {
   const startedAt = Date.now();
   try {
     const workspaces = await listConnectedWorkspaces();
+    // Per-workspace try/catch so a Vault read failure (or any other thrown
+    // error) on one workspace doesn't reject Promise.all and abort the
+    // entire run — every workspace records its own outcome.
     const results = await Promise.all(
       workspaces.map(async (workspaceKey) => {
-        const apiKey = await getIntegrationKey(workspaceKey, "granola");
-        if (!apiKey) {
+        try {
+          const apiKey = await getIntegrationKey(workspaceKey, "granola");
+          if (!apiKey) {
+            return {
+              workspaceKey,
+              status: "error" as const,
+              error: "Vault returned no key for this workspace_integrations row",
+            };
+          }
+          const result = await syncGranola({
+            apiKey,
+            workspaceKey,
+            accounts: [...accounts],
+          });
+          return {
+            workspaceKey,
+            status: result.status,
+            totalNotes: result.totalNotes,
+            matched: result.matched,
+            signalsWritten: result.signalsWritten,
+            unassigned: result.unassigned.length,
+            internalSkipped: result.internalSkipped,
+            errorCount: result.errors.length,
+            durationMs: result.durationMs,
+          };
+        } catch (e) {
           return {
             workspaceKey,
             status: "error" as const,
-            error: "Vault returned no key for this workspace_integrations row",
+            error: e instanceof Error ? e.message : String(e),
           };
         }
-        const result = await syncGranola({
-          apiKey,
-          workspaceKey,
-          accounts: [...accounts],
-        });
-        return {
-          workspaceKey,
-          status: result.status,
-          totalNotes: result.totalNotes,
-          matched: result.matched,
-          signalsWritten: result.signalsWritten,
-          unassigned: result.unassigned.length,
-          internalSkipped: result.internalSkipped,
-          errorCount: result.errors.length,
-          durationMs: result.durationMs,
-        };
       }),
     );
     return NextResponse.json({

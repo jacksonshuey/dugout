@@ -105,7 +105,7 @@ export async function upsertMeetingSignals(
   const { error, count } = await sb
     .from("meeting_signals")
     .upsert(payload, {
-      onConflict: "account_id,note_id,signal_type",
+      onConflict: "workspace_key,account_id,note_id,signal_type",
       count: "exact",
     });
   if (error) throw new Error(`Supabase upsert failed: ${error.message}`);
