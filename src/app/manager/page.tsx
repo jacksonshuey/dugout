@@ -1,17 +1,22 @@
 import Link from "next/link";
 import {
+  DEMO_SCENARIO_ACCOUNTS,
   accounts,
   activities,
   assetDeliveries,
   calls,
   contacts,
+  demoSignals,
   opportunities,
   reps,
 } from "@/data/seed";
 import { computeDealHealth, evaluateAll } from "@/lib/signal-engine";
+import { computeSVHealthScore } from "@/lib/sv-health";
 import { getWorkspaceConfig } from "@/lib/workspace-server";
 import { cn, formatCurrency } from "@/lib/utils";
-import type { DealHealth } from "@/lib/types";
+import type { Account, DealHealth, Opportunity } from "@/lib/types";
+import { SVHealthHeroDashboard } from "@/components/sv-health-hero";
+import type { SVHealthScore } from "@/lib/sv-health";
 
 // Manager view. Derived entirely from the signal engine — same source as the
 // AE Console, just aggregated by owner. Server-rendered (no localStorage,
@@ -42,6 +47,54 @@ export default async function ManagerPage() {
     },
   };
   const signals = evaluateAll(ctx);
+
+  // ── Hero #0: SV Health dashboard scenarios ──────────────────────────
+  // Compute the three SV Health Scores for the labeled demo scenarios. Inputs
+  // mirror the /api/account-context shape: engine signals + demoSignals
+  // filtered to each opp's account, plus that opp's OCR contacts. Demo data
+  // is allowed in server components per BUILD_ALIGNMENT principle #10.
+  const scenarios = (
+    Object.entries(DEMO_SCENARIO_ACCOUNTS) as [
+      keyof typeof DEMO_SCENARIO_ACCOUNTS,
+      string,
+    ][]
+  )
+    .map(([label, accountId]) => {
+      const account = accounts.find((a) => a.id === accountId);
+      if (!account) return null;
+      // First Selected Vendor / Contracting opp on the account — matches the
+      // SV+ gating used by /api/account-context.
+      const opp = opportunities.find(
+        (o) =>
+          o.accountId === accountId &&
+          (o.stage === "Selected Vendor" || o.stage === "Contracting"),
+      );
+      if (!opp) return null;
+      const oppContacts = contacts.filter((c) =>
+        opp.contactRoleIds.includes(c.id),
+      );
+      const allOppSignals = [...signals, ...demoSignals].filter(
+        (s) => s.oppId === opp.id,
+      );
+      const score: SVHealthScore = computeSVHealthScore({
+        account,
+        opportunity: opp,
+        contacts: oppContacts,
+        signals: allOppSignals,
+        externalSignals: [],
+      });
+      return { label, account, opportunity: opp, score };
+    })
+    .filter(
+      (
+        s,
+      ): s is {
+        label: "healthy" | "watch" | "critical";
+        account: Account;
+        opportunity: Opportunity;
+        score: SVHealthScore;
+      } => s !== null,
+    );
 
   // Per-AE roll-up. Filter to AE role specifically — managers, SDRs, SEs
   // don't own deals in the seed.
@@ -121,6 +174,10 @@ export default async function ManagerPage() {
           , aggregated by owner. Read-only v1.
         </p>
       </div>
+
+      {/* Hero #0 — SV Health Score dashboard. The demo opening shot per
+         discovery/information-requirements.md "Hero Surface #0". */}
+      {scenarios.length > 0 && <SVHealthHeroDashboard scenarios={scenarios} />}
 
       {/* Team aggregate cards */}
       <section className="space-y-3">

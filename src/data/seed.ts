@@ -26,6 +26,14 @@ import type {
 //
 // These IDs are stable; if the underlying scenario is rewritten, update the
 // scoring assertions but keep the keys.
+//
+// NOTE on the `watch` key: its computed SV Health Score is currently ~53,
+// which falls into the `at_risk` tier (40-59) per tierForScore. The key
+// labels the demo *scenario role* (middling deal that needs attention),
+// not the computed tier badge — the UI renders "AT RISK" orange for this
+// account, which is semantically correct. If a true 60-79 watch-tier
+// scenario is wanted for visual variety in the dashboard, rebalance the
+// KKR seed signals to push the score up; otherwise leave as-is.
 // ---------------------------------------------------------------------------
 export const DEMO_SCENARIO_ACCOUNTS = {
   healthy: "acc_atlas",
