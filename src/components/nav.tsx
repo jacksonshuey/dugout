@@ -32,6 +32,13 @@ export function Nav() {
         </Link>
         <nav className="flex items-center gap-1 text-xs">
           <Link
+            href="/market-intel"
+            aria-current={isActive("/market-intel") ? "page" : undefined}
+            className={cn(linkBase, isActive("/market-intel") ? linkActive : linkInactive)}
+          >
+            Market intel
+          </Link>
+          <Link
             href="/spec"
             aria-current={isActive("/spec") ? "page" : undefined}
             className={cn(linkBase, isActive("/spec") ? linkActive : linkInactive)}

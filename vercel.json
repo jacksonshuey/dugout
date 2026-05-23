@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/external-signals",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/classify-pending",
+      "schedule": "0 20 * * *"
     }
   ]
 }
