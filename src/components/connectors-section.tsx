@@ -26,6 +26,7 @@ import { Button, Card } from "./ui";
 export interface SystemConnectorStatus {
   anthropic: boolean;
   newsapi: boolean;
+  firecrawl: boolean;
   slack: boolean;
   inbox: boolean;
   // SEC EDGAR has no auth — always "live".
@@ -104,6 +105,13 @@ function SystemConnectorsGrid({ status }: { status: SystemConnectorStatus }) {
       role: "8-K filings for public-co accounts",
       envHint: "(public · no auth)",
       status: "noauth",
+    },
+    {
+      brand: "firecrawl",
+      name: "Firecrawl",
+      role: "Per-account site scrape → Haiku → signals",
+      envHint: "FIRECRAWL_API_KEY",
+      status: status.firecrawl ? "live" : "missing",
     },
     {
       brand: "slack",

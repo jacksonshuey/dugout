@@ -6,9 +6,10 @@ import { supabaseAdmin } from "./supabase";
 // data, SEC filings, or a manual entry.
 
 export type ExternalSignalSource =
-  | "newsapi" // primary v1 source — NewsAPI + Haiku classification
-  | "sec_edgar" // future — public-company 8-K filings
-  | "newsletter" // workspace-wide intel via SendGrid Inbound Parse
+  | "newsapi" // NewsAPI + Haiku classification
+  | "sec_edgar" // public-company 8-K filings
+  | "newsletter" // workspace-wide intel via the AgentMail webhook
+  | "web_scrape" // per-account Firecrawl markdown scrape + Haiku classifier
   | "claude_web_search" // deprecated — too slow for sync 60s budget
   | "manual"
   | "demo";
