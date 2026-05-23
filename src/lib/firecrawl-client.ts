@@ -165,6 +165,6 @@ export async function scrapeUrl(
     statusCode: metaStatus as number,
     markdown,
     title: firstString(body.data?.metadata?.title),
-    sizeBytes: markdown.length,
+    sizeBytes: Buffer.byteLength(markdown, "utf8"),
   };
 }
