@@ -384,40 +384,112 @@ function StepThree() {
 }
 
 function StepFour() {
-  // Connect data sources — show live integrations with status.
-  const sources: BrandKey[] = [
-    "newsapi",
-    "sec",
-    "inbox",
-    "anthropic",
-    "slack",
-    "supabase",
-    "granola",
+  // Connect data sources — visualized as a flow diagram. SVG draws dashed
+  // curves between source chips → the Dugout hub → role chips on the right.
+  // Everything lives in one viewBox (600×340) so the curves and chips line
+  // up at every breakpoint; foreignObject embeds the BrandLogo components
+  // so they scale with the SVG instead of fighting it.
+  const sources: { brand: BrandKey; cx: number; cy: number }[] = [
+    { brand: "newsapi", cx: 60, cy: 50 },
+    { brand: "granola", cx: 60, cy: 130 },
+    { brand: "slack", cx: 60, cy: 210 },
+    { brand: "anthropic", cx: 60, cy: 290 },
+    { brand: "sec", cx: 170, cy: 90 },
+    { brand: "inbox", cx: 170, cy: 170 },
+    { brand: "supabase", cx: 170, cy: 250 },
   ];
+  const roles: { label: string; cy: number }[] = [
+    { label: "AE", cy: 90 },
+    { label: "SDR", cy: 170 },
+    { label: "Manager", cy: 250 },
+  ];
+  const hubLeft = 270;
+  const hubRight = 390;
+  const hubCy = 170;
   return (
     <StepShell
       num={3}
       title="Connect data sources"
-      sub="API keys live in Supabase Vault — encrypted at rest, never returned to the browser. Paste once, the daily cron handles the rest."
+      sub="API keys live in Supabase Vault — encrypted at rest, never returned to the browser. Sources stream into Dugout; the engine routes signals to your team."
     >
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {sources.map((b) => (
-          <div
-            key={b}
-            className="flex items-center gap-2 rounded-lg border border-border bg-background p-2.5"
+      <div className="relative w-full" style={{ aspectRatio: "600 / 340" }}>
+        <svg
+          viewBox="0 0 600 340"
+          preserveAspectRatio="xMidYMid meet"
+          className="absolute inset-0 w-full h-full text-foreground/30"
+        >
+          {/* Source → hub curves */}
+          {sources.map((s) => (
+            <path
+              key={`in-${s.brand}`}
+              d={`M ${s.cx + 20} ${s.cy} C ${s.cx + 90} ${s.cy}, ${hubLeft - 60} ${hubCy}, ${hubLeft} ${hubCy}`}
+              stroke="currentColor"
+              strokeWidth="1.25"
+              fill="none"
+              strokeDasharray="3 4"
+              className="flow-path"
+            />
+          ))}
+          {/* Hub → role curves */}
+          {roles.map((r) => (
+            <path
+              key={`out-${r.label}`}
+              d={`M ${hubRight} ${hubCy} C ${hubRight + 60} ${hubCy}, 460 ${r.cy}, 510 ${r.cy}`}
+              stroke="currentColor"
+              strokeWidth="1.25"
+              fill="none"
+              strokeDasharray="3 4"
+              className="flow-path"
+            />
+          ))}
+
+          {/* Source chips */}
+          {sources.map((s) => (
+            <foreignObject
+              key={`chip-${s.brand}`}
+              x={s.cx - 20}
+              y={s.cy - 20}
+              width={40}
+              height={40}
+            >
+              <BrandLogo brand={s.brand} size={40} />
+            </foreignObject>
+          ))}
+
+          {/* Dugout hub */}
+          <foreignObject
+            x={hubLeft}
+            y={hubCy - 32}
+            width={hubRight - hubLeft}
+            height={64}
           >
-            <BrandLogo brand={b} size={32} />
-            <div className="flex-1 min-w-0">
-              <div className="text-xs font-semibold tracking-tight truncate">
-                {getBrandName(b)}
-              </div>
-              <div className="flex items-center gap-1 text-[10px] text-severity-green">
-                <span className="w-1 h-1 rounded-full bg-severity-green" />
-                <span>Connected</span>
-              </div>
+            <div className="w-full h-full rounded-xl bg-foreground text-background flex flex-col items-center justify-center shadow-sm">
+              <span className="text-[10px] font-mono uppercase tracking-[0.18em] opacity-60">
+                Engine
+              </span>
+              <span className="text-base font-semibold tracking-tight leading-tight">
+                Dugout
+              </span>
             </div>
-          </div>
-        ))}
+          </foreignObject>
+
+          {/* Role chips */}
+          {roles.map((r) => (
+            <foreignObject
+              key={`role-${r.label}`}
+              x={510}
+              y={r.cy - 18}
+              width={72}
+              height={36}
+            >
+              <div className="w-full h-full rounded-lg border border-border bg-background flex items-center justify-center">
+                <span className="text-xs font-semibold tracking-tight">
+                  {r.label}
+                </span>
+              </div>
+            </foreignObject>
+          ))}
+        </svg>
       </div>
     </StepShell>
   );

@@ -87,3 +87,15 @@ body {
     animation: none;
   }
 }
+
+/* Dashed-path flow — used by the landing data-flow diagram. Subtle leftward
+   march of dashes from sources → hub → sales. */
+@keyframes flow-dash {
+  to { stroke-dashoffset: -14; }
+}
+.flow-path {
+  animation: flow-dash 1.6s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .flow-path { animation: none; }
+}
