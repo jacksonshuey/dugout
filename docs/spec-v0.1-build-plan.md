@@ -5,7 +5,7 @@
 > **Audience:** future Claude sessions, contractors, or a teammate picking the repo up cold.
 > **Last updated:** 2026-05-23, end of session 5.
 > **Spec version this targets:** v0.1.
-> **Code version this targets:** the WIP on `claude/cloudflare-email-routing` (2 commits ahead of origin as of this writing).
+> **Code version this targets:** post-AgentMail-rotation WIP (`claude/pre-firecrawl-baseline` lineage).
 
 ---
 
