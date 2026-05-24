@@ -21,6 +21,7 @@ import {
   IntegrationSetupReel,
   type IntegrationSlot,
 } from "@/components/landing/integration-setup-reel";
+import { MetricsCheckboxDemo } from "@/components/landing/metrics-checkbox-demo";
 
 // Landing page. Single scroll: vision → integration constellation →
 // onboarding walkthrough → live demo embedded.
@@ -417,6 +418,9 @@ function StepThree() {
             </div>
           ))}
         </div>
+      </div>
+      <div className="mt-8">
+        <MetricsCheckboxDemo />
       </div>
     </StepShell>
   );
