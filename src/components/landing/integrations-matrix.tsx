@@ -6,20 +6,29 @@ import {
   STATUS_LABEL,
   type IntegrationSpec,
 } from "@/data/integrations";
+import type { IntegrationHealth } from "@/lib/integration-health";
 import { BrandLogo, getBrandName } from "./logos";
 
 // Productized companion to the integration constellation: the same source-of-
 // truth list, but rendered as a table a buyer can actually compare against.
 // Constellation = the hook ("we connect to all this"); matrix = the answer
 // ("here's exactly how, and where the data lives").
+//
+// Optional `health` map (from server-side checkAllHealth()) adds a runtime
+// "Configured" column. Without it, the column is omitted — the component
+// still renders as a static reference table.
 
-export function IntegrationsMatrix() {
+export function IntegrationsMatrix({
+  health,
+}: {
+  health?: Record<string, IntegrationHealth>;
+}) {
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-background">
       {/* Mobile: card list. Tables collapse badly under 640px. */}
       <div className="md:hidden divide-y divide-border">
         {INTEGRATIONS.map((spec) => (
-          <MobileRow key={spec.brand} spec={spec} />
+          <MobileRow key={spec.brand} spec={spec} health={health?.[spec.brand]} />
         ))}
       </div>
 
@@ -29,6 +38,7 @@ export function IntegrationsMatrix() {
           <tr className="border-b border-border bg-foreground/[0.02]">
             <Th>Integration</Th>
             <Th>Status</Th>
+            {health && <Th>Configured</Th>}
             <Th>Auth</Th>
             <Th>Where it runs</Th>
             <Th>Data direction</Th>
@@ -37,7 +47,12 @@ export function IntegrationsMatrix() {
         </thead>
         <tbody>
           {INTEGRATIONS.map((spec) => (
-            <DesktopRow key={spec.brand} spec={spec} />
+            <DesktopRow
+              key={spec.brand}
+              spec={spec}
+              health={health?.[spec.brand]}
+              showHealth={Boolean(health)}
+            />
           ))}
         </tbody>
       </table>
@@ -45,7 +60,15 @@ export function IntegrationsMatrix() {
   );
 }
 
-function DesktopRow({ spec }: { spec: IntegrationSpec }) {
+function DesktopRow({
+  spec,
+  health,
+  showHealth,
+}: {
+  spec: IntegrationSpec;
+  health?: IntegrationHealth;
+  showHealth: boolean;
+}) {
   return (
     <tr className="border-b border-border last:border-b-0 hover:bg-foreground/[0.015] transition-colors">
       <Td>
@@ -59,6 +82,11 @@ function DesktopRow({ spec }: { spec: IntegrationSpec }) {
       <Td>
         <StatusPill status={spec.status} />
       </Td>
+      {showHealth && (
+        <Td>
+          <HealthCell health={health} />
+        </Td>
+      )}
       <Td>
         <span className="font-mono text-xs text-foreground/80">
           {AUTH_LABEL[spec.auth]}
@@ -84,7 +112,13 @@ function DesktopRow({ spec }: { spec: IntegrationSpec }) {
   );
 }
 
-function MobileRow({ spec }: { spec: IntegrationSpec }) {
+function MobileRow({
+  spec,
+  health,
+}: {
+  spec: IntegrationSpec;
+  health?: IntegrationHealth;
+}) {
   return (
     <div className="p-4 space-y-2.5">
       <div className="flex items-center justify-between gap-3">
@@ -97,6 +131,11 @@ function MobileRow({ spec }: { spec: IntegrationSpec }) {
         <StatusPill status={spec.status} />
       </div>
       <div className="text-xs text-muted leading-snug">{spec.role}</div>
+      {health && (
+        <div className="pt-0.5">
+          <HealthCell health={health} />
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] pt-1">
         <MobileField label="Auth">{AUTH_LABEL[spec.auth]}</MobileField>
         <MobileField label="Where">{DEPLOYMENT_LABEL[spec.deployment]}</MobileField>
@@ -104,6 +143,34 @@ function MobileRow({ spec }: { spec: IntegrationSpec }) {
         <MobileField label="Limits">{spec.limits}</MobileField>
       </div>
     </div>
+  );
+}
+
+function HealthCell({ health }: { health?: IntegrationHealth }) {
+  if (!health) {
+    return <span className="text-[11px] text-muted">—</span>;
+  }
+  const cls =
+    health.mode === "live"
+      ? "text-severity-green"
+      : health.mode === "missing"
+        ? "text-severity-blocking"
+        : "text-muted";
+  const glyph =
+    health.mode === "live" ? "✓" : health.mode === "missing" ? "!" : "—";
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 ${cls}`}
+      title={health.note}
+    >
+      <span
+        aria-hidden
+        className="inline-flex items-center justify-center w-4 h-4 font-mono text-[11px] font-semibold"
+      >
+        {glyph}
+      </span>
+      <span className="text-xs">{health.note}</span>
+    </span>
   );
 }
 

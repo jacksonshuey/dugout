@@ -78,7 +78,7 @@ export const INTEGRATIONS: IntegrationSpec[] = [
     brand: "firecrawl",
     role: "Per-account web scrape",
     status: "live",
-    auth: "vault-stored-key",
+    auth: "api-key",
     deployment: "hosted",
     direction: "read",
     limits: "Daily cron; per-account markdown",

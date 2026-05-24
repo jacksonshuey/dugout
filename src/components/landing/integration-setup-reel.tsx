@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { BrandLogo, getBrandName, type BrandKey } from "./logos";
+import type { IntegrationHealth } from "@/lib/integration-health";
 
 // Autoplay reel for the integration constellation right column. Cycles
 // through a simulated Granola setup (key paste → field fill → verify →
@@ -62,8 +63,13 @@ function getReducedMotionServerSnapshot() {
 
 export function IntegrationSetupReel({
   integrations,
+  health,
 }: {
   integrations: IntegrationSlot[];
+  // Per-brand configuration health from `checkAllHealth()`. Optional —
+  // when omitted, chips fall back to the static status color and skip the
+  // missing-credential treatment.
+  health?: Record<string, IntegrationHealth>;
 }) {
   const reducedMotion = useSyncExternalStore(
     subscribeReducedMotion,
@@ -108,6 +114,7 @@ export function IntegrationSetupReel({
         <ConstellationGrid
           key={`grid-${cycle}`}
           integrations={integrations}
+          health={health}
           animateIn={showConstellation && !reducedMotion}
         />
       </div>
@@ -331,9 +338,11 @@ function CheckIcon() {
 
 function ConstellationGrid({
   integrations,
+  health,
   animateIn,
 }: {
   integrations: IntegrationSlot[];
+  health?: Record<string, IntegrationHealth>;
   animateIn: boolean;
 }) {
   // Granola first so its pulse reads as the new addition, then the rest in
@@ -348,6 +357,7 @@ function ConstellationGrid({
         <IntegrationChip
           key={i.brand}
           integration={i}
+          health={health?.[i.brand]}
           delayMs={animateIn ? idx * 70 : 0}
           animateIn={animateIn}
           highlight={i.brand === "granola"}
@@ -359,32 +369,56 @@ function ConstellationGrid({
 
 function IntegrationChip({
   integration,
+  health,
   delayMs,
   animateIn,
   highlight,
 }: {
   integration: IntegrationSlot;
+  health?: IntegrationHealth;
   delayMs: number;
   animateIn: boolean;
   highlight: boolean;
 }) {
+  const missing = health?.mode === "missing";
+  // Dot color = static status (live/beta/config). Missing-credential state
+  // is surfaced through the border tint + tooltip below, not the dot —
+  // overloading one indicator with two axes (status + health) reads as
+  // confusion in practice.
   const dot =
     integration.status === "live"
       ? "bg-severity-green"
       : integration.status === "beta"
         ? "bg-severity-action"
         : "bg-slate-400";
+  // Border priority: missing-credential warning beats highlight beats default.
+  const border = missing
+    ? "border-severity-blocking/40"
+    : highlight
+      ? "border-severity-green/40"
+      : "border-border";
+  // Tooltip text. Health note when available; otherwise the static role.
+  const titleText = health
+    ? `${getBrandName(integration.brand)} · ${health.note}`
+    : `${getBrandName(integration.brand)} · ${integration.role}`;
   return (
     <div
       className={`relative rounded-xl border bg-background p-3 flex items-center gap-3 transition-all duration-500 ${
         animateIn ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1"
-      } ${highlight ? "border-severity-green/40" : "border-border"}`}
+      } ${border}`}
       style={{ transitionDelay: `${delayMs}ms` }}
+      title={titleText}
     >
-      {highlight && animateIn && (
+      {highlight && animateIn && !missing && (
         <span
           aria-hidden
           className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-severity-green animate-ping"
+        />
+      )}
+      {missing && (
+        <span
+          aria-hidden
+          className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-severity-blocking"
         />
       )}
       <BrandLogo brand={integration.brand} size={40} />
