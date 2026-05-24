@@ -198,7 +198,6 @@ function Hero() {
 const INTEGRATIONS: IntegrationSlot[] = [
   { brand: "newsapi", role: "Material news classification", status: "live" },
   { brand: "sec", role: "8-K filings · public-co signals", status: "live" },
-  { brand: "inbox", role: "Newsletter market intel", status: "live" },
   { brand: "anthropic", role: "Sonnet 4.6 + Haiku 4.5", status: "live" },
   { brand: "slack", role: "Severity-tiered delivery", status: "live" },
   { brand: "supabase", role: "Signals + Vault-encrypted keys", status: "live" },
@@ -490,7 +489,6 @@ function StepFour() {
     { brand: "slack", cx: 70, cy: 210 },
     { brand: "anthropic", cx: 70, cy: 290 },
     { brand: "sec", cx: 190, cy: 90 },
-    { brand: "inbox", cx: 190, cy: 170 },
     { brand: "supabase", cx: 190, cy: 250 },
   ];
   const roles: { label: string; cy: number; icon: React.ReactNode }[] = [

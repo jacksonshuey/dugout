@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Card } from "@/components/ui";
+import { AEBrief } from "@/components/ae-brief";
 import { RankerBanner } from "@/components/ranker-banner";
 import { SignalSourceChip } from "@/components/signal-source-chip";
 import {
@@ -149,15 +150,18 @@ export default async function MarketIntelPage() {
     // keep default
   }
 
+  // Hoisted so both the ranker and <AEBrief /> see the same 48h window.
+  const sinceRankerMs = nowMs - RANKER_LOOKBACK_HOURS * 60 * 60 * 1000;
+  const rankerSignals: ExternalSignal[] =
+    signals && !fetchError
+      ? signals.filter((s) => Date.parse(s.occurred_at) >= sinceRankerMs)
+      : [];
+
   // Run the ranker over the last 48h of workspace signals. Wrapped in its
   // own try so a ranker bug never bubbles up and 500s the page — the
   // ranker module also has an outer try/catch, this is belt-and-braces.
   let rankerResult: RankerResult | null = null;
   if (signals && signals.length > 0 && !fetchError) {
-    const sinceRankerMs = nowMs - RANKER_LOOKBACK_HOURS * 60 * 60 * 1000;
-    const rankerSignals = signals.filter(
-      (s) => Date.parse(s.occurred_at) >= sinceRankerMs,
-    );
     try {
       rankerResult = await rankSignals({
         workspaceKey: workspaceKey(workspaceName),
@@ -213,6 +217,11 @@ export default async function MarketIntelPage() {
         </Card>
       ) : signals && signals.length > 0 ? (
         <div className="space-y-8">
+          <AEBrief
+            signals={rankerSignals}
+            rankedItems={rankerResult?.items ?? []}
+            now={new Date(nowMs)}
+          />
           {rankerResult && <RankerBanner stubReason={rankerResult.stubReason} />}
           {rankerResult && rankerResult.items.length > 0 && (
             <section>
@@ -241,9 +250,9 @@ function EmptyState() {
     <Card className="p-6 text-sm space-y-2">
       <div className="font-medium">No market intel yet</div>
       <div className="text-muted">
-        Subscribe newsletters to your AgentMail inbox and material items will
-        land here within seconds of arrival. Setup steps live in the README
-        under <span className="font-mono text-xs">## Newsletter inbox</span>.
+        Subscribe newsletters to the workspace inbox and material items land
+        here within seconds. Setup steps live in the README under{" "}
+        <span className="font-mono text-xs">## Newsletter inbox</span>.
       </div>
     </Card>
   );

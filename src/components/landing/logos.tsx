@@ -260,13 +260,6 @@ const BRANDS: Record<string, BrandSpec> = {
     glyph: <ZoomInfoGlyph />,
     domain: "zoominfo.com",
   },
-  inbox: {
-    name: "AgentMail",
-    bg: "#0EA5E9",
-    fg: "white",
-    glyph: <EnvelopeGlyph />,
-    domain: "agentmail.to",
-  },
   pipedrive: {
     name: "Pipedrive",
     bg: "#027438",
@@ -478,21 +471,6 @@ function ChiliGlyph() {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" className="w-full h-full">
       <path d="M9 3c1 1 2 1 3 0v3c0 5-3 9-8 12l-1-2c4-2 6-5 6-9V3z" />
-    </svg>
-  );
-}
-
-function EnvelopeGlyph() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      className="w-full h-full"
-    >
-      <rect x="3" y="6" width="18" height="13" rx="1.5" />
-      <path d="M3 8l9 6 9-6" />
     </svg>
   );
 }

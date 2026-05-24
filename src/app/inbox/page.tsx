@@ -69,7 +69,7 @@ function Header() {
       </div>
       <h1 className="text-3xl font-semibold tracking-tight">Raw inbox</h1>
       <p className="text-base text-muted max-w-2xl">
-        Last {INBOX_LIMIT} emails received at the AgentMail inbound webhook.
+        Last {INBOX_LIMIT} inbound newsletter emails.
         Click a row to expand and view the email body — links inside open in
         new tabs. Reached by direct URL only; no nav link.
       </p>
