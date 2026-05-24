@@ -118,7 +118,7 @@ export async function POST(req: Request) {
         : null,
   };
 
-  const outcome = await processInboundEmail(normalized, "agentmail");
+  const outcome = await processInboundEmail(normalized);
 
   switch (outcome.kind) {
     case "body_too_large":

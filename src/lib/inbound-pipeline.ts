@@ -112,7 +112,6 @@ async function classifyAndPersist(
 //     blips clear within minutes; Svix's exponential backoff covers it.
 export async function processInboundEmail(
   email: NormalizedInboundEmail,
-  provider: "agentmail",
 ): Promise<ProcessOutcome> {
   const totalBytes = email.text_body.length + email.html_body.length;
   if (totalBytes > MAX_BODY_BYTES) {
