@@ -35,6 +35,7 @@ import {
 // Note: simple-icons v11 does NOT export siAnthropic or siCalendly.
 // Both are hand-drawn below (AnthropicGlyph, CalendlyGlyph).
 import { cn } from "@/lib/utils";
+import { BrandImage } from "./brand-image";
 
 interface LogoProps {
   size?: number;
@@ -56,21 +57,6 @@ interface BrandSpec {
   // public — see BRANDFETCH_CLIENT_ID below.
   domain?: string;
 }
-
-// Brand artwork CDN. Was Brandfetch, but their CDN refused to serve images
-// without a paid + domain-allowlisted client ID (every URL 302'd to their
-// docs page). Switched to Google's free favicon API:
-//   - No auth, no client ID, no Referer check
-//   - Returns real brand favicons sized via `sz` param
-//   - Quality varies: brands with high-res favicons get good output
-//     (Notion, Pandadoc); brands that only ship 32×32 favicons get small
-//     output centered with `object-contain` against the chip bg color
-//
-// Trade-off: favicons are usually the "small mark" version of a brand,
-// not the full logomark. Acceptable for a marquee where the brand color
-// + the mark together is what carries recognition.
-const FAVICON_URL = (domain: string, size: number) =>
-  `https://www.google.com/s2/favicons?domain=${domain}&sz=${size}`;
 
 // ---------------------------------------------------------------------------
 // Helper to render a simple-icons SVG path. Takes the icon object directly
@@ -369,13 +355,13 @@ const BRANDS: Record<string, BrandSpec> = {
 
 // Public API — render a single branded chip.
 //
-// When the spec has a `domain`, the chip IS the Brandfetch CDN image —
-// real brand artwork at 2× retina resolution, rounded to match the rest
-// of the chip system. The brand bg color shows through while the image
-// loads so the chip never flashes empty.
+// When the spec has a `domain`, the chip fetches the real logomark from
+// Logo.dev via the BrandImage client island, falling back to the inline
+// glyph if the request fails or NEXT_PUBLIC_LOGO_DEV_TOKEN is missing.
+// BrandImage is split out so this file stays server-renderable (getBrandName
+// is called from server components).
 //
-// When `domain` is absent, we fall back to the inline glyph on a
-// brand-colored chip (the original behavior).
+// When `domain` is absent, we render the inline glyph directly.
 export function BrandLogo({
   brand,
   size = 40,
@@ -385,33 +371,9 @@ export function BrandLogo({
   const spec = BRANDS[brand];
   if (!spec) return null;
   const dim = `${size}px`;
+  const label = title ?? spec.name;
 
-  if (spec.domain) {
-    // Request a size 4x larger than the chip so we get the best resolution
-    // the brand publishes. Google's API picks the closest available favicon
-    // (some brands ship only 32×32, others go up to 512×512). object-contain
-    // + padding makes small favicons look intentional rather than cropped.
-    const fetchSize = Math.max(128, size * 4);
-    const src = FAVICON_URL(spec.domain, fetchSize);
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={src}
-        alt={title ?? spec.name}
-        width={size}
-        height={size}
-        loading="lazy"
-        className={cn(
-          "rounded-[8px] shrink-0 object-contain p-1",
-          className,
-        )}
-        style={{ width: dim, height: dim, backgroundColor: spec.bg }}
-        title={title ?? spec.name}
-      />
-    );
-  }
-
-  return (
+  const glyphChip = (
     <div
       className={cn(
         "rounded-[8px] flex items-center justify-center shrink-0",
@@ -424,8 +386,8 @@ export function BrandLogo({
         color: spec.fg,
       }}
       role="img"
-      aria-label={title ?? spec.name}
-      title={title ?? spec.name}
+      aria-label={label}
+      title={label}
     >
       <div
         style={{
@@ -438,6 +400,22 @@ export function BrandLogo({
       </div>
     </div>
   );
+
+  if (spec.domain) {
+    return (
+      <BrandImage
+        domain={spec.domain}
+        bg={spec.bg}
+        size={size}
+        alt={label}
+        title={label}
+        className={className}
+        fallback={glyphChip}
+      />
+    );
+  }
+
+  return glyphChip;
 }
 
 export function getBrandName(brand: keyof typeof BRANDS): string {
