@@ -1,16 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { RawEmailDrawer } from "./raw-email-drawer";
+import { SourcePreviewModal } from "./source-preview-modal";
 
 // Source-attribution chip for a single market-intel signal.
 //
-// Renders, in order: publisher chip + subject line + view-source link +
-// "view raw email" drawer trigger. Falls back to `sender_domain` when
+// Renders, in order: publisher chip + subject line + view-source link.
+// "View source" is the primary verification path: when an inbound email
+// is on file it opens the newsletter-style SourcePreviewModal so the AE
+// can read the actual message Dugout derived the signal from. When the
+// signal has no stored email (e.g. NewsAPI / SEC / Firecrawl rows that
+// only carry a publisher URL), it falls back to a plain external link to
+// `sourceUrl`. Publisher attribution falls back to `sender_domain` when
 // `publisher_canonical_name` is missing (older pre-attribution rows —
 // Q8 resolution, docs/filter-design.md §12).
 //
-// Stateless except for the drawer open/closed boolean. The parent passes
+// Stateless except for the modal/feedback open booleans. The parent passes
 // the resolved display + URL fields; the chip does not query Supabase
 // (per BUILD_ALIGNMENT #7).
 
@@ -32,7 +37,7 @@ export function SignalSourceChip(props: SignalSourceChipProps) {
     inboundEmailId,
     signalId,
   } = props;
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackReason, setFeedbackReason] = useState("");
   const [feedbackBusy, setFeedbackBusy] = useState(false);
@@ -81,24 +86,23 @@ export function SignalSourceChip(props: SignalSourceChipProps) {
         )}
       </div>
       <div className="flex items-center gap-3 text-[11px]">
-        {sourceUrl && (
+        {inboundEmailId ? (
+          <button
+            onClick={() => setModalOpen(true)}
+            className="text-brand hover:underline"
+          >
+            View source
+          </button>
+        ) : sourceUrl ? (
           <a
             href={sourceUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="text-brand hover:underline"
           >
-            View source
+            View source ↗
           </a>
-        )}
-        {inboundEmailId && (
-          <button
-            onClick={() => setDrawerOpen(true)}
-            className="text-muted hover:text-foreground underline"
-          >
-            View raw email
-          </button>
-        )}
+        ) : null}
         <button
           onClick={() => setFeedbackOpen((v) => !v)}
           className="text-muted hover:text-severity-red underline"
@@ -141,10 +145,12 @@ export function SignalSourceChip(props: SignalSourceChipProps) {
         </div>
       )}
       {inboundEmailId && (
-        <RawEmailDrawer
+        <SourcePreviewModal
           inboundEmailId={inboundEmailId}
-          open={drawerOpen}
-          onClose={() => setDrawerOpen(false)}
+          publisherDisplayName={publisherDisplayName ?? senderDomainFallback}
+          sourceUrl={sourceUrl}
+          open={modalOpen}
+          onClose={() => setModalOpen(false)}
         />
       )}
     </div>
