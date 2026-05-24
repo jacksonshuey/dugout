@@ -19,7 +19,6 @@ import {
 } from "@/components/landing/logos";
 import { IntegrationSetupReel } from "@/components/landing/integration-setup-reel";
 import { IntegrationsMatrix } from "@/components/landing/integrations-matrix";
-import { VerifiableProof } from "@/components/landing/verifiable-proof";
 import { MetricsCheckboxDemo } from "@/components/landing/metrics-checkbox-demo";
 import { INTEGRATIONS } from "@/data/integrations";
 import { checkAllHealth, type IntegrationHealth } from "@/lib/integration-health";
@@ -62,7 +61,6 @@ export default async function LandingPage() {
       <IntegrationConstellation health={integrationHealth} />
       <IntegrationsMatrixSection health={integrationHealth} />
       <OnboardingWalkthrough />
-      <VerifiableProofSection />
       <DemoDivider />
       <section id="demo" className="border-t border-border bg-foreground/[0.02]">
         <Console
@@ -303,29 +301,6 @@ function IntegrationsMatrixSection({
   );
 }
 
-// ---------------------------------------------------------------------------
-// 2c. Verifiable proof — counts + evidence in lieu of testimonials.
-// Every number links to the code that proves it.
-// ---------------------------------------------------------------------------
-
-function VerifiableProofSection() {
-  return (
-    <section className="max-w-6xl mx-auto px-6 py-20 sm:py-24 border-b border-border">
-      <SectionEyebrow>What&apos;s real</SectionEyebrow>
-      <h2 className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight max-w-3xl">
-        Counts you can verify by clicking through.
-      </h2>
-      <p className="mt-4 text-base text-foreground/70 leading-relaxed max-w-3xl">
-        No customer logos yet, so no fake social proof. Just the numbers
-        that describe what&apos;s actually built and a link to the file
-        that proves each one.
-      </p>
-      <div className="mt-10">
-        <VerifiableProof />
-      </div>
-    </section>
-  );
-}
 
 
 // ---------------------------------------------------------------------------
