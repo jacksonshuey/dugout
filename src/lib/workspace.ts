@@ -221,3 +221,27 @@ export const PRESETS: Record<string, WorkspaceConfig> = {
 };
 
 export const DEFAULT_CONFIG = CHECKBOX_PRESET;
+
+// Slugify a workspace company name into a stable lowercase key suitable for
+// use as a cache/lookup partition. Pure: no clock, no I/O.
+//
+// Rules: lowercase, replace any non-alphanumeric run with a single "-",
+// trim leading/trailing dashes. Returns "workspace" when the input
+// collapses to an empty string (defensive — should never happen in
+// practice since companyName has a fallback in DEFAULT_CONFIG).
+//
+// Examples:
+//   workspaceKey("Checkbox")           → "checkbox"
+//   workspaceKey("Acme Software")      → "acme-software"
+//   workspaceKey("KKR & Co.")          → "kkr-co"
+//   workspaceKey("  ")                 → "workspace"
+//
+// Reuse-ready: the ranker module uses this for ranker_cache.workspace_key,
+// and a future ask-rate-limit integration could use it for workspace_id.
+export function workspaceKey(name: string): string {
+  const slug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug.length > 0 ? slug : "workspace";
+}
