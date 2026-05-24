@@ -76,7 +76,6 @@ function senderAllowed(domain: string): boolean {
 
 async function classifyAndPersist(
   row: InboundEmail,
-  provider: string,
 ): Promise<ClassificationOutcome> {
   try {
     const trackable = accounts.filter((a) => a.trackable);
@@ -86,7 +85,7 @@ async function classifyAndPersist(
     }
     await markClassified(row.id, result.signals.length);
     console.log(
-      `[inbound-email/${provider}] classified ${row.id}: ${result.signals.length} signals (${result.matched} matched, ${result.workspace} workspace) via ${result.classifier_used}`,
+      `[inbound-email] classified ${row.id}: ${result.signals.length} signals (${result.matched} matched, ${result.workspace} workspace) via ${result.classifier_used}`,
     );
     return {
       ok: true,
@@ -98,7 +97,7 @@ async function classifyAndPersist(
   } catch (e) {
     const error = e instanceof Error ? e.message : String(e);
     console.warn(
-      `[inbound-email/${provider}] classification failed for ${row.id} (row saved, classified_at NULL; the daily sweeper will retry)`,
+      `[inbound-email] classification failed for ${row.id} (row saved, classified_at NULL; the daily sweeper will retry)`,
       error,
     );
     return { ok: false, error };
@@ -118,7 +117,7 @@ export async function processInboundEmail(
   const totalBytes = email.text_body.length + email.html_body.length;
   if (totalBytes > MAX_BODY_BYTES) {
     console.warn(
-      `[inbound-email/${provider}] body too large (${totalBytes} bytes) from=${email.from_raw.slice(0, 80)} — dropping`,
+      `[inbound-email] body too large (${totalBytes} bytes) from=${email.from_raw.slice(0, 80)} — dropping`,
     );
     return { kind: "body_too_large", bytes: totalBytes };
   }
@@ -126,14 +125,14 @@ export async function processInboundEmail(
   const parsed = parseFromAddress(email.from_raw);
   if (!parsed) {
     console.warn(
-      `[inbound-email/${provider}] unparseable from header: ${email.from_raw.slice(0, 100)}`,
+      `[inbound-email] unparseable from header: ${email.from_raw.slice(0, 100)}`,
     );
     return { kind: "bad_from_header", from_raw: email.from_raw };
   }
 
   if (!senderAllowed(parsed.domain)) {
     console.warn(
-      `[inbound-email/${provider}] sender not allowlisted: ${parsed.domain}`,
+      `[inbound-email] sender not allowlisted: ${parsed.domain}`,
     );
     return { kind: "sender_not_allowlisted", domain: parsed.domain };
   }
@@ -151,7 +150,7 @@ export async function processInboundEmail(
     });
   } catch (e) {
     const error = e instanceof Error ? e.message : String(e);
-    console.error(`[inbound-email/${provider}] storage failed`, error);
+    console.error(`[inbound-email] storage failed`, error);
     return { kind: "storage_failed", error };
   }
 
@@ -161,12 +160,12 @@ export async function processInboundEmail(
   }
 
   console.log(
-    `[inbound-email/${provider}] stored ${row.id} from=${parsed.domain} subject="${email.subject.slice(0, 60)}"`,
+    `[inbound-email] stored ${row.id} from=${parsed.domain} subject="${email.subject.slice(0, 60)}"`,
   );
 
-  // Classify synchronously. Haiku averages 2-3s; well under provider webhook
-  // timeouts (SendGrid 30s, Mailgun 75s). Classification failures don't 5xx
-  // — the row is saved and the daily sweeper picks it up on next run.
-  const classification = await classifyAndPersist(row, provider);
+  // Classify synchronously. Haiku averages 2-3s; well under the provider's 75s
+  // webhook timeout. Classification failures don't 5xx — the row is saved
+  // and the daily sweeper picks it up on next run.
+  const classification = await classifyAndPersist(row);
   return { kind: "stored", id: row.id, classification };
 }
