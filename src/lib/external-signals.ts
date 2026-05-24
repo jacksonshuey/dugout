@@ -57,6 +57,11 @@ export interface ExternalSignal {
   // suppressed rows don't render on /market-intel (Q0 resolution — see
   // docs/filter-design.md §12).
   suppressed_at?: string | null;
+  // Workspace relevance tier set by the news content filter (Stage 2 Haiku).
+  // Optional + nullable so existing rows (NULL) type-check correctly. The AE
+  // Brief query at /market-intel filters on this; see migration
+  // 20260524_news_filter.sql.
+  workspace_relevance?: "high" | "medium" | "low" | "none" | null;
   created_at: string;
 }
 
@@ -172,6 +177,13 @@ export async function insertSignal(
 // This is good-enough dedup for daily cron runs — real production would use
 // a unique constraint + ON CONFLICT, but this keeps the schema simple and
 // works fine at our volume.
+//
+// DO NOT convert this to .upsert() with column updates without auditing
+// news-adapter.ts. News-adapter writes its own rows directly (to capture
+// the inserted id for news_filter_decisions FK linkage), then passes them
+// back to the cron, which calls this function expecting the URL dedup to
+// no-op. An upsert that updates columns would clobber the Haiku-generated
+// bullet, workspace_relevance, and meta.classifier on those rows.
 export async function insertSignalsDedup(
   signals: NewExternalSignal[],
 ): Promise<{ inserted: number; skipped: number }> {
