@@ -17,11 +17,15 @@ import {
   getBrandName,
   type BrandKey,
 } from "@/components/landing/logos";
-import {
-  IntegrationSetupReel,
-  type IntegrationSlot,
-} from "@/components/landing/integration-setup-reel";
+import { IntegrationSetupReel } from "@/components/landing/integration-setup-reel";
+import { IntegrationsMatrix } from "@/components/landing/integrations-matrix";
+import { SecurityTrust } from "@/components/landing/security-trust";
+import { VerifiableProof } from "@/components/landing/verifiable-proof";
 import { MetricsCheckboxDemo } from "@/components/landing/metrics-checkbox-demo";
+import { INTEGRATIONS } from "@/data/integrations";
+
+const CONTACT_MAILTO =
+  "mailto:jacksonshuey@gmail.com?subject=Dugout%20walkthrough";
 
 // Landing page. Single scroll: vision → integration constellation →
 // onboarding walkthrough → live demo embedded.
@@ -52,7 +56,10 @@ export default async function LandingPage() {
     <div className="bg-background">
       <Hero />
       <IntegrationConstellation />
+      <IntegrationsMatrixSection />
       <OnboardingWalkthrough />
+      <VerifiableProofSection />
+      <SecurityTrustSection />
       <DemoDivider />
       <section id="demo" className="border-t border-border bg-foreground/[0.02]">
         <Console
@@ -117,7 +124,13 @@ function Footer() {
             </span>
           </div>
           <span className="text-[11px] text-muted font-mono">
-            Built by Jackson Shuey
+            Built by Jackson Shuey ·{" "}
+            <a
+              href={CONTACT_MAILTO}
+              className="hover:text-brand transition-colors"
+            >
+              jacksonshuey@gmail.com
+            </a>
           </span>
         </div>
         <nav
@@ -185,6 +198,12 @@ function Hero() {
           >
             Read the spec
           </Link>
+          <a
+            href={CONTACT_MAILTO}
+            className="inline-flex items-center px-5 h-11 rounded-lg border border-background/20 text-background text-sm font-medium hover:bg-background/5 transition-colors"
+          >
+            Talk to Jackson →
+          </a>
         </div>
       </div>
     </section>
@@ -194,21 +213,9 @@ function Hero() {
 // ---------------------------------------------------------------------------
 // 2. Integration constellation — visual: Dugout in the center, integration
 // logos arranged around it. Each chip is a real brand-colored logo.
+// The integration list is owned by `src/data/integrations.ts` so the matrix
+// below and the constellation here can't drift.
 // ---------------------------------------------------------------------------
-
-const INTEGRATIONS: IntegrationSlot[] = [
-  { brand: "newsapi", role: "Material news classification", status: "live" },
-  { brand: "sec", role: "8-K filings · public-co signals", status: "live" },
-  { brand: "anthropic", role: "Sonnet 4.6 + Haiku 4.5", status: "live" },
-  { brand: "slack", role: "Severity-tiered delivery", status: "live" },
-  { brand: "supabase", role: "Signals + Vault-encrypted keys", status: "live" },
-  { brand: "granola", role: "Meeting signal extraction", status: "beta" },
-  { brand: "salesforce", role: "CRM read · workspace config", status: "config" },
-  { brand: "gong", role: "Call transcripts · workspace config", status: "config" },
-  { brand: "outreach", role: "Sales engagement · workspace config", status: "config" },
-  { brand: "dock", role: "Deal rooms · workspace config", status: "config" },
-  { brand: "chilipiper", role: "Scheduling · workspace config", status: "config" },
-];
 
 function IntegrationConstellation() {
   return (
@@ -247,6 +254,85 @@ function StatusKey({ color, label }: { color: string; label: string }) {
       <span className={`w-1.5 h-1.5 rounded-full ${color}`} />
       <span className="text-muted">{label}</span>
     </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 2b. Integrations matrix — productized view of the same list the
+// constellation visualizes. Status · Auth · Where it runs · Direction.
+// ---------------------------------------------------------------------------
+
+function IntegrationsMatrixSection() {
+  return (
+    <section className="max-w-6xl mx-auto px-6 py-20 sm:py-24 border-b border-border">
+      <div className="grid md:grid-cols-12 gap-10 items-start">
+        <div className="md:col-span-4">
+          <SectionEyebrow>Matrix</SectionEyebrow>
+          <h2 className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight">
+            Status, auth,
+            <br />
+            and where the data lives.
+          </h2>
+          <p className="mt-4 text-base text-foreground/70 leading-relaxed">
+            The constellation is the hook. This is the answer. Every
+            integration with how it authenticates, where the adapter runs,
+            and which direction data moves. Nothing here is aspirational —
+            if it&apos;s Live, the cron is running and the rows are in
+            Supabase.
+          </p>
+        </div>
+        <div className="md:col-span-8">
+          <IntegrationsMatrix />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 2c. Verifiable proof — counts + evidence in lieu of testimonials.
+// Every number links to the code that proves it.
+// ---------------------------------------------------------------------------
+
+function VerifiableProofSection() {
+  return (
+    <section className="max-w-6xl mx-auto px-6 py-20 sm:py-24 border-b border-border">
+      <SectionEyebrow>What&apos;s real</SectionEyebrow>
+      <h2 className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight max-w-3xl">
+        Counts you can verify by clicking through.
+      </h2>
+      <p className="mt-4 text-base text-foreground/70 leading-relaxed max-w-3xl">
+        No customer logos yet, so no fake social proof. Just the numbers
+        that describe what&apos;s actually built and a link to the file
+        that proves each one.
+      </p>
+      <div className="mt-10">
+        <VerifiableProof />
+      </div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// 2d. Security / trust — surfaces real posture (Vault, HMAC, RLS, no-write)
+// that's already in the code but invisible to the marketing reader.
+// ---------------------------------------------------------------------------
+
+function SecurityTrustSection() {
+  return (
+    <section className="max-w-6xl mx-auto px-6 py-20 sm:py-24 border-b border-border">
+      <SectionEyebrow>Security posture</SectionEyebrow>
+      <h2 className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight max-w-3xl">
+        Four constraints we don&apos;t bend.
+      </h2>
+      <p className="mt-4 text-base text-foreground/70 leading-relaxed max-w-3xl">
+        Required reading before pointing Dugout at a real CRM. Each
+        constraint links to the code that enforces it.
+      </p>
+      <div className="mt-10">
+        <SecurityTrust />
+      </div>
+    </section>
   );
 }
 
