@@ -86,7 +86,7 @@ The `/ask` chatbot supports OpenAI AND Anthropic as user-chosen providers. Any f
 | New UX surface | `discovery/information-requirements.md` (the 6 prioritized + Hero #0) + spec §2.3 (modules) |
 | New integration adapter | `tools/granola.md` (the canonical template) + the target tool's existing card in `tools/*.md` |
 | AI query layer changes | `synthesis.md "The AI query layer"` + `src/lib/ask-agent.ts` (provider routing) + both OpenAI function-calling + Anthropic tool-use docs. Honor principle #11. |
-| Onboarding UX | HANDOFF.md §3.5 ("UX is the integration moat") + `components/connectors-section.tsx` |
+| Onboarding UX | HANDOFF.md §3.5 ("UX is the integration moat") + `components/landing/integration-setup-reel.tsx` (the visual demo of the paste→verify→sync pattern, post-PR-#20 — the actual `connectors-section.tsx` Settings UI was removed in PR #20; restore from git history if you need the real form again) |
 | Schema metric calculation | `metrics.md` (SV Health Score formula) |
 
 ---
