@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import type {
   Account,
@@ -246,6 +247,15 @@ export function Drawer({
             <div className="text-xs text-muted">
               {opp.name} · {formatCurrency(opp.amount)} · close {formatDate(opp.closeDate)} · owner {owner.name} {isOwnerMode && "(you)"}
             </div>
+            {/* Drawer is the in-context preview. The full account page at
+                /account/[slug] is the deep view — unified timeline across
+                every signal source, citations chains, SV Health Hero. */}
+            <Link
+              href={`/account/${account.id}`}
+              className="inline-flex items-center gap-1 text-[11px] text-muted hover:text-brand transition-colors"
+            >
+              View full account <span aria-hidden>→</span>
+            </Link>
           </div>
           <button
             onClick={onClose}
