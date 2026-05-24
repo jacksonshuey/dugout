@@ -108,7 +108,9 @@ const BRANDS: Record<string, BrandSpec> = {
     bg: "#CC785C",
     fg: "white",
     glyph: <AnthropicGlyph />,
-    domain: "anthropic.com",
+    // No `domain`: Logo.dev returns Anthropic's corporate "AI" wordmark on
+    // a cream background, which doesn't match the Claude app icon look
+    // people recognize. Render the inline starburst glyph instead.
   },
   supabase: {
     name: "Supabase",
@@ -216,7 +218,9 @@ const BRANDS: Record<string, BrandSpec> = {
     bg: "#A6C13B",
     fg: "#1A1A1A",
     glyph: <GranolaGlyph />,
-    domain: "granola.ai",
+    // No `domain`: Logo.dev serves a painterly variant from the web brand
+    // that reads as low-fidelity at chip size. Render the inline spiral
+    // glyph instead, which matches the macOS app-icon look.
   },
   newsapi: {
     name: "NewsAPI",
