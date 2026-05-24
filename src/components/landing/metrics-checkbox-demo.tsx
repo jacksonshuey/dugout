@@ -347,23 +347,31 @@ export function MetricsCheckboxDemo() {
             return (
               <li
                 key={m.id}
-                className={`group relative flex items-center justify-between gap-3 px-4 py-2.5 transition-opacity duration-300 hover:bg-foreground/[0.02] ${
-                  available ? "opacity-100" : "opacity-50"
-                }`}
+                className="group relative hover:bg-foreground/[0.02] transition-colors"
                 tabIndex={0}
               >
-                <span className="text-sm leading-snug">{m.name}</span>
-                <div className="flex items-center gap-1 shrink-0">
-                  {m.sources.map((s) => (
-                    <BrandLogo
-                      key={s}
-                      brand={s as BrandKey}
-                      size={14}
-                      className={
-                        selectedSet.has(s) ? "opacity-100" : "opacity-40"
-                      }
-                    />
-                  ))}
+                {/* Inner wrapper carries the dim so the tooltip (sibling)
+                    stays at full opacity even when the metric is unavailable. */}
+                <div
+                  className={`flex items-center justify-between gap-3 px-4 py-2.5 transition-opacity duration-300 ${
+                    available ? "opacity-100" : "opacity-50"
+                  }`}
+                >
+                  <span className="text-sm leading-snug">{m.name}</span>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {m.sources.map((s) => (
+                      <BrandLogo
+                        key={s}
+                        brand={s as BrandKey}
+                        size={14}
+                        className={
+                          selectedSet.has(s)
+                            ? "opacity-100"
+                            : "opacity-40 grayscale"
+                        }
+                      />
+                    ))}
+                  </div>
                 </div>
                 <MetricTooltip metric={m} selectedSet={selectedSet} />
               </li>
@@ -394,23 +402,68 @@ function MetricTooltip({
       <p className="text-xs leading-relaxed text-foreground">
         {metric.description}
       </p>
-      <div className="flex items-center flex-wrap gap-x-2 gap-y-1 pt-1.5 border-t border-border">
-        <span className="text-[10px] uppercase tracking-wider text-muted font-mono">
-          {metric.sources.length > 1 ? "Sources" : "Source"}
-        </span>
-        {metric.sources.map((s) => (
-          <span
-            key={s}
-            className={`inline-flex items-center gap-1 text-[11px] ${
-              selectedSet.has(s) ? "text-foreground" : "text-muted"
-            }`}
-          >
-            <BrandLogo brand={s as BrandKey} size={12} />
-            <span>{getBrandName(s as BrandKey)}</span>
-          </span>
-        ))}
+      <div className="pt-1.5 border-t border-border space-y-1">
+        <div className="text-[10px] uppercase tracking-wider text-muted font-mono">
+          {metric.sources.length > 1 ? "Sources · any one" : "Source"}
+        </div>
+        <ul className="space-y-0.5">
+          {metric.sources.map((s) => {
+            const connected = selectedSet.has(s);
+            return (
+              <li
+                key={s}
+                className="flex items-center gap-1.5 text-[11px]"
+              >
+                <SourceStatus connected={connected} />
+                <BrandLogo
+                  brand={s as BrandKey}
+                  size={12}
+                  className={connected ? "" : "opacity-40 grayscale"}
+                />
+                <span
+                  className={connected ? "text-foreground" : "text-muted"}
+                >
+                  {getBrandName(s as BrandKey)}
+                </span>
+                {!connected && (
+                  <span className="text-[9px] uppercase tracking-wider text-muted font-mono">
+                    · not connected
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
       </div>
     </div>
+  );
+}
+
+// Tiny status glyph for tooltip source rows — filled brand-color square when
+// the integration is checked in the left column, empty bordered square when
+// not. Same visual language as the row checkboxes, just smaller.
+function SourceStatus({ connected }: { connected: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={`inline-flex items-center justify-center w-2.5 h-2.5 shrink-0 rounded-[2px] border ${
+        connected ? "bg-brand border-brand" : "bg-background border-border"
+      }`}
+    >
+      {connected && (
+        <svg
+          viewBox="0 0 12 12"
+          className="w-2 h-2 text-white"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <polyline points="2.5 6.5 5 9 9.5 3.5" />
+        </svg>
+      )}
+    </span>
   );
 }
 
