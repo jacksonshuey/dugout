@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { accounts } from "@/data/seed";
 import { getIntegrationContext } from "@/lib/integration-context";
 import {
@@ -63,12 +62,6 @@ export default async function GranolaIntegrationPage() {
   return (
     <div className="max-w-5xl mx-auto px-6 py-8 space-y-8">
       <header className="space-y-2">
-        <Link
-          href="/settings"
-          className="text-xs text-muted hover:text-foreground"
-        >
-          ← Settings
-        </Link>
         <h1 className="text-2xl font-semibold tracking-tight">
           Granola — meeting intelligence
         </h1>
@@ -117,7 +110,8 @@ export default async function GranolaIntegrationPage() {
             </div>
             {meetingsByNote.size === 0 ? (
               <div className="text-sm text-muted italic">
-                No classified meetings yet. Run a sync from Settings.
+                No classified meetings yet. The next Granola cron sync will
+                backfill this view.
               </div>
             ) : (
               <RecentMeetingsTable
@@ -136,12 +130,9 @@ function DisconnectedNotice() {
   return (
     <div className="rounded-2xl border border-dashed border-border p-8 text-center space-y-2">
       <div className="text-sm text-muted">Granola isn&apos;t connected yet.</div>
-      <Link
-        href="/settings"
-        className="inline-flex items-center px-4 h-9 rounded-lg text-sm font-medium bg-brand text-white hover:bg-brand-dark"
-      >
-        Connect Granola in Settings
-      </Link>
+      <div className="text-xs text-muted">
+        Configure the workspace API key to enable meeting intelligence.
+      </div>
     </div>
   );
 }

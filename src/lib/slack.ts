@@ -79,7 +79,7 @@ export function signalsToSlackPayload(
         elements: [
           {
             type: "mrkdwn",
-            text: "Tune what you receive in Dugout > Settings",
+            text: "Dugout — the intelligence layer for sales teams",
           },
         ],
       },

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import type {
   Account,
@@ -247,15 +246,6 @@ export function Drawer({
             <div className="text-xs text-muted">
               {opp.name} · {formatCurrency(opp.amount)} · close {formatDate(opp.closeDate)} · owner {owner.name} {isOwnerMode && "(you)"}
             </div>
-            {/* Drawer is the in-context preview. The full account page at
-                /account/[slug] is the deep view — unified timeline across
-                every signal source, citations chains, SV Health Hero. */}
-            <Link
-              href={`/account/${account.id}`}
-              className="inline-flex items-center gap-1 text-[11px] text-muted hover:text-brand transition-colors"
-            >
-              View full account <span aria-hidden>→</span>
-            </Link>
           </div>
           <button
             onClick={onClose}
@@ -623,8 +613,8 @@ function ExternalSignalsSection({
       ) : signals.length === 0 ? (
         <div className="text-xs text-muted italic">
           NewsAPI + SEC EDGAR haven&rsquo;t surfaced material events for this
-          account in the lookback window. Run a refresh from Settings to
-          pull the latest.
+          account in the lookback window. The next cron run will pull the
+          latest.
         </div>
       ) : (
         <div className="space-y-2">
@@ -783,7 +773,7 @@ function MeetingSignalsSection({
   const sub = loading
     ? "Loading…"
     : signals.length === 0
-      ? "No meeting signals yet — connect Granola in Settings"
+      ? "No meeting signals yet — Granola not connected"
       : `${signals.length} signal${signals.length === 1 ? "" : "s"} across ${
           new Set(signals.map((s) => s.note_id)).size
         } meeting${new Set(signals.map((s) => s.note_id)).size === 1 ? "" : "s"}`;
@@ -795,8 +785,7 @@ function MeetingSignalsSection({
       ) : signals.length === 0 ? (
         <div className="text-xs text-muted italic">
           Granola hasn&rsquo;t produced any buying-process signals for this
-          account in the lookback window. Connect a key in Settings or run
-          Sync now.
+          account in the lookback window.
         </div>
       ) : (
         <div className="space-y-2">

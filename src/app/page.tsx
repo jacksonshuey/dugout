@@ -17,6 +17,10 @@ import {
   getBrandName,
   type BrandKey,
 } from "@/components/landing/logos";
+import {
+  IntegrationSetupReel,
+  type IntegrationSlot,
+} from "@/components/landing/integration-setup-reel";
 
 // Landing page. Single scroll: vision → integration constellation →
 // onboarding walkthrough → live demo embedded.
@@ -72,7 +76,7 @@ export default async function LandingPage() {
 // Footer — quiet admin links to the other surfaces. The top nav was
 // stripped to just the demo button to keep the marketing experience
 // uncluttered; this footer makes the operator surfaces (manager view,
-// settings, spec, etc.) reachable without typing URLs.
+// spec, etc.) reachable without typing URLs.
 // ---------------------------------------------------------------------------
 
 function Footer() {
@@ -80,7 +84,6 @@ function Footer() {
     { href: "/console", label: "AE Console", sub: "Pipeline · Today · Digest" },
     { href: "/manager", label: "Manager view", sub: "Team aggregates · per-rep" },
     { href: "/market-intel", label: "Market intel", sub: "Workspace-wide news inbox" },
-    { href: "/settings", label: "Settings", sub: "Workspace + connectors" },
     { href: "/spec", label: "Spec", sub: "Architecture + rollout" },
   ];
   return (
@@ -118,7 +121,7 @@ function Footer() {
         </div>
         <nav
           aria-label="Operator surfaces"
-          className="grid grid-cols-2 sm:grid-cols-5 gap-4 pt-4 border-t border-border"
+          className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 border-t border-border"
         >
           {links.map((l) => (
             <Link
@@ -192,12 +195,6 @@ function Hero() {
 // logos arranged around it. Each chip is a real brand-colored logo.
 // ---------------------------------------------------------------------------
 
-interface IntegrationSlot {
-  brand: BrandKey;
-  role: string;
-  status: "live" | "beta" | "config";
-}
-
 const INTEGRATIONS: IntegrationSlot[] = [
   { brand: "newsapi", role: "Material news classification", status: "live" },
   { brand: "sec", role: "8-K filings · public-co signals", status: "live" },
@@ -237,39 +234,10 @@ function IntegrationConstellation() {
           </div>
         </div>
         <div className="md:col-span-7">
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {INTEGRATIONS.map((i) => (
-              <IntegrationChip key={i.brand} integration={i} />
-            ))}
-          </div>
+          <IntegrationSetupReel integrations={INTEGRATIONS} />
         </div>
       </div>
     </section>
-  );
-}
-
-function IntegrationChip({ integration }: { integration: IntegrationSlot }) {
-  const dot =
-    integration.status === "live"
-      ? "bg-severity-green"
-      : integration.status === "beta"
-        ? "bg-severity-action"
-        : "bg-slate-400";
-  return (
-    <div className="rounded-xl border border-border bg-background p-3 flex items-center gap-3 hover:border-foreground/20 transition-colors">
-      <BrandLogo brand={integration.brand} size={40} />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5">
-          <span className="font-semibold tracking-tight text-sm truncate">
-            {getBrandName(integration.brand)}
-          </span>
-          <span className={`w-1.5 h-1.5 rounded-full ${dot}`} aria-hidden />
-        </div>
-        <div className="text-[11px] text-muted truncate">
-          {integration.role}
-        </div>
-      </div>
-    </div>
   );
 }
 
