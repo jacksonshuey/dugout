@@ -89,10 +89,21 @@ export async function getSignalsForAccount(
   limit = 50,
 ): Promise<ExternalSignal[]> {
   const sb = supabaseAdmin();
+  // Quality filter: for NewsAPI signals, only surface rows that the Haiku
+  // content filter marked 'high' or 'medium' workspace_relevance. Rows with
+  // workspace_relevance NULL are pre-filter legacy signals; rows tagged 'low'
+  // or 'none' are low-quality results (lifestyle, sports, off-topic) that
+  // passed the old heuristic but should not reach the AE.
+  //
+  // Non-NewsAPI sources (newsletter, sec_edgar, demo, manual, web_scrape) are
+  // always shown — they were filtered upstream by their own pipelines.
   const { data, error } = await sb
     .from("external_signals")
     .select("*")
     .eq("account_id", accountId)
+    .or(
+      "source.neq.newsapi,workspace_relevance.in.(high,medium)",
+    )
     .order("occurred_at", { ascending: false })
     .limit(limit);
   if (error) throw new Error(`Supabase read failed: ${error.message}`);

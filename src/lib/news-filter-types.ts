@@ -74,4 +74,7 @@ export interface FilterContext {
   primary_vertical: string;
 }
 
-export const PROMPT_VERSION = "news-filter-v1.0";
+// Bump version when prompt semantics change. Forward-apply only — new version
+// invalidates any cached decisions so next cron run re-classifies fresh articles.
+// v1.1: tightened Stage 2 to reject-by-default + explicit reject keyword list.
+export const PROMPT_VERSION = "news-filter-v1.1";
