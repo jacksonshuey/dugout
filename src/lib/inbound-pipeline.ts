@@ -6,6 +6,8 @@ import {
 } from "./inbound-email";
 import { classifyNewsletter } from "./newsletter-adapter";
 import { insertSignalsDedup } from "./external-signals";
+import { resolvePublisher } from "./inbound-publishers";
+import { filterEmail } from "./email-filter";
 
 // Shared orchestration for inbound webhooks. The AgentMail route
 // (src/app/api/inbound-email/agentmail/route.ts) parses its provider-specific
@@ -29,6 +31,14 @@ export interface NormalizedInboundEmail {
   text_body: string;
   html_body: string;
   message_id: string | null;
+  // Lowercased header map forwarded from the webhook (when available).
+  // Used by the content filter's Stage 1 for auto-reply/bounce/content-type
+  // checks. Optional so non-AgentMail providers can omit.
+  headers?: Record<string, string>;
+  // List-ID extracted upstream (the webhook handler is "everything provider-
+  // shaped", per design Q2). Optional + redundant with headers["list-id"]
+  // but cheaper to pass through than re-parse here.
+  list_id?: string | null;
 }
 
 export type ClassificationOutcome =
@@ -38,6 +48,9 @@ export type ClassificationOutcome =
       matched: number;
       workspace: number;
       classifier_used: "haiku" | "none";
+      // The filter's verdict that gated the classifier. "proceed" is the
+      // happy path; the others mean the classifier was skipped entirely.
+      filter_decision: "proceed" | "needs_review" | "rejected";
     }
   | { ok: false; error: string };
 
@@ -76,16 +89,52 @@ function senderAllowed(domain: string): boolean {
 
 async function classifyAndPersist(
   row: InboundEmail,
+  provider: string,
+  headers?: Record<string, string>,
 ): Promise<ClassificationOutcome> {
   try {
+    // Resolve publisher up front — used by both the filter (Stage 2 prompt
+    // context) and the classifier (signal attribution columns).
+    const publisherInfo = resolvePublisher({
+      list_id: row.list_id ?? null,
+      sender_domain: row.from_domain,
+    });
+
+    // Stage 1 + Stage 2 gate. Fails CLOSED — any failure routes to
+    // needs_review and the classifier is NOT called. See
+    // docs/filter-design.md §6 + §8.
+    const filterResult = await filterEmail({
+      email: row,
+      publisherInfo,
+      headers,
+      now: new Date(),
+    });
+
+    if (filterResult.decision !== "proceed") {
+      // Mark classified with 0 signals so the sweeper stops re-queueing
+      // this row. The audit row written by filterEmail() carries the WHY.
+      await markClassified(row.id, 0);
+      console.log(
+        `[inbound-email/${provider}] filter ${filterResult.decision} ${row.id} (publisher=${publisherInfo.publisher_canonical_name})`,
+      );
+      return {
+        ok: true,
+        signals: 0,
+        matched: 0,
+        workspace: 0,
+        classifier_used: "none",
+        filter_decision: filterResult.decision,
+      };
+    }
+
     const trackable = accounts.filter((a) => a.trackable);
-    const result = await classifyNewsletter(row, trackable);
+    const result = await classifyNewsletter(row, trackable, publisherInfo);
     if (result.signals.length > 0) {
       await insertSignalsDedup(result.signals);
     }
     await markClassified(row.id, result.signals.length);
     console.log(
-      `[inbound-email] classified ${row.id}: ${result.signals.length} signals (${result.matched} matched, ${result.workspace} workspace) via ${result.classifier_used}`,
+      `[inbound-email/${provider}] classified ${row.id}: ${result.signals.length} signals (${result.matched} matched, ${result.workspace} workspace) via ${result.classifier_used}`,
     );
     return {
       ok: true,
@@ -93,11 +142,12 @@ async function classifyAndPersist(
       matched: result.matched,
       workspace: result.workspace,
       classifier_used: result.classifier_used,
+      filter_decision: "proceed",
     };
   } catch (e) {
     const error = e instanceof Error ? e.message : String(e);
     console.warn(
-      `[inbound-email] classification failed for ${row.id} (row saved, classified_at NULL; the daily sweeper will retry)`,
+      `[inbound-email/${provider}] classification failed for ${row.id} (row saved, classified_at NULL; the daily sweeper will retry)`,
       error,
     );
     return { ok: false, error };
@@ -112,11 +162,12 @@ async function classifyAndPersist(
 //     blips clear within minutes; Svix's exponential backoff covers it.
 export async function processInboundEmail(
   email: NormalizedInboundEmail,
+  provider: "agentmail",
 ): Promise<ProcessOutcome> {
   const totalBytes = email.text_body.length + email.html_body.length;
   if (totalBytes > MAX_BODY_BYTES) {
     console.warn(
-      `[inbound-email] body too large (${totalBytes} bytes) from=${email.from_raw.slice(0, 80)} — dropping`,
+      `[inbound-email/${provider}] body too large (${totalBytes} bytes) from=${email.from_raw.slice(0, 80)} — dropping`,
     );
     return { kind: "body_too_large", bytes: totalBytes };
   }
@@ -124,17 +175,24 @@ export async function processInboundEmail(
   const parsed = parseFromAddress(email.from_raw);
   if (!parsed) {
     console.warn(
-      `[inbound-email] unparseable from header: ${email.from_raw.slice(0, 100)}`,
+      `[inbound-email/${provider}] unparseable from header: ${email.from_raw.slice(0, 100)}`,
     );
     return { kind: "bad_from_header", from_raw: email.from_raw };
   }
 
   if (!senderAllowed(parsed.domain)) {
     console.warn(
-      `[inbound-email] sender not allowlisted: ${parsed.domain}`,
+      `[inbound-email/${provider}] sender not allowlisted: ${parsed.domain}`,
     );
     return { kind: "sender_not_allowlisted", domain: parsed.domain };
   }
+
+  // Resolve publisher BEFORE insert so the row carries
+  // publisher_canonical_name from day one (no backfill needed).
+  const publisherInfo = resolvePublisher({
+    list_id: email.list_id ?? null,
+    sender_domain: parsed.domain,
+  });
 
   let row: InboundEmail | null;
   try {
@@ -146,10 +204,12 @@ export async function processInboundEmail(
       html_body: email.html_body || null,
       raw_size_bytes: totalBytes,
       message_id: email.message_id,
+      list_id: email.list_id ?? null,
+      publisher_canonical_name: publisherInfo.publisher_canonical_name,
     });
   } catch (e) {
     const error = e instanceof Error ? e.message : String(e);
-    console.error(`[inbound-email] storage failed`, error);
+    console.error(`[inbound-email/${provider}] storage failed`, error);
     return { kind: "storage_failed", error };
   }
 
@@ -159,12 +219,12 @@ export async function processInboundEmail(
   }
 
   console.log(
-    `[inbound-email] stored ${row.id} from=${parsed.domain} subject="${email.subject.slice(0, 60)}"`,
+    `[inbound-email/${provider}] stored ${row.id} from=${parsed.domain} subject="${email.subject.slice(0, 60)}" publisher=${publisherInfo.publisher_canonical_name}`,
   );
 
-  // Classify synchronously. Haiku averages 2-3s; well under the provider's 75s
-  // webhook timeout. Classification failures don't 5xx — the row is saved
-  // and the daily sweeper picks it up on next run.
-  const classification = await classifyAndPersist(row);
+  // Classify synchronously. Haiku averages 2-3s; well under provider webhook
+  // timeouts (SendGrid 30s, Mailgun 75s). Classification failures don't 5xx
+  // — the row is saved and the daily sweeper picks it up on next run.
+  const classification = await classifyAndPersist(row, provider, email.headers);
   return { kind: "stored", id: row.id, classification };
 }

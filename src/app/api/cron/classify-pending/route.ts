@@ -11,6 +11,8 @@ import {
 import { classifyNewsletter } from "@/lib/newsletter-adapter";
 import { classifyWebScrape } from "@/lib/web-scrape-classifier";
 import { insertSignalsDedup } from "@/lib/external-signals";
+import { resolvePublisher } from "@/lib/inbound-publishers";
+import { filterEmail } from "@/lib/email-filter";
 
 // Backfill sweeper — drains TWO unclassified queues on the same schedule:
 //   1. inbound_emails (newsletters arriving via the AgentMail webhook).
@@ -73,7 +75,35 @@ async function classifyInbound(
 ): Promise<RowResult> {
   const t0 = Date.now();
   try {
-    const result = await classifyNewsletter(email, trackable);
+    // Same filter + classify pipeline as the inline webhook path. The
+    // sweeper has no raw headers to forward — Stage 1's auto-reply /
+    // bounce / calendar checks degrade to "no headers, no header-based
+    // rejection." Subject + body rules still apply.
+    const publisherInfo = resolvePublisher({
+      list_id: email.list_id ?? null,
+      sender_domain: email.from_domain,
+    });
+    const filterResult = await filterEmail({
+      email,
+      publisherInfo,
+      now: new Date(),
+    });
+
+    if (filterResult.decision !== "proceed") {
+      await markInboundClassified(email.id, 0);
+      return {
+        kind: "inbound_email",
+        id: email.id,
+        source_label: email.from_domain,
+        status: "success",
+        signalsEmitted: 0,
+        matched: 0,
+        workspace: 0,
+        durationMs: Date.now() - t0,
+      };
+    }
+
+    const result = await classifyNewsletter(email, trackable, publisherInfo);
     if (result.signals.length > 0) {
       await insertSignalsDedup(result.signals);
     }

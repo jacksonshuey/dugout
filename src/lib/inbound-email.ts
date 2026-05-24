@@ -23,6 +23,13 @@ export interface InboundEmail {
   classified_at: string | null;
   signals_emitted: number;
   message_id: string | null;
+  // List-ID header (RFC-2919) extracted at webhook time. Optional so old
+  // rows (pre-20260525 migration) still type-check; new inserts populate
+  // when the header is present. See docs/filter-design.md §9.
+  list_id?: string | null;
+  // Resolved publisher canonical name (see src/lib/inbound-publishers.ts).
+  // Optional for the same reason as list_id — old rows are NULL.
+  publisher_canonical_name?: string | null;
   created_at: string;
 }
 
@@ -35,6 +42,8 @@ export interface NewInboundEmail {
   html_body?: string | null;
   raw_size_bytes: number;
   message_id?: string | null;
+  list_id?: string | null;
+  publisher_canonical_name?: string | null;
 }
 
 // Returns the persisted row, or null if a row with the same message_id
@@ -55,6 +64,8 @@ export async function insertInboundEmail(
       html_body: email.html_body ?? null,
       raw_size_bytes: email.raw_size_bytes,
       message_id: email.message_id ?? null,
+      list_id: email.list_id ?? null,
+      publisher_canonical_name: email.publisher_canonical_name ?? null,
     })
     .select()
     .single();
