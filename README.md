@@ -6,7 +6,7 @@ A working deal intelligence layer for GTM teams. Configurable per workspace (pre
 
 Tells sellers and managers what's happening in their pipeline before they have to ask.
 
-→ **Live demo:** _link to be added after Vercel deploy_
+→ **Live demo:** [trydugout.com](https://trydugout.com) · **Contact:** [jacksonshuey@gmail.com](mailto:jacksonshuey@gmail.com?subject=Dugout%20walkthrough)
 
 ## Surfaces
 
@@ -19,6 +19,26 @@ Tells sellers and managers what's happening in their pipeline before they have t
 - `/spec` — single-scroll architecture/rollout writeup.
 
 > Workspace configuration (priorities, assets, stack) lives in `src/lib/workspace.ts` as code — the `/settings` editor that earlier README versions described was removed during demo prep (see PR #20).
+
+## Integrations
+
+The full integration matrix — status, auth method, deployment mode, data direction, limits — lives in [`src/data/integrations.ts`](src/data/integrations.ts) and is rendered on the landing page below the constellation. At a glance:
+
+- **Live**: Anthropic, Supabase, NewsAPI, SEC EDGAR, Firecrawl, Slack, Granola (beta).
+- **Display** (workspace-config rows, OAuth pattern): Salesforce, Gong, Outreach, Dock, Chili Piper.
+
+Adding a source is one entry in `INTEGRATIONS` + one adapter file. The constellation and the matrix both read from the same source of truth.
+
+## Security & compliance
+
+The four constraints surfaced on the landing page, with file pointers:
+
+- **API keys never reach the browser.** Integration credentials live in Supabase Vault, encrypted at rest. Server-side adapters retrieve them through `SECURITY DEFINER` RPCs. See [`supabase/migrations/20260523_granola_integration.sql`](supabase/migrations/20260523_granola_integration.sql).
+- **Inbound webhooks are cryptographically verified.** HMAC signatures + 5-minute replay window. Unsigned, expired, or tampered payloads are rejected pre-write. See [`src/app/api/inbound-email/agentmail/route.ts`](src/app/api/inbound-email/agentmail/route.ts).
+- **Database is deny-all by default.** RLS enabled on every `public.*` table. Service role runs Dugout's reads and writes; anon role does nothing.
+- **No writes to source systems.** Adapters consume; they never `POST` / `PATCH` / `DELETE` back to Salesforce, Gong, Outreach, or any source. Read-only is the v1 contract (BUILD_ALIGNMENT principle 9). A bug in Dugout can produce a wrong signal — it cannot push a bad CRM update or send an unintended email.
+
+UI gates at the proxy ([`src/proxy.ts`](src/proxy.ts)) mint a per-session cookie; protected API routes verify it in-handler — proxy is not a substitute for in-handler auth.
 
 ## How the engine works
 
