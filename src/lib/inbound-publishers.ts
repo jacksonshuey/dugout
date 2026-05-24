@@ -60,6 +60,12 @@ const PUBLISHERS: PublisherEntry[] = [
     sender_domains: ["industrydive.com", "cfodive.com"],
   },
   {
+    canonical: "clouded_judgement",
+    display: "Clouded Judgement",
+    source_url_origin: "https://cloudedjudgement.substack.com",
+    sender_domains: ["cloudedjudgement.substack.com"],
+  },
+  {
     canonical: "endpoints_news",
     display: "Endpoints News",
     source_url_origin: "https://endpts.com",
@@ -67,10 +73,58 @@ const PUBLISHERS: PublisherEntry[] = [
     sender_domains: ["endpts.com", "endpointsnews.com"],
   },
   {
+    canonical: "import_ai",
+    display: "Import AI",
+    source_url_origin: "https://importai.substack.com",
+    sender_domains: ["importai.substack.com"],
+  },
+  {
+    canonical: "interconnects",
+    display: "Interconnects",
+    source_url_origin: "https://www.interconnects.ai",
+    sender_domains: ["interconnects.ai"],
+  },
+  {
+    canonical: "latent_space",
+    display: "Latent Space",
+    source_url_origin: "https://www.latent.space",
+    sender_domains: ["latent.space"],
+  },
+  {
     canonical: "money_stuff",
     display: "Money Stuff",
     source_url_origin: "https://www.bloomberg.com",
     sender_domains: ["bloombergbusiness.com", "bloomberg.com"],
+  },
+  {
+    canonical: "pragmatic_engineer",
+    display: "The Pragmatic Engineer",
+    source_url_origin: "https://newsletter.pragmaticengineer.com",
+    sender_domains: ["pragmaticengineer.substack.com", "newsletter.pragmaticengineer.com"],
+  },
+  {
+    canonical: "runtime",
+    display: "Runtime",
+    source_url_origin: "https://www.runtime.news",
+    sender_domains: ["runtime.news"],
+  },
+  {
+    canonical: "stratechery",
+    display: "Stratechery",
+    source_url_origin: "https://stratechery.com",
+    sender_domains: ["stratechery.com"],
+  },
+  {
+    canonical: "the_batch",
+    display: "The Batch",
+    source_url_origin: "https://www.deeplearning.ai/the-batch",
+    sender_domains: ["deeplearning.ai"],
+  },
+  {
+    canonical: "the_information",
+    display: "The Information",
+    source_url_origin: "https://www.theinformation.com",
+    sender_domains: ["theinformation.com"],
   },
 ];
 

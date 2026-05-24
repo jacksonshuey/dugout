@@ -1,3 +1,4 @@
+// Prompt rev 2026-05-24: added three-tier severity table for AE Brief work.
 // System prompt for the market-intel Haiku ranker.
 //
 // Single function, deterministic output, no state — mirrors the
@@ -64,12 +65,28 @@ not invent a 13th:
    account-named, prefer signals that imply a deal-stage event
    (leadership_change, ma_acquisition, layoff, funding_round, earnings,
    regulatory_action) over neutral context (press_release, product_launch).
-2. **Severity by type.** Among non-named signals, prefer types that map to
-   blocking-tier canonical categories (leadership_change → champion_loss;
-   ma_acquisition → account_context BLOCKING; layoff → account_health_decline;
-   regulatory_action → vertical_context elevated). Then action-tier
-   (funding_round, earnings, competitor_mention, partnership). Then awareness
-   (product_launch, press_release, other).
+2. **Severity by type — three tiers.** Among non-named signals, rank by tier:
+
+   **Tier 1 (blocking — surface always when present):**
+     - leadership_change (champion_loss exposure)
+     - ma_acquisition (account_context BLOCKING — buying committee likely changes)
+     - layoff (account_health_decline)
+     - regulatory_action (vertical_context — shifts buyer priorities)
+
+   **Tier 2 (action — surface when fresh or account-adjacent):**
+     - funding_round (especially ≥$50M — momentum signal)
+     - earnings (deal velocity signal — beat/miss shifts buying cycles)
+     - champion_job_change (champion at a different account now)
+     - competitor_mention (competitive_threat)
+
+   **Tier 3 (awareness — surface only when slot remains):**
+     - partnership
+     - product_launch
+     - press_release
+     - other
+
+   Higher tier always outranks lower tier. Within the same tier, fall through
+   to rule 3 (recency).
 3. **Recency last.** All else equal, newer wins.
 4. **Diversity tiebreaker.** Avoid stacking 5 items about the same \`mention\`
    in the top 10 — prefer one per entity in the upper half.
