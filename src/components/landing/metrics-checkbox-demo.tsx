@@ -9,13 +9,26 @@ import { BrandLogo, getBrandName, type BrandKey } from "./logos";
 // Auto-plays a fixed selection sequence on mount, then pauses the moment the
 // user clicks anything.
 
+// IntegrationId reflects the six stack categories from the spec's Data layer
+// (CRM, Conversation Intel, Sales Engagement, Deal Rooms, Meeting Scheduling,
+// Prospecting/Enrichment) plus comms, contracts, and external signal sources.
+// Multiple options per category so a metric tagged ["salesforce", "hubspot"]
+// lights up if you have either CRM.
 type IntegrationId =
   | "salesforce"
+  | "hubspot"
   | "gong"
+  | "granola"
   | "outreach"
+  | "salesloft"
+  | "dock"
+  | "aligned"
+  | "calendly"
   | "linkedin"
+  | "apollo"
   | "slack"
-  | "docusign";
+  | "docusign"
+  | "newsapi";
 
 interface Metric {
   id: string;
@@ -25,38 +38,92 @@ interface Metric {
 
 const INTEGRATIONS: IntegrationId[] = [
   "salesforce",
+  "hubspot",
   "gong",
+  "granola",
   "outreach",
+  "salesloft",
+  "dock",
+  "aligned",
+  "calendly",
   "linkedin",
+  "apollo",
   "slack",
   "docusign",
+  "newsapi",
 ];
 
+// Metrics map 1:1 onto the RULES library in src/lib/signal-engine.ts where
+// possible; the rest are derived measurements that flow from the same
+// integration categories. Source lists are inclusive — any one source unlocks
+// the row.
+const CRM: IntegrationId[] = ["salesforce", "hubspot"];
+const CONV_INTEL: IntegrationId[] = ["gong", "granola"];
+const SALES_ENGAGEMENT: IntegrationId[] = ["outreach", "salesloft"];
+const DEAL_ROOMS: IntegrationId[] = ["dock", "aligned"];
+const ENRICHMENT: IntegrationId[] = ["linkedin", "apollo"];
+
 const METRICS: Metric[] = [
-  { id: "stage-drift", name: "Pipeline stage drift", sources: ["salesforce"] },
-  { id: "close-slip", name: "Close-date slippage", sources: ["salesforce"] },
-  { id: "talk-ratio", name: "Talk-time ratio", sources: ["gong"] },
-  { id: "next-step", name: "Next-step commitment", sources: ["gong"] },
-  { id: "reply-velocity", name: "Sequence reply velocity", sources: ["outreach"] },
-  { id: "multi-thread", name: "Multi-thread depth", sources: ["outreach", "linkedin"] },
-  { id: "champion", name: "Champion engagement", sources: ["gong", "outreach"] },
-  { id: "role-change", name: "Stakeholder role changes", sources: ["linkedin"] },
+  // CRM-rooted (Signal engine: SELECTED_VENDOR_NO_FINANCE, NO_FINANCE_AT_EVALUATING, …)
+  { id: "finance-gate", name: "Finance gate unmanned (Selected Vendor)", sources: CRM },
+  { id: "procurement-late", name: "Procurement not engaged", sources: CRM },
+  { id: "no-finance-eval", name: "No Finance contact on Evaluating", sources: CRM },
+  { id: "no-it-eval", name: "No IT/Security contact on Evaluating", sources: CRM },
+  { id: "single-thread", name: "Single-thread risk", sources: CRM },
+  { id: "stage-age", name: "Stage age vs. benchmark", sources: CRM },
+  { id: "committee-cov", name: "Buying-committee coverage", sources: [...CRM, ...ENRICHMENT] },
+
+  // Conversation intelligence (CALL_NEGATIVE_SENTIMENT + derived)
+  { id: "neg-sentiment", name: "Negative call sentiment", sources: CONV_INTEL },
+  { id: "talk-ratio", name: "Talk-time ratio", sources: CONV_INTEL },
+  { id: "next-step", name: "Next-step commitment extraction", sources: CONV_INTEL },
+  { id: "champion-silent", name: "Champion silent (7+ days)", sources: [...CONV_INTEL, ...SALES_ENGAGEMENT] },
+  { id: "it-pager", name: "IT one-pager owed after IT signal", sources: [...CONV_INTEL, ...DEAL_ROOMS] },
+
+  // Sales engagement
+  { id: "reply-velocity", name: "Sequence reply velocity", sources: SALES_ENGAGEMENT },
+
+  // Deal rooms (ASSET_GAP_*, NO_TRIAL_BRIEF_AT_DEMO_SAT)
+  { id: "trial-brief", name: "Outcome-first trial brief delivered", sources: DEAL_ROOMS },
+  { id: "finance-brief", name: "Finance brief delivered", sources: DEAL_ROOMS },
+  { id: "asset-engmt", name: "Buyer asset engagement", sources: DEAL_ROOMS },
+
+  // Meeting scheduling (DEMO_NOT_BOOKED)
+  { id: "demo-booked", name: "Champion → demo booked", sources: ["calendly"] },
+
+  // Stakeholder / enrichment (CHAMPION_DEPARTED + derived)
+  { id: "champ-departed", name: "Champion has left the company", sources: ENRICHMENT },
+  { id: "role-changes", name: "Stakeholder role changes", sources: ENRICHMENT },
+  { id: "multi-thread", name: "Multi-thread depth", sources: [...CRM, "linkedin"] },
+
+  // Comms / contracts / external
   { id: "urgency", name: "Internal urgency signal", sources: ["slack"] },
-  { id: "redline", name: "Contract redline activity", sources: ["docusign"] },
+  { id: "redlines", name: "Contract redline activity", sources: ["docusign"] },
+  { id: "news-velocity", name: "Account news velocity", sources: ["newsapi"] },
+];
+
+// Autoplay reveals one new integration per tick. Stops after primary picks
+// (10 of 14) so the alternate-vendor rows stay visible for the user to click.
+const AUTOPLAY_ORDER: IntegrationId[] = [
+  "salesforce",
+  "gong",
+  "outreach",
+  "dock",
+  "calendly",
+  "linkedin",
+  "apollo",
+  "slack",
+  "docusign",
+  "newsapi",
 ];
 
 const AUTOPLAY_SEQUENCE: ReadonlyArray<ReadonlyArray<IntegrationId>> = [
   [],
-  ["salesforce"],
-  ["salesforce", "gong"],
-  ["salesforce", "gong", "outreach"],
-  ["salesforce", "gong", "outreach", "linkedin"],
-  ["salesforce", "gong", "outreach", "linkedin", "slack"],
-  ["salesforce", "gong", "outreach", "linkedin", "slack", "docusign"],
+  ...AUTOPLAY_ORDER.map((_, i) => AUTOPLAY_ORDER.slice(0, i + 1)),
 ];
 
-const STEP_DURATION_MS = 1500;
-const HOLD_AT_END_MS = 2600;
+const STEP_DURATION_MS = 1100;
+const HOLD_AT_END_MS = 3000;
 
 function subscribeReducedMotion(callback: () => void) {
   const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
