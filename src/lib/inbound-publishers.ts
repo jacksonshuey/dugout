@@ -109,12 +109,6 @@ const PUBLISHERS: PublisherEntry[] = [
     sender_domains: ["runtime.news"],
   },
   {
-    canonical: "stratechery",
-    display: "Stratechery",
-    source_url_origin: "https://stratechery.com",
-    sender_domains: ["stratechery.com"],
-  },
-  {
     canonical: "the_batch",
     display: "The Batch",
     source_url_origin: "https://www.deeplearning.ai/the-batch",

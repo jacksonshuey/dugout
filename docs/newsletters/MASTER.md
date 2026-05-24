@@ -149,7 +149,6 @@ Reserve for when Checkbox starts paying Dugout for the seat. Top picks if budget
 - **STAT+** (~$399/yr) — payor/PBM scoops
 - **The Information** (~$399-749/yr) — enterprise-AI + tech scoops
 - **Pink Sheet + Scrip** (Citeline, enterprise) — pharma regulatory gold standard
-- **Stratechery Daily** (~$144/yr) — business-strategy AI lens
 
 ---
 
@@ -186,7 +185,6 @@ abovethelaw.com
 iapp.org
 acc.com
 runtime.news
-stratechery.com
 theinformation.com
 endpts.com
 endpointsnews.com
@@ -300,7 +298,7 @@ Once Phase 1 newsletters are subscribed, the ranker will start providing real va
 
 ### Subscription mechanics caveats
 - Sender domains marked "best guess" in vertical files need verification on first inbound. Insurance + GTM agents both recommended `inbox+<vertical>@dugout-agentmail` per-vertical addresses to capture exact From: headers before writing deterministic allowlist rules.
-- **Forwarding-blocked sources:** The Information ($399+/yr) and Stratechery use account-bound paid emails that may break on forwarding. Test before relying.
+- **Forwarding-blocked sources:** The Information ($399+/yr) uses account-bound paid emails that may break on forwarding. Test before relying.
 - **MIT Sloan Management Review winding down** — don't build long-term dependency.
 - **PEI Group monopoly** — one paid seat unlocks 8 trade pubs via shared `pei.group` infra. Highest paid-tier ROI if Dugout ever needs PE depth.
 

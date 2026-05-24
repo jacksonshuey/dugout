@@ -8,25 +8,23 @@ All entries verified active via WebSearch/WebFetch in May 2026. Sender domains a
 
 ---
 
-## Top 5 Picks (subscribe first)
+## Top 4 Picks (subscribe first)
 
 | # | Newsletter | One-sentence why | Cadence | Cost | Best-guess sender domain |
 |---|---|---|---|---|---|
 | 1 | **Runtime (Tom Krazit)** | Pure-play enterprise tech reporting (cloud, data, AI infra, deals) from the former Protocol Enterprise lead -- the closest thing to a Snowflake-class beat reporter you can get in your inbox 3x/week. | 3x/week | Free (paid $10/mo optional) | `runtime.news` (Ghost) |
 | 2 | **Clouded Judgement (Jamin Ball)** | Friday-morning data-driven teardown of every public cloud/SaaS company's quarter -- the AE's cheat sheet for any meeting with a Snowflake/Databricks/MongoDB GC. | Weekly (Fri AM) | Free | `substack.com` |
-| 3 | **Stratechery (Ben Thompson)** | The strategic narrative layer -- when Snowflake acquires X or Databricks IPOs, Thompson's framing is what your buyer's CEO has already read. | 4x/week | Free weekly + $12/mo for daily | `stratechery.com` |
-| 4 | **The Pragmatic Engineer (Gergely Orosz)** | Tech layoffs, eng-org reorgs, and "what's it really like inside Snowflake/Databricks/Stripe" -- early signal on org instability that maps to legal-tech buying windows. | 2-3x/week | $15/mo or $150/yr (free tier available) | `substack.com` |
-| 5 | **Runtime + Tomasz Tunguz** (tie -- subscribe both) | Theory CEO's weekly data-cut on SaaS metrics, AI adoption, and Snowflake/Databricks revenue dynamics from a public-market lens. | Weekly | Free | `kit.com` (ttunguz.kit.com) |
+| 3 | **The Pragmatic Engineer (Gergely Orosz)** | Tech layoffs, eng-org reorgs, and "what's it really like inside Snowflake/Databricks/Stripe" -- early signal on org instability that maps to legal-tech buying windows. | 2-3x/week | $15/mo or $150/yr (free tier available) | `substack.com` |
+| 4 | **Runtime + Tomasz Tunguz** (tie -- subscribe both) | Theory CEO's weekly data-cut on SaaS metrics, AI adoption, and Snowflake/Databricks revenue dynamics from a public-market lens. | Weekly | Free | `kit.com` (ttunguz.kit.com) |
 
 ---
 
-## Full Newsletter Table (29 entries)
+## Full Newsletter Table (28 entries)
 
 | Name | Publisher | Cadence | Cost | Sender domain (best guess) | Signal density (1-5) | Why an AE selling to enterprise tech cares | Subscribe URL |
 |---|---|---|---|---|---|---|---|
 | Runtime | Tom Krazit (indep.) | 3x/week | Free; $10/mo supporter | `runtime.news` | 5 | Successor to Protocol Enterprise -- the only dedicated enterprise-tech beat newsletter; covers Snowflake, Databricks, Oracle, AWS, GCP, MSFT cloud, security, AI infra. | https://www.runtime.news/ |
 | Clouded Judgement | Jamin Ball (Altimeter) | Weekly (Fri) | Free | `substack.com` | 5 | Public SaaS/cloud earnings, NDR, valuation multiples -- what your buyer's CFO is reading. | https://cloudedjudgement.substack.com/ |
-| Stratechery | Ben Thompson | 4x/week | Free weekly; $12/mo for Daily Update | `stratechery.com` | 5 | Strategic framing for hyperscaler + SaaS dynamics; sets the narrative in C-suites. | https://stratechery.com/ |
 | The Pragmatic Engineer | Gergely Orosz | 2-3x/week | $15/mo or $150/yr (free tier) | `substack.com` | 5 | Layoffs, eng reorgs, comp data inside Snowflake/Databricks/Stripe class companies -- predictive of buying windows and contraction. | https://newsletter.pragmaticengineer.com/ |
 | Tomasz Tunguz | Theory Ventures | Weekly | Free | `kit.com` (or `tomtunguz.com`) | 4 | Weekly data analyses on SaaS metrics, AI adoption rates, Snowflake/Databricks revenue trends. | https://tomtunguz.com/ |
 | The Information | The Information | Daily + multiple newsletters | $399/yr standard; $749/yr Pro | `theinformation.com` | 5 | Premier enterprise scoops -- exec moves, M&A, IPO timing on every Snowflake-class account. | https://www.theinformation.com/subscribe |
@@ -83,16 +81,15 @@ The Snowflake/Databricks customer base is being reshaped by generative + agentic
 - **Fortune** sends from `@fortune.com`.
 - **The Information** sends from `@theinformation.com`.
 
-For the classifier, the highest-value `from_domain` allowlist (top 10):
+For the classifier, the highest-value `from_domain` allowlist (top 9):
 1. `runtime.news`
-2. `stratechery.com`
-3. `theinformation.com`
-4. `cloudwars.com`
-5. `industrydive.com` (CIO Dive)
-6. `axios.com`
-7. `fortune.com`
-8. `dataengineeringweekly.com` / `substack.com` (filter on display name)
-9. `snowflake.com` + `databricks.com` (vendor official)
-10. `platformer.news`
+2. `theinformation.com`
+3. `cloudwars.com`
+4. `industrydive.com` (CIO Dive)
+5. `axios.com`
+6. `fortune.com`
+7. `dataengineeringweekly.com` / `substack.com` (filter on display name)
+8. `snowflake.com` + `databricks.com` (vendor official)
+9. `platformer.news`
 
 Substack entries should be matched by `from_name` (e.g. "Jamin Ball", "Gergely Orosz", "Tristan Handy", "Benn Stancil", "Jack Clark") since they all share `substack.com`.

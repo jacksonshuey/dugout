@@ -8,7 +8,7 @@
 
 ## 1. Top 10 Picks — Start Here
 
-The first ten newsletters Dugout should ingest if it can only ingest ten. Ordered by signal density × breadth of AE utility.
+The first nine newsletters Dugout should ingest if it can only ingest nine. Ordered by signal density × breadth of AE utility.
 
 | # | Newsletter | One-line "why" | Cadence | Cost | Sender domain (best guess) |
 |---|---|---|---|---|---|
@@ -16,16 +16,15 @@ The first ten newsletters Dugout should ingest if it can only ingest ten. Ordere
 | 2 | **The Batch** (Andrew Ng / DeepLearning.AI) | Andrew Ng's plain-English "what shipped + what it means" letter; safest single email for a non-technical AE to forward. | Weekly (Wed) | Free | `deeplearning.ai` |
 | 3 | **Smol AI / AINews** (swyx) | Daily auto-summary of every major AI Discord, Reddit, and X thread; Karpathy calls it "the best AI newsletter atm." Highest raw signal density of anything on this list. | Daily (weekdays) | Free | `news@smol.ai` |
 | 4 | **Latent Space** (swyx + Alessio) | The AI Engineer publication; weekly deep dives on agent infra, MCP, evals — the substrate Checkbox's legal-tech competitors are building on. | Weekly + essays | Free + paid | `latent.space` (Substack) |
-| 5 | **Stratechery** (Ben Thompson) | The single best business-strategy lens on AI; Thompson's frames (aggregation, modularization) are what enterprise buyers actually argue with. | 4x/week | Paid ($15/mo) | `stratechery.com` |
-| 6 | **One Useful Thing** (Ethan Mollick / Wharton) | The most-forwarded "what AI means for knowledge work" essayist; Mollick's prompts and frames travel inside Fortune-500 legal teams. | ~Weekly | Free | `oneusefulthing.org` (Substack) |
-| 7 | **Interconnects** (Nathan Lambert / Ai2) | Best post-training and frontier-model analysis from inside an actual lab; how the AE understands "why this model > that model." | 1-3x/week | Free + paid | `interconnects.ai` |
-| 8 | **AI Safety Newsletter** (Center for AI Safety) | The cleanest digest of AI safety + regulation news; exactly what the AE needs when a GC asks about EU AI Act / SB-1047 / NIST RMF. | Biweekly | Free | `newsletter.safe.ai` |
-| 9 | **Big Technology** (Alex Kantrowitz) | Enterprise-AI reporting (Fortune-500 deployments, ROI realities); fills the gap between consultant decks and lab blog posts. | 2-3x/week | Free + paid | `bigtechnology.com` (Substack) |
-| 10 | **The Rundown AI** (Rowan Cheung) | 2M+ subscriber daily 5-minute brief; low signal density but it's what every prospect's CMO is reading — AE needs to know what they saw this morning. | Daily | Free | `therundown.ai` |
+| 5 | **One Useful Thing** (Ethan Mollick / Wharton) | The most-forwarded "what AI means for knowledge work" essayist; Mollick's prompts and frames travel inside Fortune-500 legal teams. | ~Weekly | Free | `oneusefulthing.org` (Substack) |
+| 6 | **Interconnects** (Nathan Lambert / Ai2) | Best post-training and frontier-model analysis from inside an actual lab; how the AE understands "why this model > that model." | 1-3x/week | Free + paid | `interconnects.ai` |
+| 7 | **AI Safety Newsletter** (Center for AI Safety) | The cleanest digest of AI safety + regulation news; exactly what the AE needs when a GC asks about EU AI Act / SB-1047 / NIST RMF. | Biweekly | Free | `newsletter.safe.ai` |
+| 8 | **Big Technology** (Alex Kantrowitz) | Enterprise-AI reporting (Fortune-500 deployments, ROI realities); fills the gap between consultant decks and lab blog posts. | 2-3x/week | Free + paid | `bigtechnology.com` (Substack) |
+| 9 | **The Rundown AI** (Rowan Cheung) | 2M+ subscriber daily 5-minute brief; low signal density but it's what every prospect's CMO is reading — AE needs to know what they saw this morning. | Daily | Free | `therundown.ai` |
 
 ---
 
-## 2. Full Newsletter Table (35 sources)
+## 2. Full Newsletter Table (34 sources)
 
 Signal density rubric (for AE selling enterprise legal-tech): **5** = read every issue, **4** = skim every issue, **3** = read on cue / search later, **2** = source for one specific job-to-be-done, **1** = noise floor / brand awareness only.
 
@@ -94,7 +93,6 @@ Signal density rubric (for AE selling enterprise legal-tech): **5** = read every
 
 | Name | Publisher | Cadence | Cost | Sender domain | Signal | Why the AE cares | URL |
 |---|---|---|---|---|---|---|---|
-| Stratechery | Ben Thompson | 4x/week | Paid ($15/mo) | `stratechery.com` | 5 | The single best business-of-tech analyst; AE's vocab for strategy convos. | https://stratechery.com/ |
 | Big Technology | Alex Kantrowitz | 2-3x/week | Free + paid | `bigtechnology.com` (Substack) | 5 | Enterprise-AI reporting, ROI realities, Microsoft/Google/AWS-fluent. | https://www.bigtechnology.com/ |
 | Platformer | Casey Newton | Mon/Tue/Thu | Free + paid ($10/mo) | `platformer.news` (Ghost) | 3 | Tech-and-democracy reporting; AI-adjacent but useful for the policy/trust angle. | https://www.platformer.news/ |
 | One Useful Thing | Ethan Mollick (Wharton) | ~Weekly | Free | `oneusefulthing.org` (Substack) | 5 | Most-forwarded "AI for knowledge work" writer in the enterprise universe. | https://www.oneusefulthing.org/ |
@@ -125,6 +123,6 @@ The AE specifically needs to be fluent on tool-use frameworks, MCP, browser agen
 ## Notes on Implementation for Dugout
 
 - **Sender-domain coverage:** the stack mixes Substack (`*.substack.com` and custom domains via Substack), Ghost (`platformer.news`), Beehiiv (`aidailybrief.beehiiv.com`), Mailchimp (`stanford.us18.list-manage.com`), Buttondown legacy (`news@smol.ai`), and corporate (`deeplearning.ai`, `mckinsey.com`, `bcg.com`, `a16z.com`, `cset.georgetown.edu`, `bain.com`, `theinformation.com`). Classifier should handle each.
-- **Forwarding posture:** Substack and Ghost newsletters forward cleanly. The Information and Stratechery use account-bound paid emails — flag for the AgentMail webhook (sender-on-paid-substrate ≠ shareable internally).
-- **Paid sources flagged in table:** Stratechery, The Information, Platformer paid tier, Interconnects paid tier, Ahead of AI paid tier, AI Tidbits paid tier, Big Technology paid tier, Ben's Bites community. Free tier of each is sufficient for ingestion in most cases except Stratechery and The Information.
+- **Forwarding posture:** Substack and Ghost newsletters forward cleanly. The Information uses account-bound paid emails — flag for the AgentMail webhook (sender-on-paid-substrate ≠ shareable internally).
+- **Paid sources flagged in table:** The Information, Platformer paid tier, Interconnects paid tier, Ahead of AI paid tier, AI Tidbits paid tier, Big Technology paid tier, Ben's Bites community. Free tier of each is sufficient for ingestion in most cases except The Information.
 - **Plain-HTML body:** all 35 sources verified as plain-HTML email (no required JS render). Latent Space, Interconnects, Ahead of AI, and Don't Worry About the Vase frequently exceed Gmail's 102KB clip threshold — parser should handle "[Message clipped] View entire message" gracefully.

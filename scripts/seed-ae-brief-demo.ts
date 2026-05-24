@@ -47,11 +47,11 @@ const DEMO_ROWS = [
   },
   {
     id: "a3b71ef0-0000-0000-0000-000000000003",
-    publisher_canonical_name: "stratechery",
+    publisher_canonical_name: "clouded_judgement",
     type: "competitor_mention",
     summary:
-      "Ben Thompson argues Databricks-Snowflake convergence is accelerating as both pivot from warehouse to AI platform.",
-    source_url: "https://stratechery.com/2026/databricks-snowflake-convergence",
+      "Jamin Ball argues Databricks-Snowflake convergence is accelerating as both pivot from warehouse to AI platform.",
+    source_url: "https://cloudedjudgement.substack.com/p/databricks-snowflake-convergence",
     occurred_at: new Date(now - 22 * HOUR_MS).toISOString(),
   },
   {
