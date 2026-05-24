@@ -45,6 +45,18 @@ export interface ExternalSignal {
   url?: string | null;
   meta?: Record<string, unknown> | null;
   is_demo: boolean;
+  // Source-attribution columns (20260525 migration). All optional so old
+  // rows continue to type-check; the newsletter-adapter populates them on
+  // every new write going forward.
+  publisher_canonical_name?: string | null;
+  source_url?: string | null;
+  inbound_email_id?: string | null;
+  email_subject?: string | null;
+  // Set by /api/admin/signal-feedback when an operator marks a signal as
+  // bad. `getWorkspaceSignals()` filters `where suppressed_at is null` so
+  // suppressed rows don't render on /market-intel (Q0 resolution — see
+  // docs/filter-design.md §12).
+  suppressed_at?: string | null;
   created_at: string;
 }
 
@@ -57,6 +69,10 @@ export interface NewExternalSignal {
   url?: string | null;
   meta?: Record<string, unknown> | null;
   is_demo?: boolean;
+  publisher_canonical_name?: string | null;
+  source_url?: string | null;
+  inbound_email_id?: string | null;
+  email_subject?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -98,15 +114,38 @@ export async function getWorkspaceSignals(
   limit = 50,
 ): Promise<ExternalSignal[]> {
   const sb = supabaseAdmin();
+  // `suppressed_at is null` filter implements Q0: signals that an operator
+  // manually flagged via /api/admin/signal-feedback disappear from
+  // /market-intel. Older rows that pre-date the column also satisfy this
+  // (NULL is null), so the filter is backward-compatible.
   const { data, error } = await sb
     .from("external_signals")
     .select("*")
     .eq("account_id", WORKSPACE_ACCOUNT_ID)
+    .is("suppressed_at", null)
     .gte("occurred_at", sinceIso)
     .order("occurred_at", { ascending: false })
     .limit(limit);
   if (error) throw new Error(`Supabase read failed: ${error.message}`);
   return (data ?? []) as ExternalSignal[];
+}
+
+// Suppress a single signal from the workspace feed. Sets `suppressed_at`
+// to now(). Idempotent (multiple suppress calls just refresh the
+// timestamp). Returns the count of rows updated (0 or 1).
+//
+// Used by /api/admin/signal-feedback so a "Mark as bad signal" click
+// makes the row disappear from /market-intel. See Q0 in
+// docs/filter-design.md §12.
+export async function suppressSignal(signalId: string): Promise<number> {
+  const sb = supabaseAdmin();
+  const { data, error } = await sb
+    .from("external_signals")
+    .update({ suppressed_at: new Date().toISOString() })
+    .eq("id", signalId)
+    .select("id");
+  if (error) throw new Error(`Supabase update failed: ${error.message}`);
+  return (data ?? []).length;
 }
 
 // ---------------------------------------------------------------------------
