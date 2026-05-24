@@ -1,11 +1,18 @@
 // Seed 4 workspace-wide demo signals so the AE Brief renders during demos.
-// Run with:  npx tsx scripts/seed-ae-brief-demo.ts
+// Run with:  set -a && source .env.local && set +a && npx tsx scripts/seed-ae-brief-demo.ts
 //
-// All rows use deterministic ids (sig_demo_aebrief_001..004) and are
-// upserted, so re-running this script is idempotent (no duplicates).
+// All rows use deterministic UUIDs with an "aebr0001-" recognizable prefix
+// (external_signals.id is a uuid column). Re-running is idempotent —
+// rows are upserted on id conflict, no duplicates.
 //
 // To remove: in Supabase Studio (or psql) run —
-//   delete from external_signals where id like 'sig_demo_aebrief_%';
+//   delete from external_signals
+//   where id in (
+//     'a3b71ef0-0000-0000-0000-000000000001',
+//     'a3b71ef0-0000-0000-0000-000000000002',
+//     'a3b71ef0-0000-0000-0000-000000000003',
+//     'a3b71ef0-0000-0000-0000-000000000004'
+//   );
 //
 // Each signal lives within the last 30h so they all fall inside the 48h
 // ranker window, and each is tagged to a tech/AI publisher canonical that
@@ -21,7 +28,7 @@ const now = Date.now();
 
 const DEMO_ROWS = [
   {
-    id: "sig_demo_aebrief_001",
+    id: "a3b71ef0-0000-0000-0000-000000000001",
     publisher_canonical_name: "import_ai",
     type: "product_launch",
     summary:
@@ -30,7 +37,7 @@ const DEMO_ROWS = [
     occurred_at: new Date(now - 8 * HOUR_MS).toISOString(),
   },
   {
-    id: "sig_demo_aebrief_002",
+    id: "a3b71ef0-0000-0000-0000-000000000002",
     publisher_canonical_name: "latent_space",
     type: "product_launch",
     summary:
@@ -39,7 +46,7 @@ const DEMO_ROWS = [
     occurred_at: new Date(now - 14 * HOUR_MS).toISOString(),
   },
   {
-    id: "sig_demo_aebrief_003",
+    id: "a3b71ef0-0000-0000-0000-000000000003",
     publisher_canonical_name: "stratechery",
     type: "competitor_mention",
     summary:
@@ -48,7 +55,7 @@ const DEMO_ROWS = [
     occurred_at: new Date(now - 22 * HOUR_MS).toISOString(),
   },
   {
-    id: "sig_demo_aebrief_004",
+    id: "a3b71ef0-0000-0000-0000-000000000004",
     publisher_canonical_name: "the_information",
     type: "layoff",
     summary:
