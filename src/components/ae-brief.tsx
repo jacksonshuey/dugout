@@ -73,6 +73,33 @@ function relativeAge(occurredAt: string, now: Date): string {
   return `${Math.round(hours / 24)}d ago`;
 }
 
+// Confidence tier from the Haiku Stage 2 filter (workspace_relevance).
+// Renders only for account-pool signals — newsletter-pool rows have no
+// workspace_relevance tag and the gate filters "low"/"none" out before
+// reaching this component, so in practice this renders for "high" and
+// "medium" only.
+function RelevancePill({
+  rel,
+}: {
+  rel: ExternalSignal["workspace_relevance"];
+}) {
+  if (rel === "high") {
+    return (
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold tracking-wider border border-emerald-500/30 bg-emerald-500/10 text-emerald-700">
+        HIGH RELEVANCE
+      </span>
+    );
+  }
+  if (rel === "medium") {
+    return (
+      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold tracking-wider border border-amber-500/30 bg-amber-500/10 text-amber-700">
+        MEDIUM
+      </span>
+    );
+  }
+  return null;
+}
+
 export function AEBrief({ signals, rankedItems, now }: AEBriefProps) {
   const signalById = new Map(signals.map((s) => [s.id, s]));
   const totalRanked = Math.max(rankedItems.length, 1);
@@ -166,8 +193,9 @@ export function AEBrief({ signals, rankedItems, now }: AEBriefProps) {
             <li key={signal.id} className="px-4 py-3 space-y-2">
               <div className="text-sm">{truncate(signal.summary, 120)}</div>
               <SignalSourceChip {...chipPropsFor(signal)} />
-              <div className="text-[11px] font-mono text-muted">
-                {relativeAge(signal.occurred_at, now)}
+              <div className="flex items-center gap-2 text-[11px] font-mono text-muted">
+                <span>{relativeAge(signal.occurred_at, now)}</span>
+                <RelevancePill rel={signal.workspace_relevance} />
               </div>
             </li>
           ))}
