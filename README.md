@@ -2,7 +2,7 @@
 
 > *The dugout view of your pipeline.*
 
-A working deal intelligence layer for GTM teams. Configurable per workspace, built by Jackson Shuey.
+A working deal intelligence layer for GTM teams. Configurable per workspace (presets live in `src/lib/workspace.ts`), built by Jackson Shuey.
 
 Tells sellers and managers what's happening in their pipeline before they have to ask.
 
@@ -10,14 +10,15 @@ Tells sellers and managers what's happening in their pipeline before they have t
 
 ## Surfaces
 
-- `/` — operational home. Signal counts, deal health distribution, top signals across the team.
-- `/ae` — AE Console with morning digest (live Claude call) + per-deal cards with health badges + inline playbooks.
-- `/manager` — team risk roll-up, blocking queue, 1:1 coaching hooks.
-- `/studio` — Signal Studio: natural-language to rule spec, mapped to your workspace's strategic priorities.
-- `/settings` — workspace configuration. Edit company identity, priorities, assets, and stack. Persists via cookie; survives reloads.
-- `/architecture` — 4-layer spec, signal catalog, design choices, what we don't build.
-- `/rollout` — 3-phase rollout plan with metrics.
-- `/part-two` — Trial Orchestrator (companion system proposal).
+- `/` — landing. Hero → integration constellation (autoplay setup reel) → onboarding walkthrough → embedded live Console.
+- `/console` — standalone AE Console (same component as the embedded one on `/`). Morning digest + per-deal cards + inline playbooks.
+- `/manager` — team risk roll-up. SVHealthHeroDashboard three-up + team aggregates.
+- `/account/[slug]` — per-account deep view. SV Health Hero, opps, buying committee, Procurement Tracker, unified signal timeline.
+- `/ask` — chat-thread UI. Dual-provider (GPT-4o, Claude Sonnet 4.6, Claude Haiku 4.5), user-picked, env-key-aware.
+- `/market-intel` — workspace-scoped signal table (newsletter inbox feature).
+- `/spec` — single-scroll architecture/rollout writeup.
+
+> Workspace configuration (priorities, assets, stack) lives in `src/lib/workspace.ts` as code — the `/settings` editor that earlier README versions described was removed during demo prep (see PR #20).
 
 ## How the engine works
 

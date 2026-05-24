@@ -60,14 +60,14 @@ The shipping `granola-classifier.ts` extracts **7 buying-process signal types** 
 - `lib/granola-adapter.ts` — orchestrator (list → filter internal → attendee-domain match → title-keyword fallback → unassigned bucket → classify → upsert)
 - `lib/meeting-signals.ts` — Supabase CRUD with dedup
 - `lib/workspace-integrations.ts` — Supabase Vault-encrypted API key storage
-- `app/actions/granola.ts` — server actions (connect, disconnect, sync now, assign unassigned)
-- `app/api/cron/granola/route.ts` — daily 9am UTC sync
+- `app/actions/granola.ts` — server action (`assignUnassignedMeeting` only as of PR #20; `connect`/`disconnect`/`sync now`/`status` were removed with the `/settings` UI — restore from `git show 80419c4~1:src/app/actions/granola.ts` if needed)
+- `app/api/cron/granola/route.ts` — daily 9am UTC sync (reads Vault key directly via `getIntegrationKey`; never depended on the deleted server actions)
 - `app/api/meeting-signals/route.ts` — drawer read endpoint
-- `components/connectors-section.tsx` — Settings UI
 - `components/unassigned-meetings-list.tsx` — manual account-mapping UI
+- ~~`components/connectors-section.tsx`~~ — **removed by PR #20** (was the Settings UI; demo no longer surfaces a setup form). Restore from `git show 80419c4~1:src/components/connectors-section.tsx` if reactivating the integration with real users.
 - `supabase/migrations/20260523_granola_integration.sql` — 3 new tables + Vault RPCs
 
-**Migration must be run manually in Supabase Studio** before activation. Feature is currently deferred (untested with real API key).
+**Migration must be run manually in Supabase Studio** before activation. Feature is currently deferred (untested with real API key). **PR #20 caveat:** with no Connectors UI, inserting a new Vault key now requires calling `setIntegrationKey()` from `src/lib/workspace-integrations.ts` directly (or restoring the deleted UI files).
 
 ## Why Granola is the template for every future integration
 
