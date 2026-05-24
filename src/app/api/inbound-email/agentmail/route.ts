@@ -40,11 +40,51 @@ interface AgentMailMessage {
   subject?: string;
   text?: string;
   html?: string;
+  // AgentMail forwards the original RFC822 headers (when available) under
+  // `headers`. Shape is loose across providers — sometimes a flat map,
+  // sometimes a list of {name, value} pairs. We normalize below.
+  headers?: Record<string, unknown> | Array<{ name?: string; value?: string }>;
 }
 
 interface AgentMailEventPayload {
   event_type?: string;
   message?: AgentMailMessage;
+}
+
+// Flatten AgentMail's headers payload into a lowercased {name: value} map.
+// Tolerates both representations (object map, array of {name,value}).
+function normalizeHeaders(
+  raw: AgentMailMessage["headers"],
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!raw) return out;
+  if (Array.isArray(raw)) {
+    for (const entry of raw) {
+      if (!entry || typeof entry !== "object") continue;
+      const name = typeof entry.name === "string" ? entry.name.toLowerCase() : "";
+      const value = typeof entry.value === "string" ? entry.value : "";
+      if (name && value) out[name] = value;
+    }
+    return out;
+  }
+  if (typeof raw === "object") {
+    for (const [k, v] of Object.entries(raw)) {
+      if (typeof v !== "string") continue;
+      out[k.toLowerCase()] = v;
+    }
+    return out;
+  }
+  return out;
+}
+
+// Extract the inner List-ID token per RFC-2919 — strip optional angle
+// brackets + description. Returns null when no header is present.
+function extractListId(headers: Record<string, string>): string | null {
+  const raw = headers["list-id"];
+  if (!raw) return null;
+  const angle = raw.match(/<([^>]+)>/);
+  const token = (angle ? angle[1] : raw).trim();
+  return token.length > 0 ? token : null;
 }
 
 // Only act on inbound message events. The other event types we'd see on this
@@ -76,7 +116,7 @@ export async function POST(req: Request) {
   }
 
   const rawBody = await req.text();
-  const headers = {
+  const svixHeaders = {
     "svix-id": req.headers.get("svix-id") ?? "",
     "svix-timestamp": req.headers.get("svix-timestamp") ?? "",
     "svix-signature": req.headers.get("svix-signature") ?? "",
@@ -85,7 +125,7 @@ export async function POST(req: Request) {
   let payload: AgentMailEventPayload;
   try {
     const wh = new Webhook(secret);
-    payload = wh.verify(rawBody, headers) as AgentMailEventPayload;
+    payload = wh.verify(rawBody, svixHeaders) as AgentMailEventPayload;
   } catch (e) {
     if (e instanceof WebhookVerificationError) {
       return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
@@ -107,6 +147,9 @@ export async function POST(req: Request) {
     );
   }
 
+  const headers = normalizeHeaders(message.headers);
+  const list_id = extractListId(headers);
+
   const normalized: NormalizedInboundEmail = {
     from_raw: String(message.from ?? "").slice(0, 500),
     subject: String(message.subject ?? "").slice(0, 1000),
@@ -116,9 +159,11 @@ export async function POST(req: Request) {
       typeof message.message_id === "string" && message.message_id.length > 0
         ? message.message_id.replace(/^\s*<|>\s*$/g, "").trim()
         : null,
+    headers,
+    list_id,
   };
 
-  const outcome = await processInboundEmail(normalized);
+  const outcome = await processInboundEmail(normalized, "agentmail");
 
   switch (outcome.kind) {
     case "body_too_large":

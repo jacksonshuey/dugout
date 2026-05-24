@@ -8,6 +8,8 @@ import {
   type ExternalSignalType,
   type NewExternalSignal,
 } from "./external-signals";
+import type { PublisherInfo } from "./email-filter-types";
+import { extractLeadArticleUrl } from "./extract-lead-article-url";
 
 // Newsletter adapter — takes a stored inbound email, extracts material
 // business signals via Haiku, and maps them to either a tracked account
@@ -253,6 +255,7 @@ export interface NewsletterClassification {
 export async function classifyNewsletter(
   email: InboundEmail,
   trackableAccounts: Account[],
+  publisherInfo?: PublisherInfo,
 ): Promise<NewsletterClassification> {
   let extractions: RawExtraction[];
   let classifier_used: "haiku" | "none" = "haiku";
@@ -270,19 +273,36 @@ export async function classifyNewsletter(
     classifier_used = "none";
   }
 
+  // Source attribution. Lead-article URL is extracted once per email (cheap,
+  // pure) and reused for any signal whose Haiku-extracted URL was empty.
+  // The chip + view-source link on /market-intel reads
+  // `external_signals.source_url`. See docs/filter-design.md §9.
+  const fallbackSourceUrl =
+    extractLeadArticleUrl(email.html_body ?? email.text_body ?? "");
+  if (!fallbackSourceUrl) {
+    console.log(
+      `[email-filter] extract_lead_url_returned=null from=${email.from_domain} id=${email.id}`,
+    );
+  }
+  const publisherCanonical =
+    publisherInfo?.publisher_canonical_name ??
+    email.publisher_canonical_name ??
+    email.from_domain;
+
   let matched = 0;
   let workspace = 0;
   const signals: NewExternalSignal[] = extractions.map((x) => {
     const acc = matchAccount(x.mention, trackableAccounts);
     if (acc) matched++;
     else workspace++;
+    const signalUrl = x.url ?? null;
     return {
       account_id: acc ?? WORKSPACE_ACCOUNT_ID,
       source: "newsletter",
       type: x.type,
       summary: x.summary,
       occurred_at: email.received_at,
-      url: x.url ?? null,
+      url: signalUrl,
       meta: {
         inbound_email_id: email.id,
         sender_domain: email.from_domain,
@@ -291,6 +311,12 @@ export async function classifyNewsletter(
         matched: Boolean(acc),
       },
       is_demo: false,
+      // Parallel top-level surface so /market-intel queries don't need to
+      // dig into JSONB. Keeps the legacy meta keys for backward-compat.
+      publisher_canonical_name: publisherCanonical,
+      source_url: signalUrl ?? fallbackSourceUrl ?? null,
+      inbound_email_id: email.id,
+      email_subject: email.subject ?? null,
     };
   });
 
