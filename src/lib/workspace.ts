@@ -68,7 +68,7 @@ export const CHECKBOX_PRESET: WorkspaceConfig = {
   icpDescription:
     "US enterprise in-house legal teams. ACVs $20k–$400k (avg ~$90k), sales cycles ~4 months.",
   killPoint:
-    "Deals die at Selected Vendor — budget approval fails because Finance/IT were engaged too late.",
+    "Deals die at Selected Vendor: budget approval fails because Finance/IT were engaged too late.",
   priorities: [
     {
       id: "P1",
@@ -167,7 +167,7 @@ export const GENERIC_SAAS_PRESET: WorkspaceConfig = {
   icpDescription:
     "Mid-market and enterprise B2B SaaS buyers. ACVs $25k–$250k, sales cycles ~6 weeks for mid-market, ~5 months for enterprise.",
   killPoint:
-    "Deals die in Procurement — single-threaded champions can't carry the deal past Legal review.",
+    "Deals die in Procurement: single-threaded champions can't carry the deal past Legal review.",
   priorities: [
     {
       id: "P1",

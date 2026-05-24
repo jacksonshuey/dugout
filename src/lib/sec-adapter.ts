@@ -20,7 +20,7 @@ const EDGAR_ARCHIVES = "https://www.sec.gov/Archives/edgar/data";
 // they will 403 or rate-limit aggressively. Identifies Dugout as the caller
 // with a contact address.
 const USER_AGENT =
-  "Dugout (dugout-pi.vercel.app jacksonshuey@gmail.com)";
+  "Dugout (trydugout.com jacksonshuey@gmail.com)";
 
 const LOOKBACK_DAYS = 90;
 const REQUEST_TIMEOUT_MS = 10_000;

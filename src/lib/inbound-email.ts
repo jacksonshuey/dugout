@@ -1,15 +1,15 @@
 import { supabaseAdmin } from "./supabase";
 
-// Raw inbound email store. Newsletters arrive at the SendGrid Inbound Parse
-// webhook (src/app/api/inbound-email/[secret]/route.ts), get persisted here
-// verbatim, then a downstream classifier (Phase 2) reads from this table to
-// emit signals into `external_signals`.
+// Raw inbound email store. Newsletters arrive at the AgentMail webhook
+// (src/app/api/inbound-email/agentmail/route.ts), get persisted here
+// verbatim, then a downstream classifier reads from this table to emit
+// signals into `external_signals`.
 //
 // We keep both text_body and html_body so the classifier can re-run as the
 // prompt evolves without re-fetching from the original sender.
 //
-// message_id is the email's RFC822 Message-ID header — unique so SendGrid's
-// 3-day retry window can't double-store a message.
+// message_id is the email's RFC822 Message-ID header — unique so AgentMail's
+// retry window can't double-store a message.
 
 export interface InboundEmail {
   id: string;
@@ -38,8 +38,8 @@ export interface NewInboundEmail {
 }
 
 // Returns the persisted row, or null if a row with the same message_id
-// already exists (dedup hit — SendGrid retried a webhook). Throws on any
-// other Supabase error so the webhook can return 5xx and let SendGrid retry.
+// already exists (dedup hit — AgentMail/Svix retried a webhook). Throws on
+// any other Supabase error so the webhook can return 5xx and let Svix retry.
 export async function insertInboundEmail(
   email: NewInboundEmail,
 ): Promise<InboundEmail | null> {

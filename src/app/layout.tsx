@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { Nav } from "@/components/nav";
 
@@ -14,9 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Dugout — Deal Intelligence Layer",
+  title: "Dugout — The Intelligence Layer for Sales Teams",
   description:
-    "A working deal intelligence layer for GTM teams. Configurable per workspace; built by Jackson Shuey.",
+    "Centralized knowledge layer so no AE walks into a meeting cold. Every tool, every signal, every news cycle synthesized into the next action. Built by Jackson Shuey.",
 };
 
 export default function RootLayout({
@@ -32,6 +33,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <Nav />
         <main className="flex-1 min-h-0">{children}</main>
+        <Analytics />
       </body>
     </html>
   );

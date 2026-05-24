@@ -2,40 +2,45 @@ import { NextResponse } from "next/server";
 import { accounts } from "@/data/seed";
 import {
   getUnclassifiedInboundEmails,
-  markClassified,
+  markClassified as markInboundClassified,
 } from "@/lib/inbound-email";
+import {
+  getUnclassifiedWebScrapes,
+  markWebScrapeClassified,
+} from "@/lib/web-scrapes";
 import { classifyNewsletter } from "@/lib/newsletter-adapter";
+import { classifyWebScrape } from "@/lib/web-scrape-classifier";
 import { insertSignalsDedup } from "@/lib/external-signals";
 
-// Backfill sweeper for the newsletter inbox.
-//
-// The webhook (src/app/api/inbound-email/[secret]/route.ts) runs Haiku
-// classification inline on every POST. When that fails — Anthropic 529,
-// Supabase write race, or a Haiku response we couldn't parse — the row is
-// still stored but classified_at stays NULL. This route drains that queue
-// on a cron schedule so a transient outage doesn't permanently strand
-// material signals.
+// Backfill sweeper — drains TWO unclassified queues on the same schedule:
+//   1. inbound_emails (newsletters arriving via the AgentMail webhook).
+//      Webhook attempts inline Haiku classification on every POST; this
+//      cron catches rows where that failed (Anthropic 529, parse error,
+//      Supabase blip).
+//   2. web_scrapes (per-account markdown blobs from the Firecrawl cron).
+//      Firecrawl cron only fills the queue — all classification happens
+//      here, by explicit design (resilience + re-classify-as-prompt-evolves).
 //
 // Auth: CRON_SECRET (Vercel injects "Authorization: Bearer ${CRON_SECRET}").
-// Fail-closed when the env var is missing, same as the external-signals cron.
+// Fail-closed when the env var is missing.
 //
-// Batching: ten rows per run. Each row is one Haiku call (~3s) so ten fits
-// comfortably under the Vercel Hobby 60s cap with headroom. Cron schedule
-// (in vercel.json) is daily at 20:00 UTC (~end of US business day) — picks
-// up anything that arrived during the day and failed inline classification
-// before the next morning's digest synthesis reads them. Hobby plan caps
-// crons at once-per-day; upgrade to Pro and tighten this to hourly if
-// realtime classification becomes important.
+// Batching: 10 rows per queue per run. Each row is one Haiku call (~3s)
+// so 20 rows × ~3s = ~60s, fitting under maxDuration with headroom.
+// Hobby plan caps crons at once-per-day; upgrade to Pro and tighten this
+// to hourly if realtime classification matters.
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 const BATCH_SIZE = 10;
 
+type Kind = "inbound_email" | "web_scrape";
+
 interface RowResult {
+  kind: Kind;
   id: string;
-  from_domain: string;
+  source_label: string; // from_domain or scraped url
   status: "success" | "error";
   signalsEmitted?: number;
   matched?: number;
@@ -47,7 +52,7 @@ interface RowResult {
 interface SweeperResult {
   ranAt: string;
   totalDurationMs: number;
-  picked: number;
+  picked: { inbound_email: number; web_scrape: number };
   results: RowResult[];
   summary: {
     succeeded: number;
@@ -62,7 +67,7 @@ function authorized(req: Request): boolean {
   return req.headers.get("authorization") === `Bearer ${required}`;
 }
 
-async function classifyOne(
+async function classifyInbound(
   email: Awaited<ReturnType<typeof getUnclassifiedInboundEmails>>[number],
   trackable: typeof accounts,
 ): Promise<RowResult> {
@@ -72,10 +77,11 @@ async function classifyOne(
     if (result.signals.length > 0) {
       await insertSignalsDedup(result.signals);
     }
-    await markClassified(email.id, result.signals.length);
+    await markInboundClassified(email.id, result.signals.length);
     return {
+      kind: "inbound_email",
       id: email.id,
-      from_domain: email.from_domain,
+      source_label: email.from_domain,
       status: "success",
       signalsEmitted: result.signals.length,
       matched: result.matched,
@@ -84,8 +90,54 @@ async function classifyOne(
     };
   } catch (e) {
     return {
+      kind: "inbound_email",
       id: email.id,
-      from_domain: email.from_domain,
+      source_label: email.from_domain,
+      status: "error",
+      error: e instanceof Error ? e.message : String(e),
+      durationMs: Date.now() - t0,
+    };
+  }
+}
+
+async function classifyScrape(
+  scrape: Awaited<ReturnType<typeof getUnclassifiedWebScrapes>>[number],
+  accountsById: Map<string, (typeof accounts)[number]>,
+): Promise<RowResult> {
+  const t0 = Date.now();
+  const account = accountsById.get(scrape.account_id);
+  if (!account) {
+    // Orphaned scrape (account removed from seed). Mark it classified with
+    // zero signals so it stops re-appearing in the queue.
+    await markWebScrapeClassified(scrape.id, 0).catch(() => undefined);
+    return {
+      kind: "web_scrape",
+      id: scrape.id,
+      source_label: scrape.url,
+      status: "error",
+      error: `Account ${scrape.account_id} not in seed`,
+      durationMs: Date.now() - t0,
+    };
+  }
+  try {
+    const result = await classifyWebScrape(scrape, account);
+    if (result.signals.length > 0) {
+      await insertSignalsDedup(result.signals);
+    }
+    await markWebScrapeClassified(scrape.id, result.signals.length);
+    return {
+      kind: "web_scrape",
+      id: scrape.id,
+      source_label: scrape.url,
+      status: "success",
+      signalsEmitted: result.signals.length,
+      durationMs: Date.now() - t0,
+    };
+  } catch (e) {
+    return {
+      kind: "web_scrape",
+      id: scrape.id,
+      source_label: scrape.url,
       status: "error",
       error: e instanceof Error ? e.message : String(e),
       durationMs: Date.now() - t0,
@@ -98,9 +150,14 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const startedAt = Date.now();
-  let pending: Awaited<ReturnType<typeof getUnclassifiedInboundEmails>>;
+
+  let inboundPending: Awaited<ReturnType<typeof getUnclassifiedInboundEmails>>;
+  let scrapePending: Awaited<ReturnType<typeof getUnclassifiedWebScrapes>>;
   try {
-    pending = await getUnclassifiedInboundEmails(BATCH_SIZE);
+    [inboundPending, scrapePending] = await Promise.all([
+      getUnclassifiedInboundEmails(BATCH_SIZE),
+      getUnclassifiedWebScrapes(BATCH_SIZE),
+    ]);
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : String(e) },
@@ -108,29 +165,27 @@ export async function GET(req: Request) {
     );
   }
 
-  if (pending.length === 0) {
-    const result: SweeperResult = {
-      ranAt: new Date().toISOString(),
-      totalDurationMs: Date.now() - startedAt,
-      picked: 0,
-      results: [],
-      summary: { succeeded: 0, errored: 0, signalsTotal: 0 },
-    };
-    return NextResponse.json(result);
-  }
-
   const trackable = accounts.filter((a) => a.trackable);
-  // Sequential, not parallel — Haiku rate limits and the per-row dedup
-  // query are happier serialized. 10 × ~3s = 30s, well under maxDuration.
+  const accountsById = new Map(accounts.map((a) => [a.id, a]));
+
+  // Sequential per row (Haiku rate limits + dedup queries serialize cleanly).
+  // Drain inbound first, then scrapes — inbound is push-driven and more
+  // latency-sensitive (workspace-wide market intel).
   const results: RowResult[] = [];
-  for (const row of pending) {
-    results.push(await classifyOne(row, trackable));
+  for (const row of inboundPending) {
+    results.push(await classifyInbound(row, trackable));
+  }
+  for (const row of scrapePending) {
+    results.push(await classifyScrape(row, accountsById));
   }
 
   const result: SweeperResult = {
     ranAt: new Date().toISOString(),
     totalDurationMs: Date.now() - startedAt,
-    picked: pending.length,
+    picked: {
+      inbound_email: inboundPending.length,
+      web_scrape: scrapePending.length,
+    },
     results,
     summary: {
       succeeded: results.filter((r) => r.status === "success").length,
@@ -139,7 +194,7 @@ export async function GET(req: Request) {
     },
   };
   console.log(
-    `[classify-pending] swept ${pending.length} rows: ${result.summary.succeeded} ok, ${result.summary.errored} err, ${result.summary.signalsTotal} signals in ${result.totalDurationMs}ms`,
+    `[classify-pending] swept ${inboundPending.length} inbound + ${scrapePending.length} scrapes: ${result.summary.succeeded} ok, ${result.summary.errored} err, ${result.summary.signalsTotal} signals in ${result.totalDurationMs}ms`,
   );
   return NextResponse.json(result);
 }

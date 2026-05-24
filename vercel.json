@@ -5,8 +5,16 @@
       "schedule": "0 8 * * *"
     },
     {
+      "path": "/api/cron/firecrawl",
+      "schedule": "0 6 * * *"
+    },
+    {
       "path": "/api/cron/classify-pending",
       "schedule": "0 20 * * *"
+    },
+    {
+      "path": "/api/cron/granola",
+      "schedule": "0 9 * * *"
     }
   ]
 }

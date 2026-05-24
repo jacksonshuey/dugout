@@ -124,10 +124,9 @@ function EmptyState() {
     <Card className="p-6 text-sm space-y-2">
       <div className="font-medium">No market intel yet</div>
       <div className="text-muted">
-        Subscribe newsletters to your SendGrid Inbound Parse address and
-        material items will land here within seconds of arrival. Setup steps
-        live in the README under{" "}
-        <span className="font-mono text-xs">## Newsletter inbox</span>.
+        Subscribe newsletters to your AgentMail inbox and material items will
+        land here within seconds of arrival. Setup steps live in the README
+        under <span className="font-mono text-xs">## Newsletter inbox</span>.
       </div>
     </Card>
   );

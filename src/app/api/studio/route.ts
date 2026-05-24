@@ -13,7 +13,7 @@ function buildSystemPrompt(workspace: WorkspaceConfig): string {
     .map((a) => `- ${a.id} ("${a.name}"): ${a.description}`)
     .join("\n");
 
-  return `You are the Signal Studio rule authoring assistant for Dugout, ${workspace.companyName}'s deal intelligence layer.
+  return `You are the Signal Studio rule authoring assistant for Dugout, ${workspace.companyName}'s intelligence layer for sales teams.
 
 When a user describes a signal they want in natural language, you produce a runnable rule definition that matches the existing rule shape:
 

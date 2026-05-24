@@ -576,7 +576,7 @@ function NewsletterInboxSection({ stats }: { stats?: InboundStats | null }) {
   return (
     <Section
       title="Newsletter inbox"
-      sub="Workspace-wide market intelligence. Subscribed newsletters POST to a SendGrid Inbound Parse webhook, get stored raw, and (Phase 2) get classified into market-intel signals alongside the per-account ingestion above. Setup steps live in the README."
+      sub="Workspace-wide market intelligence. Newsletters land in an AgentMail inbox; AgentMail POSTs each via a Svix-signed webhook, the row is stored raw, and Haiku classifies it into market-intel signals alongside the per-account ingestion above. Setup steps live in the README."
     >
       <Card className="p-5 space-y-3">
         {stats ? (
@@ -597,7 +597,7 @@ function NewsletterInboxSection({ stats }: { stats?: InboundStats | null }) {
             <div className="font-medium text-muted">Not yet configured</div>
             <div className="text-muted">
               Run <code>supabase/migrations/20260522_inbound_emails.sql</code> in
-              Supabase Studio and set <code>INBOUND_WEBHOOK_SECRET</code> +{" "}
+              Supabase Studio and set <code>AGENTMAIL_WEBHOOK_SECRET</code> +{" "}
               <code>INBOUND_SENDER_ALLOWLIST</code>.
             </div>
           </div>

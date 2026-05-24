@@ -49,9 +49,14 @@ export interface ConsoleData {
   workspace: WorkspaceConfig;
 }
 
-export function Console(props: ConsoleData) {
+export function Console(props: ConsoleData & { basePath?: string }) {
   const router = useRouter();
   const params = useSearchParams();
+  // basePath lets the Console live at any route — /console for the
+  // standalone surface, / for the landing-page embed. URL state writes
+  // respect this so internal filter changes don't bounce the user out
+  // of the page they're on.
+  const basePath = props.basePath ?? "/console";
 
   // ── URL-driven state ────────────────────────────────────────────
   const view = (params.get("view") as ConsoleView) || "pipeline";
@@ -75,7 +80,7 @@ export function Console(props: ConsoleData) {
     if (f.healths.length) sp.set("healths", f.healths.join(","));
     if (f.severities.length) sp.set("severities", f.severities.join(","));
     const qs = sp.toString();
-    router.replace(qs ? `/?${qs}` : "/", { scroll: false });
+    router.replace(qs ? `${basePath}?${qs}` : basePath, { scroll: false });
   }
 
   // ── Tasks: load, reconcile, manage ──────────────────────────────
@@ -129,7 +134,10 @@ export function Console(props: ConsoleData) {
 
   // ── Drawer ──────────────────────────────────────────────────────
   const [drawerOppId, setDrawerOppId] = useState<string | null>(null);
-  const [viewerId, setViewerId] = useState<string | undefined>(undefined);
+  // Observer mode only. Was a rep-impersonation switcher; removed to simplify
+  // the demo UX. The viewerId is still threaded through every task action +
+  // drawer call so reintroducing rep-mode is one state change away.
+  const viewerId: string | undefined = undefined;
 
   // ── Derived sets ────────────────────────────────────────────────
   const filteredOpps = useMemo(() => {
@@ -319,12 +327,6 @@ export function Console(props: ConsoleData) {
           <DigestView reps={props.reps} workspace={props.workspace} />
         )}
 
-        {/* Viewer identity switcher — small footer affordance, not the main UX */}
-        <ViewerIdentityRow
-          reps={props.reps}
-          viewerId={viewerId}
-          onChange={setViewerId}
-        />
       </main>
 
       {drawerOppId && (
@@ -1031,44 +1033,3 @@ function SectionHead({
   );
 }
 
-function ViewerIdentityRow({
-  reps,
-  viewerId,
-  onChange,
-}: {
-  reps: Rep[];
-  viewerId?: string;
-  onChange: (id: string | undefined) => void;
-}) {
-  return (
-    <div className="mt-12 pt-4 border-t border-border flex items-center gap-2 text-xs text-muted">
-      <span>You are:</span>
-      <button
-        onClick={() => onChange(undefined)}
-        className={cn(
-          "px-2 py-0.5 rounded border",
-          !viewerId
-            ? "border-brand bg-brand text-white"
-            : "border-border hover:text-foreground",
-        )}
-      >
-        observer
-      </button>
-      {reps.map((r) => (
-        <button
-          key={r.id}
-          onClick={() => onChange(r.id)}
-          className={cn(
-            "px-2 py-0.5 rounded border",
-            viewerId === r.id
-              ? "border-brand bg-brand text-white"
-              : "border-border hover:text-foreground",
-          )}
-        >
-          {r.name.split(" ")[0]} <span className="opacity-70">· {r.role}</span>
-        </button>
-      ))}
-      <span className="ml-2">— controls whose coaching-note vs work-note fields show.</span>
-    </div>
-  );
-}

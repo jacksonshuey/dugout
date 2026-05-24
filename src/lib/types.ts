@@ -70,6 +70,11 @@ export interface Account {
   linkedinSlug?: string;
   // Buyer website — fallback link target and scope for future enrichment.
   website?: string;
+  // Bare apex domain (e.g. "stripe.com"). Used by the Granola adapter to
+  // match meetings → accounts via attendee email domain. Distinct from
+  // `website` so the matching key stays a clean apex even if `website` ever
+  // becomes a full URL.
+  domain?: string;
   // Stock ticker for public-co accounts. Drives SEC EDGAR adapter coverage.
   ticker?: string;
   // True when the account is a real company but the layered CRM scenario
@@ -111,6 +116,24 @@ export interface Contact {
   linkedinUrl?: string;
 }
 
+// Per-asset deployment + view state used by the SV Health Score
+// (metrics.md §"Enablement-asset deployment score"). "Shared" means the asset
+// exists in the deal room; "Viewed" means a non-Checkbox email opened it at
+// least once. Both flags are needed because Helios's worked example fails
+// specifically on `cfoLeaveBehindViewed: false` — sent but never opened.
+//
+// Optional throughout so existing fixtures don't need updates. When absent the
+// SV Health calculator treats every asset as unshared (worst-case), which is
+// the safe default for accounts that haven't been engineered as demo scenarios.
+export interface OpportunityAssetsShared {
+  cfoLeaveBehind?: boolean;
+  cfoLeaveBehindViewed?: boolean;
+  itZeroLift?: boolean;
+  itZeroLiftViewed?: boolean;
+  financeBrief?: boolean;
+  financeBriefViewed?: boolean;
+}
+
 export interface Opportunity {
   id: string;
   accountId: string;
@@ -122,6 +145,12 @@ export interface Opportunity {
   createdAt: string;
   closeDate: string; // forecasted close
   contactRoleIds: string[]; // Contact.id list — OpportunityContactRole join
+  // SV Health Score field (metrics.md §"Enablement-asset deployment score").
+  // Distinct from `assetDeliveries` which is the AE-action log; this is the
+  // buyer-side view-state telemetry the score actually reads. Optional so the
+  // existing 11 fixtures don't need backfill — only the three labeled demo
+  // scenarios in DEMO_SCENARIO_ACCOUNTS populate it today.
+  assetsShared?: OpportunityAssetsShared;
 }
 
 export type ActivityType =
@@ -178,17 +207,65 @@ export interface AssetDelivery {
 // awareness -> weekly summary. This tiering is the core "noise vs signal" answer.
 export type SignalSeverity = "blocking" | "action" | "awareness";
 
+// Canonical signal taxonomy — the 12 types every source-signal across every
+// integration collapses into. Definitions live in
+// `orgs/checkbox/synthesis.md §1`. The signal_type is the join key that makes
+// cross-source correlation possible: different tools observing the same
+// underlying phenomenon get the same `signalType`, even though their raw
+// payloads differ.
+//
+// Polarity (good vs bad news) is carried on a separate `direction` column on
+// the persistent `signal_instances` table — NOT on this in-memory Signal
+// today. When a rule's polarity matters, document it in a comment near the
+// rule rather than adding a field here.
+//
+// `data_hygiene_gap` is future-state — no current rule emits it. It's defined
+// for when Swyft (MEDDPICC field staleness) is wired.
+export type SignalType =
+  | "champion_loss"
+  | "champion_disengagement"
+  | "committee_gap"
+  | "committee_expansion"
+  | "momentum_change"
+  | "competitive_threat"
+  | "shadow_research"
+  | "account_health_decline"
+  | "lifecycle_milestone"
+  | "account_context"
+  | "vertical_context"
+  | "data_hygiene_gap";
+
 export interface Signal {
   id: string; // unique per firing — `${ruleId}:${oppId}`
   ruleId: string;
   oppId: string;
   severity: SignalSeverity;
+  // Canonical signal taxonomy — required. One of the 12 values in synthesis.md §1.
+  // Source-specific subtypes (e.g., 'finance_mentioned_not_engaged') belong in
+  // a `derived` JSONB column on the persistent row, not in `signalType`.
+  signalType: SignalType;
   title: string; // short, scannable
   body: string; // 1-2 sentences of context
   suggestedAction: string; // imperative — what the AE should do next
   assetLink?: string; // asset name + URL (mocked) for one-click access
   detectedAt: string;
   playbookId?: string; // when set, the UI shows a "View playbook" expander
+  // Evidence-chain fields (BUILD_ALIGNMENT principle #6). The deterministic
+  // rule engine emits signals from in-process state and leaves these blank;
+  // the demo-scenario signals in seed.ts populate them with realistic-looking
+  // tool/event IDs so the citation UI has something to drill into.
+  //
+  // BUILD_ALIGNMENT.md principle #6 (evidence chain mandatory) requires these
+  // to be present on every signal that reaches the unified payload. The route
+  // layer satisfies this by stamping `sourceTool: "signal_engine"` and
+  // `sourceEventId: <ruleId>` on engine-emitted signals during unification.
+  //
+  // TODO: make these required on the Signal type itself once F1 rules cite
+  // real source events (e.g. a SFDC stage-rank rule citing
+  // `sfdc:OpportunityHistory:<id>`). Until then, optional + unify-time
+  // backfill is the principled compromise.
+  sourceTool?: string; // e.g. "gong", "dock", "outreach", "salesforce"
+  sourceEventId?: string; // idempotency key from the source system
 }
 
 // Deal Health — compound state derived from all signals on a deal, weighted
