@@ -31,9 +31,6 @@ const PUBLISHER_VERTICAL: Record<string, NewsletterVertical> = {
   money_stuff: "fintech",
   pragmatic_engineer: "enterprise-tech",
   runtime: "enterprise-tech",
-  // Stratechery (Ben Thompson) is strategy-of-tech more than pure AI —
-  // enterprise-tech wins as the primary tag.
-  stratechery: "enterprise-tech",
   the_batch: "ai-cross-cutting",
   the_information: "enterprise-tech",
 };
