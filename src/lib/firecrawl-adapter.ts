@@ -116,10 +116,26 @@ export async function scrapeAccount(
   }
 
   const urls = ACCOUNT_PAGES.map((p) => buildUrl(account.website!, p));
-  // Parallelize per account. Firecrawl's per-key rate limit is generous
-  // enough that 4 simultaneous requests don't blow it; if they ever do,
-  // the client throws and we surface the failure on the affected pages.
-  const pages = await Promise.all(urls.map((u) => scrapeAndStore(account, u)));
+  // Parallelize per account. allSettled (not all) so a hard 429 on one
+  // page doesn't leave the other three rejections unhandled — we await
+  // every page, then re-throw the first 429 if any so the cron handler
+  // breaks the per-account loop and stops burning credits.
+  const settled = await Promise.allSettled(
+    urls.map((u) => scrapeAndStore(account, u)),
+  );
+  const rateLimited = settled.find(
+    (s): s is PromiseRejectedResult =>
+      s.status === "rejected" &&
+      s.reason instanceof Error &&
+      /rate.?limit|429/i.test(s.reason.message),
+  );
+  if (rateLimited) throw rateLimited.reason;
+
+  const pages: AccountScrapeResult["pages"] = settled.map((s, i) => {
+    if (s.status === "fulfilled") return s.value;
+    const reason = s.reason instanceof Error ? s.reason.message : String(s.reason);
+    return { url: urls[i]!, status: "error", statusCode: null, error: reason };
+  });
 
   return {
     account_id: account.id,

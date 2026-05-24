@@ -188,18 +188,13 @@ export async function classifyWebScrape(
   scrape: WebScrape,
   account: Account,
 ): Promise<WebScrapeClassification> {
-  let extractions: RawExtraction[];
-  let classifier_used: "haiku" | "none" = "haiku";
-  try {
-    extractions = await classifyWithHaiku(account, scrape);
-  } catch (e) {
-    console.warn(
-      `[web-scrape-classifier] Haiku failed for ${scrape.id}:`,
-      e instanceof Error ? e.message : String(e),
-    );
-    extractions = [];
-    classifier_used = "none";
-  }
+  // Let Haiku failures (529 overload, transient network) propagate. The
+  // caller (classifyScrape in classify-pending) catches them and skips
+  // markWebScrapeClassified, leaving the row for the next sweep —
+  // mirrors the newsletter-adapter flow. Swallowing the error here would
+  // stamp the row permanently classified with zero signals.
+  const extractions = await classifyWithHaiku(account, scrape);
+  const classifier_used: "haiku" | "none" = "haiku";
 
   // Signals from web-scrape sources dedup by URL like every other adapter.
   // When the page doesn't reference a specific event URL, fall back to

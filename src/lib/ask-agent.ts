@@ -197,10 +197,10 @@ async function runOpenAILoop(args: {
 
   const toolCalls: ToolCallRecord[] = [];
   const allCitations: Citation[] = [];
-  let toolCallsRemaining = MAX_TOOL_CALLS_PER_TURN;
   const warnings: string[] = [];
 
   for (let turn = 0; turn < MAX_AGENT_TURNS; turn++) {
+    let toolCallsRemaining = MAX_TOOL_CALLS_PER_TURN;
     const completion = await client.chat.completions.create({
       model: OPENAI_API_MODEL_ID,
       messages,
@@ -358,10 +358,10 @@ async function runAnthropicLoop(args: {
 
   const toolCalls: ToolCallRecord[] = [];
   const allCitations: Citation[] = [];
-  let toolCallsRemaining = MAX_TOOL_CALLS_PER_TURN;
   const warnings: string[] = [];
 
   for (let turn = 0; turn < MAX_AGENT_TURNS; turn++) {
+    let toolCallsRemaining = MAX_TOOL_CALLS_PER_TURN;
     const response = await client.messages.create({
       model: apiModel,
       system: systemPrompt,
