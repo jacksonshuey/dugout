@@ -1,26 +1,44 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+
 import type {
   ExternalSignalType,
   NewExternalSignal,
 } from "./external-signals";
+import { filterArticle } from "./news-filter";
+import { writeNewsFilterDecisions } from "./news-filter-decisions";
+import type { ArticleInput, FilterContext, NewsFilterDecision } from "./news-filter-types";
+import { supabaseAdmin } from "./supabase";
+import { DEFAULT_CONFIG } from "./workspace";
 
-// News adapter — fetches recent articles per company from NewsAPI, then
-// classifies them via Claude Haiku 4.5 into the ExternalSignal shape.
+// News adapter — fetches recent articles per company from NewsAPI, runs the
+// Stage 1 + Stage 2 content filter (src/lib/news-filter.ts), generates a
+// Haiku bullet (src/lib/news-bullet-generator.ts), and persists kept signals
+// + every audit decision (kept and rejected).
 //
-// Replaces the prior `web-search-adapter.ts` (Claude web_search tool), which
-// was too slow + variable to fit Vercel Hobby's 60s function cap. Typical
-// runtime now: ~1s NewsAPI fetch + ~2-3s Haiku classification = ~5s per
-// company. 50× faster than web_search; well under the budget.
+// Replaces the prior single-shot batch-classifier path (`classifyArticles`)
+// which produced ~80% garbage in production. The new pipeline:
+//   1. NewsAPI fetch (~1s)
+//   2. Per-article Stage 1 deterministic rules (pure, no I/O)
+//   3. Per-article Stage 2 Haiku verdict (~2s, parallel across articles)
+//   4. Per-article Haiku bullet rewriter for kept articles (~1s, parallel)
+//   5. Direct insert + audit write (kept) OR audit write only (rejected)
 //
-// Cost per cron run (3 trackable accounts, daily): 3 NewsAPI calls (free
-// tier) + 3 Haiku calls × ~2K tokens = ~$0.01/day total. Negligible.
+// Writes happen in this module — not in the cron route — so that the
+// audit row can be tied to the inserted signal's id. The signals are also
+// returned to the caller so the existing cron-route bookkeeping continues
+// to work; the cron's downstream insertSignalsDedup call no-ops on them via
+// URL-based dedup.
+//
+// Cost per cron run (3 trackable accounts, daily):
+//   - 3 NewsAPI calls (free tier)
+//   - up to (3 × 10 articles) × (Stage 2 + bullet) Haiku calls ≈ 60 × ~500 tokens
+//   - Total: ~$0.03/day. Still negligible.
 
 const NEWS_BASE = "https://newsapi.org/v2/everything";
-const HAIKU_MODEL = "claude-haiku-4-5";
 const ARTICLES_PER_QUERY = 10;
 const LOOKBACK_DAYS = 30;
+const CLASSIFIER_TAG = "news-filter-v1.0";
 
 // ---------------------------------------------------------------------------
 // Env loading — same fallback as src/lib/claude.ts. Some dev harnesses export
@@ -40,13 +58,6 @@ function getEnvOrFile(name: string): string | null {
   } catch {
     return null;
   }
-}
-
-function anthropicClient(): Anthropic {
-  const key = getEnvOrFile("ANTHROPIC_API_KEY");
-  if (!key) throw new Error("ANTHROPIC_API_KEY not set");
-  // Aggressive timeout — Haiku should respond in 2-3s. 20s is a hard ceiling.
-  return new Anthropic({ apiKey: key, maxRetries: 2, timeout: 20_000 });
 }
 
 // ---------------------------------------------------------------------------
@@ -109,156 +120,61 @@ async function fetchArticles(companyName: string): Promise<NewsApiArticle[]> {
 }
 
 // ---------------------------------------------------------------------------
-// Haiku classification
+// Heuristic type tagging
 //
-// One Haiku call per company. Batches all articles into a single prompt;
-// model returns a JSON array of classifications keyed by original_index so
-// we can map results back to article URLs / dates.
-//
-// Haiku is appropriate here — this is structured extraction, not reasoning.
-// Sonnet/Opus would be slower + more expensive for no quality gain.
+// Maps an article to one of the 12 canonical ExternalSignalType values via
+// keyword regex on title + description. Used to populate `external_signals.type`
+// after the new content filter has decided the article is keepable. The
+// keyword set is the same one the old fallback path used — preserving
+// BUILD_ALIGNMENT #2 (canonical signal_type only) without re-spending a
+// Haiku call.
 // ---------------------------------------------------------------------------
 
-const VALID_TYPES: ExternalSignalType[] = [
-  "leadership_change",
-  "champion_job_change",
-  "ma_acquisition",
-  "funding_round",
-  "layoff",
-  "earnings",
-  "product_launch",
-  "press_release",
-  "competitor_mention",
-  "regulatory_action",
-  "partnership",
-  "other",
-];
-
-interface Classification {
-  original_index: number;
-  type: ExternalSignalType;
-  summary: string;
+function heuristicType(article: NewsApiArticle): ExternalSignalType {
+  const text = `${article.title ?? ""} ${article.description ?? ""}`.toLowerCase();
+  if (/\b(acquires?|acquired|acquisition|merger|merging|to buy)\b/.test(text)) return "ma_acquisition";
+  if (/\b(series [a-z]\b|raises? \$|funding|valuation|round led by)\b/.test(text)) return "funding_round";
+  if (/\b(layoffs?|workforce reduction|cuts \d+ jobs|fires \d+)\b/.test(text)) return "layoff";
+  if (/\b(cfo|ceo|cto|coo|appoint|step ?down|named (new )?(chief|head|svp|vp))\b/.test(text)) return "leadership_change";
+  if (/\b(earnings|quarterly|q[1-4] (results|revenue)|guidance)\b/.test(text)) return "earnings";
+  if (/\b(launch(es|ed)?|announces|unveils|releases?|introduces)\b/.test(text)) return "product_launch";
+  if (/\b(partnership|partner(ed|s)? with|collaboration)\b/.test(text)) return "partnership";
+  if (/\b(lawsuit|sued|fine|settlement|sec|ftc|investigation|probe)\b/.test(text)) return "regulatory_action";
+  return "other";
 }
 
-function buildClassifierPrompt(
-  companyName: string,
-  industry: string,
-  articles: NewsApiArticle[],
-): string {
-  const numbered = articles
-    .map((a, i) => {
-      const title = a.title?.replace(/\s+/g, " ").trim() ?? "(no title)";
-      const desc = (a.description ?? "").replace(/\s+/g, " ").trim().slice(0, 300);
-      return `[${i}] ${title}${desc ? ` — ${desc}` : ""}`;
-    })
-    .join("\n");
+// ---------------------------------------------------------------------------
+// Article projection — NewsAPI shape → filter input shape
+// ---------------------------------------------------------------------------
 
-  return `You are classifying news articles about "${companyName}" (${industry}) for a B2B sales team that sells to this company.
-
-For each article, decide:
-1. Is it MATERIAL business news the sales team should know about? Skip:
-   - Routine product updates, opinion pieces, analyst reports, listicles
-   - Articles where the company is mentioned in passing but isn't the subject
-   - Articles that are clearly about a different entity with the same name
-2. If material, classify the type and write a 1-2 sentence factual summary (≤200 chars, no markdown).
-
-Output ONLY a JSON array inside a \`\`\`json code fence. One entry per material article (skip non-material entirely). Each entry:
-
-{
-  "original_index": <number from the input>,
-  "type": one of: "leadership_change" | "ma_acquisition" | "funding_round" | "layoff" | "earnings" | "product_launch" | "press_release" | "competitor_mention" | "regulatory_action" | "partnership" | "other",
-  "summary": "..."
-}
-
-Return \`[]\` if no articles are material. Do not invent facts. No preamble.
-
-ARTICLES:
-${numbered}`;
-}
-
-async function classifyArticles(
-  companyName: string,
-  industry: string,
-  articles: NewsApiArticle[],
-): Promise<Classification[]> {
-  if (articles.length === 0) return [];
-
-  const c = anthropicClient();
-  const message = await c.messages.create({
-    model: HAIKU_MODEL,
-    max_tokens: 2000,
-    messages: [
-      { role: "user", content: buildClassifierPrompt(companyName, industry, articles) },
-    ],
-  });
-
-  const text = message.content
-    .filter((b) => b.type === "text")
-    .map((b) => (b as { type: "text"; text: string }).text)
-    .join("\n");
-
-  const fence = text.match(/```json\s*([\s\S]*?)```/i);
-  const jsonStr = fence ? fence[1].trim() : text.trim();
-
-  let parsed: unknown;
+function deriveDomain(article: NewsApiArticle): string {
   try {
-    parsed = JSON.parse(jsonStr);
+    return new URL(article.url).hostname.replace(/^www\./, "").toLowerCase();
   } catch {
-    return [];
+    return "";
   }
-  if (!Array.isArray(parsed)) return [];
+}
 
-  const out: Classification[] = [];
-  for (const raw of parsed) {
-    if (!raw || typeof raw !== "object") continue;
-    const r = raw as Record<string, unknown>;
-    const idx = typeof r.original_index === "number" ? r.original_index : -1;
-    if (idx < 0 || idx >= articles.length) continue;
-    const type =
-      typeof r.type === "string" && VALID_TYPES.includes(r.type as ExternalSignalType)
-        ? (r.type as ExternalSignalType)
-        : "other";
-    const summary = typeof r.summary === "string" ? r.summary.trim() : "";
-    if (!summary) continue;
-    out.push({
-      original_index: idx,
-      type,
-      summary: summary.slice(0, 500),
-    });
-  }
-  return out;
+function toArticleInput(article: NewsApiArticle): ArticleInput {
+  return {
+    url: article.url,
+    title: (article.title ?? "").trim(),
+    description: article.description,
+    source_name: article.source?.name ?? "",
+    source_domain: deriveDomain(article),
+    published_at: article.publishedAt,
+    author: article.author,
+  };
 }
 
 // ---------------------------------------------------------------------------
-// Public API — same shape as the old web_search adapter so the cron route
-// doesn't have to change.
+// Public API — same shape as the prior adapter so the cron route doesn't
+// have to change.
 // ---------------------------------------------------------------------------
 
 export interface AdapterResult {
   signals: NewExternalSignal[];
   rawResponseLength: number; // diagnostic — number of articles seen
-}
-
-// Cheap keyword-based fallback used when Haiku is unavailable (e.g., the
-// Anthropic 529 capacity incidents we hit on 2026-05-22). Lower precision
-// than Haiku but keeps signals flowing instead of dropping them.
-function heuristicClassify(
-  article: NewsApiArticle,
-  idx: number,
-): Classification | null {
-  const text = `${article.title ?? ""} ${article.description ?? ""}`.toLowerCase();
-  if (text.trim().length < 20) return null;
-  const summary = (article.title ?? "").replace(/\s+/g, " ").trim().slice(0, 200);
-  let type: ExternalSignalType = "other";
-  if (/\b(acquires?|acquired|acquisition|merger|merging|to buy)\b/.test(text)) type = "ma_acquisition";
-  else if (/\b(series [a-z]\b|raises? \$|funding|valuation|round led by)\b/.test(text)) type = "funding_round";
-  else if (/\b(layoffs?|workforce reduction|cuts \d+ jobs|fires \d+)\b/.test(text)) type = "layoff";
-  else if (/\b(cfo|ceo|cto|coo|appoint|step ?down|named (new )?(chief|head|svp|vp))\b/.test(text)) type = "leadership_change";
-  else if (/\b(earnings|quarterly|q[1-4] (results|revenue)|guidance)\b/.test(text)) type = "earnings";
-  else if (/\b(launch(es|ed)?|announces|unveils|releases?|introduces)\b/.test(text)) type = "product_launch";
-  else if (/\b(partnership|partner(ed|s)? with|collaboration)\b/.test(text)) type = "partnership";
-  else if (/\b(lawsuit|sued|fine|settlement|sec|ftc|investigation|probe)\b/.test(text)) type = "regulatory_action";
-  return { original_index: idx, type, summary };
 }
 
 export async function fetchSignalsForCompany(
@@ -271,48 +187,153 @@ export async function fetchSignalsForCompany(
     return { signals: [], rawResponseLength: 0 };
   }
 
-  let classifications: Classification[];
-  let usedFallback = false;
-  try {
-    classifications = await classifyArticles(companyName, industry, articles);
-    if (classifications.length === 0) {
-      // Haiku ran but found nothing material. Fall back to keywords so the
-      // demo still shows something the team can react to.
-      usedFallback = true;
-      classifications = articles
-        .map((a, i) => heuristicClassify(a, i))
-        .filter((c): c is Classification => c !== null);
-    }
-  } catch (e) {
-    // Haiku failed (commonly 529 overloaded_error during Anthropic incidents).
-    // Fall back to keyword classification so signals still flow.
-    console.warn(
-      `[news-adapter] ${companyName}: Haiku classification failed, using heuristic fallback`,
-      e instanceof Error ? e.message : String(e),
-    );
-    usedFallback = true;
-    classifications = articles
-      .map((a, i) => heuristicClassify(a, i))
-      .filter((c): c is Classification => c !== null);
-  }
+  const context: FilterContext = {
+    account_name: companyName,
+    account_industry: industry,
+    account_id: accountId,
+    // The cron runs without a request context (no cookies) so the per-
+    // workspace `getWorkspaceConfig` path always falls back to DEFAULT_CONFIG.
+    // Inline the default to avoid pulling next/headers into this module.
+    workspace_name: DEFAULT_CONFIG.companyName,
+    primary_vertical: "tech_ai",
+  };
 
-  const signals: NewExternalSignal[] = classifications.map((c) => {
-    const article = articles[c.original_index];
-    return {
+  // Process articles in parallel — Stage 1 is pure, Stage 2 + bullet are
+  // independent per-article Haiku calls. Concurrency cap = ARTICLES_PER_QUERY
+  // so we never have more than ~10 in-flight Anthropic requests per account.
+  const processed = await Promise.all(
+    articles.map(async (article) => {
+      const input = toArticleInput(article);
+      const { decision, bullet } = await filterArticle({ article: input, context });
+      return { article, articleInput: input, decision, bullet };
+    }),
+  );
+
+  // ── Persist & audit ──────────────────────────────────────────────────
+  const sb = (() => {
+    try {
+      return supabaseAdmin();
+    } catch (e) {
+      console.warn(
+        `[news-adapter] account=${accountId}: supabase unavailable, skipping persist: ${e instanceof Error ? e.message : String(e)}`,
+      );
+      return null;
+    }
+  })();
+
+  const keptSignals: NewExternalSignal[] = [];
+  const decisions: Array<{
+    article_url: string;
+    external_signal_id: string | null;
+    account_id: string;
+    decision: NewsFilterDecision;
+  }> = [];
+  let rejected = 0;
+  let kept = 0;
+  let highCount = 0;
+  let mediumCount = 0;
+  let lowCount = 0;
+
+  for (const { article, articleInput, decision, bullet } of processed) {
+    if (decision.verdict === "rejected") {
+      rejected += 1;
+      if (sb) {
+        decisions.push({
+          article_url: articleInput.url,
+          external_signal_id: null,
+          account_id: accountId,
+          decision,
+        });
+      }
+      continue;
+    }
+
+    // Kept: build the signal row.
+    const signal: NewExternalSignal = {
       account_id: accountId,
       source: "newsapi",
-      type: c.type,
-      summary: c.summary,
+      type: heuristicType(article),
+      // Overwrite the prior "first 200 chars of title" path with the Haiku
+      // bullet (or its fallback). Always non-empty per news-bullet-generator.
+      summary: (bullet ?? articleInput.title).slice(0, 500),
       occurred_at: article.publishedAt,
       url: article.url,
+      // Origin of the article URL — matches newsletter-adapter convention so
+      // SignalSourceChip can render a "View source" link.
+      source_url: (() => {
+        try { return new URL(article.url).origin; } catch { return null; }
+      })(),
       meta: {
-        source_name: article.source.name,
+        source_name: article.source?.name ?? null,
         author: article.author,
-        classifier: usedFallback ? "heuristic" : "haiku",
+        classifier: CLASSIFIER_TAG,
+        // workspace_relevance is dual-written: top-level column for the AE
+        // Brief filter query, meta for audit/historical trace. Don't strip
+        // either.
+        workspace_relevance: decision.workspace_relevance,
       },
       is_demo: false,
     };
-  });
 
-  return { signals, rawResponseLength: articles.length };
+    // Direct insert + select id so we can populate `external_signal_id` on
+    // the audit row. We bypass `insertSignalsDedup` here because we need the
+    // returned id; the cron route's subsequent insertSignalsDedup call will
+    // see this URL as already-present and skip it.
+    let insertedId: string | null = null;
+    if (sb) {
+      try {
+        const { data, error } = await sb
+          .from("external_signals")
+          .insert({
+            ...signal,
+            workspace_relevance: decision.workspace_relevance,
+          })
+          .select("id")
+          .single();
+        if (error) {
+          // Most likely a unique-violation race or RLS misconfig. We still
+          // want the audit row even if the insert failed — record it with
+          // external_signal_id=null and continue.
+          console.warn(
+            `[news-adapter] account=${accountId}: insert failed url=${article.url} — ${error.message}`,
+          );
+        } else {
+          insertedId =
+            data && typeof data === "object" && "id" in data
+              ? String((data as { id: unknown }).id)
+              : null;
+        }
+      } catch (e) {
+        console.warn(
+          `[news-adapter] account=${accountId}: insert threw url=${article.url} — ${e instanceof Error ? e.message : String(e)}`,
+        );
+      }
+
+      decisions.push({
+        article_url: articleInput.url,
+        external_signal_id: insertedId,
+        account_id: accountId,
+        decision,
+      });
+    }
+
+    kept += 1;
+    if (decision.workspace_relevance === "high") highCount += 1;
+    else if (decision.workspace_relevance === "medium") mediumCount += 1;
+    else if (decision.workspace_relevance === "low") lowCount += 1;
+
+    keptSignals.push(signal);
+  }
+
+  // Flush audit rows in a single round-trip per account (replaces the prior
+  // per-article writeNewsFilterDecision calls).
+  if (sb && decisions.length > 0) {
+    await writeNewsFilterDecisions(decisions);
+  }
+
+  console.warn(
+    `[news-adapter] account=${accountId}: rejected=${rejected} kept=${kept} (high=${highCount} medium=${mediumCount} low=${lowCount})`,
+  );
+
+  return { signals: keptSignals, rawResponseLength: articles.length };
 }
