@@ -19,7 +19,6 @@ import {
 } from "@/components/landing/logos";
 import { IntegrationSetupReel } from "@/components/landing/integration-setup-reel";
 import { IntegrationsMatrix } from "@/components/landing/integrations-matrix";
-import { SecurityTrust } from "@/components/landing/security-trust";
 import { VerifiableProof } from "@/components/landing/verifiable-proof";
 import { MetricsCheckboxDemo } from "@/components/landing/metrics-checkbox-demo";
 import { INTEGRATIONS } from "@/data/integrations";
@@ -64,7 +63,6 @@ export default async function LandingPage() {
       <IntegrationsMatrixSection health={integrationHealth} />
       <OnboardingWalkthrough />
       <VerifiableProofSection />
-      <SecurityTrustSection />
       <DemoDivider />
       <section id="demo" className="border-t border-border bg-foreground/[0.02]">
         <Console
@@ -329,28 +327,6 @@ function VerifiableProofSection() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// 2d. Security / trust — surfaces real posture (Vault, HMAC, RLS, no-write)
-// that's already in the code but invisible to the marketing reader.
-// ---------------------------------------------------------------------------
-
-function SecurityTrustSection() {
-  return (
-    <section className="max-w-6xl mx-auto px-6 py-20 sm:py-24 border-b border-border">
-      <SectionEyebrow>Security posture</SectionEyebrow>
-      <h2 className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight max-w-3xl">
-        Four constraints we don&apos;t bend.
-      </h2>
-      <p className="mt-4 text-base text-foreground/70 leading-relaxed max-w-3xl">
-        Required reading before pointing Dugout at a real CRM. Each
-        constraint links to the code that enforces it.
-      </p>
-      <div className="mt-10">
-        <SecurityTrust />
-      </div>
-    </section>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // 3. Onboarding walkthrough — 4 steps, each with a visualization that
