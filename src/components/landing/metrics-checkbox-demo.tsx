@@ -9,54 +9,237 @@ import { BrandLogo, getBrandName, type BrandKey } from "./logos";
 // Auto-plays a fixed selection sequence on mount, then pauses the moment the
 // user clicks anything.
 
+// IntegrationId reflects the six stack categories from the spec's Data layer
+// (CRM, Conversation Intel, Sales Engagement, Deal Rooms, Meeting Scheduling,
+// Prospecting/Enrichment) plus comms, contracts, and external signal sources.
+// Multiple options per category so a metric tagged ["salesforce", "hubspot"]
+// lights up if you have either CRM.
 type IntegrationId =
   | "salesforce"
+  | "hubspot"
   | "gong"
+  | "granola"
   | "outreach"
+  | "salesloft"
+  | "dock"
+  | "aligned"
+  | "calendly"
   | "linkedin"
+  | "apollo"
   | "slack"
-  | "docusign";
+  | "docusign"
+  | "newsapi";
 
 interface Metric {
   id: string;
   name: string;
+  description: string;
   sources: IntegrationId[];
 }
 
 const INTEGRATIONS: IntegrationId[] = [
   "salesforce",
+  "hubspot",
   "gong",
+  "granola",
   "outreach",
+  "salesloft",
+  "dock",
+  "aligned",
+  "calendly",
   "linkedin",
+  "apollo",
   "slack",
   "docusign",
+  "newsapi",
 ];
 
+// Metrics map 1:1 onto the RULES library in src/lib/signal-engine.ts where
+// possible; the rest are derived measurements that flow from the same
+// integration categories. Source lists are inclusive — any one source unlocks
+// the row.
+const CRM: IntegrationId[] = ["salesforce", "hubspot"];
+const CONV_INTEL: IntegrationId[] = ["gong", "granola"];
+const SALES_ENGAGEMENT: IntegrationId[] = ["outreach", "salesloft"];
+const DEAL_ROOMS: IntegrationId[] = ["dock", "aligned"];
+const ENRICHMENT: IntegrationId[] = ["linkedin", "apollo"];
+
 const METRICS: Metric[] = [
-  { id: "stage-drift", name: "Pipeline stage drift", sources: ["salesforce"] },
-  { id: "close-slip", name: "Close-date slippage", sources: ["salesforce"] },
-  { id: "talk-ratio", name: "Talk-time ratio", sources: ["gong"] },
-  { id: "next-step", name: "Next-step commitment", sources: ["gong"] },
-  { id: "reply-velocity", name: "Sequence reply velocity", sources: ["outreach"] },
-  { id: "multi-thread", name: "Multi-thread depth", sources: ["outreach", "linkedin"] },
-  { id: "champion", name: "Champion engagement", sources: ["gong", "outreach"] },
-  { id: "role-change", name: "Stakeholder role changes", sources: ["linkedin"] },
-  { id: "urgency", name: "Internal urgency signal", sources: ["slack"] },
-  { id: "redline", name: "Contract redline activity", sources: ["docusign"] },
+  // CRM-rooted (Signal engine: SELECTED_VENDOR_NO_FINANCE, NO_FINANCE_AT_EVALUATING, …)
+  {
+    id: "finance-gate",
+    name: "Finance gate unmanned (Selected Vendor)",
+    description: "Deal hit Selected Vendor without a Finance contact attached — budget approval will stall here.",
+    sources: CRM,
+  },
+  {
+    id: "procurement-late",
+    name: "Procurement not engaged",
+    description: "Selected Vendor with no Procurement contact — signing jams unless you re-engage now.",
+    sources: CRM,
+  },
+  {
+    id: "no-finance-eval",
+    name: "No Finance contact on Evaluating",
+    description: "Evaluating-stage deal still missing Finance — pull them in before the next demo, not after.",
+    sources: CRM,
+  },
+  {
+    id: "no-it-eval",
+    name: "No IT/Security contact on Evaluating",
+    description: "Evaluating-stage deal missing IT/Sec — late-stage technical block risk.",
+    sources: CRM,
+  },
+  {
+    id: "single-thread",
+    name: "Single-thread risk",
+    description: "Only one contact on a real deal — one departure = full stall.",
+    sources: CRM,
+  },
+  {
+    id: "stage-age",
+    name: "Stage age vs. benchmark",
+    description: "Deal aged past your stage benchmark in days — surface for manager triage.",
+    sources: CRM,
+  },
+  {
+    id: "committee-cov",
+    name: "Buying-committee coverage",
+    description: "Coverage gaps across Finance, IT, Procurement, Exec, Legal — fills as contacts get attached.",
+    sources: [...CRM, ...ENRICHMENT],
+  },
+
+  // Conversation intelligence (CALL_NEGATIVE_SENTIMENT + derived)
+  {
+    id: "neg-sentiment",
+    name: "Negative call sentiment",
+    description: "Sentiment and risk markers extracted from the most recent call transcript.",
+    sources: CONV_INTEL,
+  },
+  {
+    id: "talk-ratio",
+    name: "Talk-time ratio",
+    description: "Rep talking too much (or too little) vs. the buyer on recent calls.",
+    sources: CONV_INTEL,
+  },
+  {
+    id: "next-step",
+    name: "Next-step commitment extraction",
+    description: "Did the buyer commit to a next step on the last call? Pulled from transcript.",
+    sources: CONV_INTEL,
+  },
+  {
+    id: "champion-silent",
+    name: "Champion silent (7+ days)",
+    description: "Champion hasn't responded via call, email, or sequence in a week.",
+    sources: [...CONV_INTEL, ...SALES_ENGAGEMENT],
+  },
+  {
+    id: "it-pager",
+    name: "IT one-pager owed after IT signal",
+    description: "IT or security came up on a call but the IT one-pager was never sent to the room.",
+    sources: [...CONV_INTEL, ...DEAL_ROOMS],
+  },
+
+  // Sales engagement
+  {
+    id: "reply-velocity",
+    name: "Sequence reply velocity",
+    description: "How quickly the buyer is replying to your sequence touchpoints.",
+    sources: SALES_ENGAGEMENT,
+  },
+
+  // Deal rooms (ASSET_GAP_*, NO_TRIAL_BRIEF_AT_DEMO_SAT)
+  {
+    id: "trial-brief",
+    name: "Outcome-first trial brief delivered",
+    description: "Whether the outcome-first trial brief landed in the deal room before Demo Sat.",
+    sources: DEAL_ROOMS,
+  },
+  {
+    id: "finance-brief",
+    name: "Finance brief delivered",
+    description: "Finance contact attached, but the Finance brief was never sent.",
+    sources: DEAL_ROOMS,
+  },
+  {
+    id: "asset-engmt",
+    name: "Buyer asset engagement",
+    description: "Time-on-asset, return visits, and who looked — straight from deal-room analytics.",
+    sources: DEAL_ROOMS,
+  },
+
+  // Meeting scheduling (DEMO_NOT_BOOKED)
+  {
+    id: "demo-booked",
+    name: "Champion → demo booked",
+    description: "Champion identified but no demo on the calendar yet.",
+    sources: ["calendly"],
+  },
+
+  // Stakeholder / enrichment (CHAMPION_DEPARTED + derived)
+  {
+    id: "champ-departed",
+    name: "Champion has left the company",
+    description: "LinkedIn or enrichment flagged the champion as having changed jobs.",
+    sources: ENRICHMENT,
+  },
+  {
+    id: "role-changes",
+    name: "Stakeholder role changes",
+    description: "Title or role moves inside the account that reshape your stakeholder map.",
+    sources: ENRICHMENT,
+  },
+  {
+    id: "multi-thread",
+    name: "Multi-thread depth",
+    description: "Distinct buyer roles engaged across CRM contacts and LinkedIn.",
+    sources: [...CRM, "linkedin"],
+  },
+
+  // Comms / contracts / external
+  {
+    id: "urgency",
+    name: "Internal urgency signal",
+    description: "Slack chatter in the deal channel hinting at deal momentum or trouble.",
+    sources: ["slack"],
+  },
+  {
+    id: "redlines",
+    name: "Contract redline activity",
+    description: "Volume and cadence of redlines on the working contract.",
+    sources: ["docusign"],
+  },
+  {
+    id: "news-velocity",
+    name: "Account news velocity",
+    description: "Material news events about the account in the last 30 days.",
+    sources: ["newsapi"],
+  },
+];
+
+// Autoplay reveals one new integration per tick. Stops after primary picks
+// (10 of 14) so the alternate-vendor rows stay visible for the user to click.
+const AUTOPLAY_ORDER: IntegrationId[] = [
+  "salesforce",
+  "gong",
+  "outreach",
+  "dock",
+  "calendly",
+  "linkedin",
+  "apollo",
+  "slack",
+  "docusign",
+  "newsapi",
 ];
 
 const AUTOPLAY_SEQUENCE: ReadonlyArray<ReadonlyArray<IntegrationId>> = [
   [],
-  ["salesforce"],
-  ["salesforce", "gong"],
-  ["salesforce", "gong", "outreach"],
-  ["salesforce", "gong", "outreach", "linkedin"],
-  ["salesforce", "gong", "outreach", "linkedin", "slack"],
-  ["salesforce", "gong", "outreach", "linkedin", "slack", "docusign"],
+  ...AUTOPLAY_ORDER.map((_, i) => AUTOPLAY_ORDER.slice(0, i + 1)),
 ];
 
-const STEP_DURATION_MS = 1500;
-const HOLD_AT_END_MS = 2600;
+const STEP_DURATION_MS = 1100;
+const HOLD_AT_END_MS = 3000;
 
 function subscribeReducedMotion(callback: () => void) {
   const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -111,9 +294,9 @@ export function MetricsCheckboxDemo() {
   const availableCount = METRICS.filter(isAvailable).length;
 
   return (
-    <div className="rounded-lg overflow-hidden border border-border bg-background">
+    <div className="rounded-lg border border-border bg-background">
       {/* Header row */}
-      <div className="grid grid-cols-1 sm:grid-cols-[1fr_1.15fr] bg-foreground/[0.03] border-b border-border">
+      <div className="grid grid-cols-1 sm:grid-cols-[1fr_1.15fr] bg-foreground/[0.03] border-b border-border rounded-t-lg">
         <div className="px-4 py-2.5 flex items-center justify-between">
           <span className="text-[10px] uppercase tracking-wider text-muted font-mono">
             Integration
@@ -164,9 +347,10 @@ export function MetricsCheckboxDemo() {
             return (
               <li
                 key={m.id}
-                className={`flex items-center justify-between gap-3 px-4 py-2.5 transition-opacity duration-300 ${
-                  available ? "opacity-100" : "opacity-30"
+                className={`group relative flex items-center justify-between gap-3 px-4 py-2.5 transition-opacity duration-300 hover:bg-foreground/[0.02] ${
+                  available ? "opacity-100" : "opacity-50"
                 }`}
+                tabIndex={0}
               >
                 <span className="text-sm leading-snug">{m.name}</span>
                 <div className="flex items-center gap-1 shrink-0">
@@ -181,10 +365,50 @@ export function MetricsCheckboxDemo() {
                     />
                   ))}
                 </div>
+                <MetricTooltip metric={m} selectedSet={selectedSet} />
               </li>
             );
           })}
         </ul>
+      </div>
+    </div>
+  );
+}
+
+// Hover tooltip — description + source integration chips. Positioned above
+// the row so it overlays the row above instead of pushing layout. Stays open
+// when cursor is on the tooltip because the tooltip is a DOM child of the
+// row (mouseleave doesn't fire while cursor is on a descendant).
+function MetricTooltip({
+  metric,
+  selectedSet,
+}: {
+  metric: Metric;
+  selectedSet: Set<IntegrationId>;
+}) {
+  return (
+    <div
+      role="tooltip"
+      className="invisible opacity-0 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 transition-opacity duration-150 absolute z-20 left-2 right-2 bottom-full mb-1.5 rounded-md border border-border bg-background shadow-md p-3 space-y-2"
+    >
+      <p className="text-xs leading-relaxed text-foreground">
+        {metric.description}
+      </p>
+      <div className="flex items-center flex-wrap gap-x-2 gap-y-1 pt-1.5 border-t border-border">
+        <span className="text-[10px] uppercase tracking-wider text-muted font-mono">
+          {metric.sources.length > 1 ? "Sources" : "Source"}
+        </span>
+        {metric.sources.map((s) => (
+          <span
+            key={s}
+            className={`inline-flex items-center gap-1 text-[11px] ${
+              selectedSet.has(s) ? "text-foreground" : "text-muted"
+            }`}
+          >
+            <BrandLogo brand={s as BrandKey} size={12} />
+            <span>{getBrandName(s as BrandKey)}</span>
+          </span>
+        ))}
       </div>
     </div>
   );
