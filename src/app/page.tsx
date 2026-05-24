@@ -23,6 +23,7 @@ import { SecurityTrust } from "@/components/landing/security-trust";
 import { VerifiableProof } from "@/components/landing/verifiable-proof";
 import { MetricsCheckboxDemo } from "@/components/landing/metrics-checkbox-demo";
 import { INTEGRATIONS } from "@/data/integrations";
+import { checkAllHealth, type IntegrationHealth } from "@/lib/integration-health";
 
 const CONTACT_MAILTO =
   "mailto:jacksonshuey@gmail.com?subject=Dugout%20walkthrough";
@@ -51,12 +52,16 @@ export default async function LandingPage() {
     },
   };
   const signals = evaluateAll(ctx);
+  // Server-side env-presence snapshot. Reads process.env once per request;
+  // no network calls. Threaded through to the constellation + matrix so
+  // both surfaces render the same answer.
+  const integrationHealth = checkAllHealth();
 
   return (
     <div className="bg-background">
       <Hero />
-      <IntegrationConstellation />
-      <IntegrationsMatrixSection />
+      <IntegrationConstellation health={integrationHealth} />
+      <IntegrationsMatrixSection health={integrationHealth} />
       <OnboardingWalkthrough />
       <VerifiableProofSection />
       <SecurityTrustSection />
@@ -217,7 +222,11 @@ function Hero() {
 // below and the constellation here can't drift.
 // ---------------------------------------------------------------------------
 
-function IntegrationConstellation() {
+function IntegrationConstellation({
+  health,
+}: {
+  health: Record<string, IntegrationHealth>;
+}) {
   return (
     <section className="max-w-6xl mx-auto px-6 py-20 sm:py-24 border-b border-border">
       <SectionEyebrow>Integrations</SectionEyebrow>
@@ -238,10 +247,11 @@ function IntegrationConstellation() {
             <StatusKey color="bg-severity-green" label="Live" />
             <StatusKey color="bg-severity-action" label="Beta" />
             <StatusKey color="bg-slate-400" label="Display" />
+            <StatusKey color="bg-severity-blocking" label="Key missing" />
           </div>
         </div>
         <div className="md:col-span-7">
-          <IntegrationSetupReel integrations={INTEGRATIONS} />
+          <IntegrationSetupReel integrations={INTEGRATIONS} health={health} />
         </div>
       </div>
     </section>
@@ -262,7 +272,11 @@ function StatusKey({ color, label }: { color: string; label: string }) {
 // constellation visualizes. Status · Auth · Where it runs · Direction.
 // ---------------------------------------------------------------------------
 
-function IntegrationsMatrixSection() {
+function IntegrationsMatrixSection({
+  health,
+}: {
+  health: Record<string, IntegrationHealth>;
+}) {
   return (
     <section className="max-w-6xl mx-auto px-6 py-20 sm:py-24 border-b border-border">
       <div className="grid md:grid-cols-12 gap-10 items-start">
@@ -278,11 +292,13 @@ function IntegrationsMatrixSection() {
             integration with how it authenticates, where the adapter runs,
             and which direction data moves. Nothing here is aspirational —
             if it&apos;s Live, the cron is running and the rows are in
-            Supabase.
+            Supabase. The <span className="font-mono text-xs">Configured</span>{" "}
+            column reads <span className="font-mono text-xs">process.env</span>{" "}
+            on this server right now.
           </p>
         </div>
         <div className="md:col-span-8">
-          <IntegrationsMatrix />
+          <IntegrationsMatrix health={health} />
         </div>
       </div>
     </section>

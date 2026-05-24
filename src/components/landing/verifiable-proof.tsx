@@ -16,9 +16,9 @@ interface Stat {
 
 const STATS: Stat[] = [
   {
-    value: "196",
+    value: "214",
     label: "vitest cases",
-    body: "Across 11 test files. CI gates every PR on green. The signal engine, SV Health Score, and inbound pipeline are all covered.",
+    body: "Across 12 test files. CI gates every PR on green. The signal engine, SV Health Score, inbound pipeline, and integration health all covered.",
     evidence: {
       label: "vitest.config.ts",
       href: `${GITHUB_BASE}/vitest.config.ts`,
