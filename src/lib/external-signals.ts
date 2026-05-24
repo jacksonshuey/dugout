@@ -135,6 +135,32 @@ export async function getWorkspaceSignals(
   return (data ?? []) as ExternalSignal[];
 }
 
+// Account-level signals tagged as high or medium workspace relevance by the
+// two-stage Haiku news filter (PR #31). These are account-specific items
+// (account_id != WORKSPACE_ACCOUNT_ID) that the filter determined are worth
+// surfacing in the workspace-wide AE Brief. The 48h lookback keeps the Brief
+// focused on the freshest material; 100-row limit is belt-and-braces.
+//
+// Used by /market-intel to merge a second signal pool into the AE Brief
+// alongside the workspace-scoped newsletter pool (WS3).
+export async function getHighRelevanceSignals(
+  lookbackMs: number,
+): Promise<ExternalSignal[]> {
+  const sb = supabaseAdmin();
+  const since = new Date(Date.now() - lookbackMs).toISOString();
+  const { data, error } = await sb
+    .from("external_signals")
+    .select("*")
+    .neq("account_id", WORKSPACE_ACCOUNT_ID)
+    .in("workspace_relevance", ["high", "medium"])
+    .is("suppressed_at", null)
+    .gte("occurred_at", since)
+    .order("occurred_at", { ascending: false })
+    .limit(100);
+  if (error) throw new Error(`Supabase read failed: ${error.message}`);
+  return (data ?? []) as ExternalSignal[];
+}
+
 // Suppress a single signal from the workspace feed. Sets `suppressed_at`
 // to now(). Idempotent (multiple suppress calls just refresh the
 // timestamp). Returns the count of rows updated (0 or 1).

@@ -5,6 +5,7 @@ import { RankerBanner } from "@/components/ranker-banner";
 import { SignalSourceChip } from "@/components/signal-source-chip";
 import {
   getWorkspaceSignals,
+  getHighRelevanceSignals,
   type ExternalSignal,
 } from "@/lib/external-signals";
 import { displayNameFor } from "@/lib/inbound-publishers";
@@ -157,6 +158,36 @@ export default async function MarketIntelPage() {
       ? signals.filter((s) => Date.parse(s.occurred_at) >= sinceRankerMs)
       : [];
 
+  // WS3: fetch account-level signals tagged high/medium workspace relevance
+  // by the Haiku news filter (PR #31). Fail-soft: if Supabase is
+  // unreachable or the workspace_relevance column isn't migrated yet, we
+  // fall back to an empty array and the Brief renders with just the
+  // workspace newsletter pool.
+  let highRelevanceSignals: ExternalSignal[] = [];
+  try {
+    highRelevanceSignals = await getHighRelevanceSignals(
+      RANKER_LOOKBACK_HOURS * 60 * 60 * 1000,
+    );
+  } catch (e) {
+    console.warn(
+      `[market-intel] getHighRelevanceSignals failed (fail-soft): ${e instanceof Error ? e.message : String(e)}`,
+    );
+  }
+
+  // Merge newsletter pool + account-relevance pool, dedup by signal id.
+  // rankerSignals is the workspace-scoped newsletter pool (48h);
+  // highRelevanceSignals is the new account-scoped pool. Both sets may
+  // contain the same signal id in theory (shouldn't happen given the
+  // account_id constraint, but dedup is cheap insurance).
+  const seen = new Set<string>();
+  const allBriefSignals = [...rankerSignals, ...highRelevanceSignals].filter(
+    (s) => {
+      if (seen.has(s.id)) return false;
+      seen.add(s.id);
+      return true;
+    },
+  );
+
   // Run the ranker over the last 48h of workspace signals. Wrapped in its
   // own try so a ranker bug never bubbles up and 500s the page — the
   // ranker module also has an outer try/catch, this is belt-and-braces.
@@ -218,7 +249,7 @@ export default async function MarketIntelPage() {
       ) : signals && signals.length > 0 ? (
         <div className="space-y-8">
           <AEBrief
-            signals={rankerSignals}
+            signals={allBriefSignals}
             rankedItems={rankerResult?.items ?? []}
             now={new Date(nowMs)}
           />

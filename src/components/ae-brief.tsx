@@ -7,16 +7,29 @@ import { verticalFor, isTechOrAI } from "@/lib/newsletter-verticals";
 import { dedupByEntity } from "@/lib/signal-entity-dedup";
 
 // "Today's AE Brief — tech & AI". Read-only server component that renders
-// above the existing /market-intel tables. Joins ranker output to the 48h
-// signal list, filters to tech/AI verticals, dedups by entity, scores by
-// rank + recency, and renders the top 10 with provenance.
+// above the existing /market-intel tables. Merges two signal pools, dedups
+// by entity, scores by rank + recency, and renders the top 10 with
+// provenance.
+//
+// Dual-pool logic (WS3):
+//   1. Newsletter pool — workspace-scoped signals (account_id =
+//      '__workspace__') filtered by isTechOrAI(verticalFor(publisher)).
+//      These come in via the rankedItems join and must have a
+//      publisher_canonical_name to pass the vertical gate.
+//   2. Account signal pool — account-level signals tagged workspace_relevance
+//      'high' or 'medium' by the Haiku news filter (PR #31). These have no
+//      publisher_canonical_name (NewsAPI source) so they bypass the vertical
+//      gate and are included directly.
+//
+// Both pools are passed in via `signals`; the join loop classifies each
+// signal into exactly one gate. dedupByEntity() handles cross-pool dupes.
 //
 // Pure render — no Supabase calls, no client hooks (per BUILD_ALIGNMENT
 // #7 + #9). Every bullet renders SignalSourceChip for citation (#6).
 
 interface AEBriefProps {
-  signals: ExternalSignal[]; // 48h-filtered, workspace-scoped
-  rankedItems: RankedItem[]; // rankSignals().items
+  signals: ExternalSignal[]; // 48h-filtered, dual-pool (newsletter + account)
+  rankedItems: RankedItem[]; // rankSignals().items (workspace pool only)
   now: Date; // injected for testability + consistent rendering
 }
 
@@ -65,14 +78,43 @@ export function AEBrief({ signals, rankedItems, now }: AEBriefProps) {
   const totalRanked = Math.max(rankedItems.length, 1);
 
   // 1. Join ranked → signals. Skip rankedItems whose signal isn't present.
-  // 2. Filter to tech/AI verticals.
+  // 2a. Newsletter gate: must have publisher_canonical_name in a tech/AI
+  //     vertical (existing behaviour, unchanged).
+  // 2b. Account-signal gate: no publisher_canonical_name, but tagged
+  //     workspace_relevance 'high' or 'medium' by the Haiku filter (WS3).
+  //     These signals aren't in rankedItems, so we append them directly
+  //     below with a synthetic rank = totalRanked (lowest priority vs.
+  //     newsletter items, but recency decay can still pull them up).
   const joined: { signal: ExternalSignal; rank: number }[] = [];
   for (const item of rankedItems) {
     const sig = signalById.get(item.signal_id);
     if (!sig) continue;
-    if (!sig.publisher_canonical_name) continue;
-    if (!isTechOrAI(verticalFor(sig.publisher_canonical_name))) continue;
+    const isNewsletterSignal = !!sig.publisher_canonical_name;
+    const includedByVertical =
+      isNewsletterSignal &&
+      isTechOrAI(verticalFor(sig.publisher_canonical_name!));
+    const includedByRelevance =
+      !isNewsletterSignal &&
+      (sig.workspace_relevance === "high" ||
+        sig.workspace_relevance === "medium");
+    if (!includedByVertical && !includedByRelevance) continue;
     joined.push({ signal: sig, rank: item.rank });
+  }
+
+  // Append account signals that weren't in rankedItems (they're
+  // account-scoped and the ranker only sees workspace-scoped signals).
+  // Use a set of already-joined ids to avoid double-counting the rare
+  // case where an account signal also appears in rankedItems.
+  const joinedIds = new Set(joined.map((j) => j.signal.id));
+  for (const sig of signals) {
+    if (joinedIds.has(sig.id)) continue;
+    if (!!sig.publisher_canonical_name) continue; // newsletter — skip (handled above)
+    if (
+      sig.workspace_relevance !== "high" &&
+      sig.workspace_relevance !== "medium"
+    )
+      continue;
+    joined.push({ signal: sig, rank: totalRanked });
   }
 
   // 3. Dedup by entity. dedupByEntity preserves order, so we can rebuild
