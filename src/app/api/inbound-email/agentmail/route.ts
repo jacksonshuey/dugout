@@ -103,16 +103,15 @@ const RECEIVED_EVENTS = new Set([
 export async function POST(req: Request) {
   const secret = process.env.AGENTMAIL_WEBHOOK_SECRET;
   if (!secret || secret.length < 16) {
-    // Fail-closed when the secret is missing. 500 makes the misconfiguration
-    // visible in the AgentMail console's delivery logs rather than silently
-    // dropping mail.
-    return NextResponse.json(
-      {
-        error:
-          "Server not configured: set AGENTMAIL_WEBHOOK_SECRET (whsec_...) in env.",
-      },
-      { status: 500 },
+    // Misconfiguration — log server-side so it shows up in Vercel logs, but
+    // return 202 (not 500). Svix treats 5xx as transient and retries forever;
+    // 202 signals "received, not processed" and stops the retry storm.
+    // We deliberately omit the env-var name from the response body to avoid
+    // leaking config state to the webhook sender.
+    console.error(
+      "[agentmail] AGENTMAIL_WEBHOOK_SECRET is not set; rejecting webhook (no retries)",
     );
+    return new NextResponse(null, { status: 202 });
   }
 
   const rawBody = await req.text();
