@@ -3,7 +3,7 @@
 // synthesis.md §1. Used by /api/account-context and by the future /ask
 // agent's get_account_context tool.
 //
-// Design rules (per orgs/checkbox/BUILD_ALIGNMENT.md):
+// Design rules (per orgs/_default/BUILD_ALIGNMENT.md):
 //   - Pure functions only — no I/O, no fetch, no Supabase here.
 //   - signal_type ∈ the canonical 12 only (#2).
 //   - severity ∈ {blocking, action, awareness} only (#3).
@@ -113,7 +113,7 @@ function severityForExternalType(t: ExternalSignalType): SignalSeverity {
 
 // ─── Meeting signal mapping ─────────────────────────────────────────────
 //
-// Source of truth: orgs/checkbox/tools/granola.md "Mapping the 7 Granola
+// Source of truth: orgs/_default/tools/granola.md "Mapping the 7 Granola
 // signals to the 12 canonical types". The classifier ships 3 types in v1
 // and adds 4 more in v1.5; we handle all 7 so this module doesn't churn
 // when v1.5 flips on.

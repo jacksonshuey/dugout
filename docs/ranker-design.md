@@ -4,8 +4,8 @@
 > Scope: re-rank `/market-intel` for the active workspace using Haiku 4.5,
 > caching to Supabase, with a deterministic stub fallback. **No code in this
 > doc — implementer owns the diff.**
-> Cross-checked against: `orgs/checkbox/BUILD_ALIGNMENT.md` (10 principles + #11),
-> `orgs/checkbox/synthesis.md` (12 canonical signal_types), `AGENTS.md`
+> Cross-checked against: `orgs/_default/BUILD_ALIGNMENT.md` (10 principles + #11),
+> `orgs/_default/synthesis.md` (12 canonical signal_types), `AGENTS.md`
 > (Next 16 caveats), session 8 dual-provider pattern.
 
 ---
@@ -551,7 +551,7 @@ Run target: `npm test` passes 113 + 12 = 125 tests (or 13 = 126 with bonus).
 
 ## 10. BUILD_ALIGNMENT cross-check
 
-Walked principle-by-principle. The file is `orgs/checkbox/BUILD_ALIGNMENT.md`.
+Walked principle-by-principle. The file is `orgs/_default/BUILD_ALIGNMENT.md`.
 
 1. **Schema fidelity** — **Satisfied.** `ranker_cache` is a new admin/intel-adjacent table; field names (`workspace_key`, `date_bucket`, `result_json`, `created_at`) follow the project's snake_case convention. No `signal_instances` or `signal_correlations` fields are touched.
 2. **Canonical signal_type only** — **Satisfied with a note.** The ranker reads `ExternalSignal.type` which uses the legacy 12-value newsletter taxonomy (pre-dates the canonical 12). The prompt enumerates BOTH the legacy types (what the model sees) and the canonical 12 (allowed in rationale prose). No new signal type is invented.

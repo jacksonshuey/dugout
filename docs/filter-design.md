@@ -6,8 +6,8 @@
 > plus a source-attribution layer that surfaces publisher + subject + view-
 > source link + raw-email drawer on every signal on `/market-intel`. **No
 > code in this doc — implementer owns the diff.**
-> Cross-checked against: `orgs/checkbox/BUILD_ALIGNMENT.md` (11 principles),
-> `orgs/checkbox/synthesis.md` (12 canonical signal_types + §2.3 `external_*`
+> Cross-checked against: `orgs/_default/BUILD_ALIGNMENT.md` (11 principles),
+> `orgs/_default/synthesis.md` (12 canonical signal_types + §2.3 `external_*`
 > objects), `docs/newsletters/MASTER.md §2` (5 prerequisites — this doc
 > subsumes §2.1 + §2.2), `AGENTS.md` (Next 16 caveats), `docs/ranker-design.md`
 > (sister design doc, mirrored structure).
@@ -962,7 +962,7 @@ Run target: `npm test` passes 131 (current ranker total) + 18 + 4 + 1 = **154 te
 
 ## 11. BUILD_ALIGNMENT cross-check
 
-Walked all 11 principles. The file is `orgs/checkbox/BUILD_ALIGNMENT.md`.
+Walked all 11 principles. The file is `orgs/_default/BUILD_ALIGNMENT.md`.
 
 1. **Schema fidelity.** **Satisfied.** New columns on `external_signals`
    and `inbound_emails` use snake_case matching project convention. The

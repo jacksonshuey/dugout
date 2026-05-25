@@ -209,7 +209,7 @@ export type SignalSeverity = "blocking" | "action" | "awareness";
 
 // Canonical signal taxonomy — the 12 types every source-signal across every
 // integration collapses into. Definitions live in
-// `orgs/checkbox/synthesis.md §1`. The signal_type is the join key that makes
+// `orgs/_default/synthesis.md §1`. The signal_type is the join key that makes
 // cross-source correlation possible: different tools observing the same
 // underlying phenomenon get the same `signalType`, even though their raw
 // payloads differ.

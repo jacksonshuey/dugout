@@ -1,6 +1,6 @@
 // Tool definitions for the /ask agent (U4).
 //
-// Source of truth: orgs/checkbox/synthesis.md "The AI query layer" — defines
+// Source of truth: orgs/_default/synthesis.md "The AI query layer" — defines
 // 8 typed query tools the agent can call to fetch grounded data. The agent
 // never writes; every tool is read-only (BUILD_ALIGNMENT principle #9).
 //

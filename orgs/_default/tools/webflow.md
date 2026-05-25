@@ -1,7 +1,7 @@
 # Webflow — Signal Dictionary
 
 **Category:** Website / CMS (with optional visitor-identity layer)
-**Role in stack:** Hosts checkbox.com — marketing pages, blog, lead-capture forms, pricing, security/trust pages.
+**Role in stack:** Hosts the workspace's marketing site — pages, blog, lead-capture forms, pricing, security/trust pages.
 **Integration surface:** Data REST API v2 (`https://api.webflow.com/v2/...`), webhooks (subscribed via `POST /v2/sites/{site_id}/webhooks`), OAuth 2.0 or Site API tokens with scoped permissions (`forms:read`, `cms:read`, `sites:read`).
 **Pricing/access reality:** Webhooks are free on all Site Plans; Data API is included. Webhook subscription cap of 25 per site. Form submissions are retained on Webflow for export, but the webhook is the durable real-time path.
 
@@ -19,7 +19,7 @@ Exact `triggerType` strings:
 - `site_publish` — marketing ops noise unless tied to landing-page deploys
 - `collection_item_created`, `collection_item_changed`, `collection_item_deleted`, `collection_item_unpublished` — CMS edits, internal noise
 - `page_created`, `page_metadata_updated`, `page_deleted` — page lifecycle, noise
-- `ecomm_new_order`, `ecomm_order_changed`, `ecomm_inventory_changed` — N/A (Checkbox isn't ecomm)
+- `ecomm_new_order`, `ecomm_order_changed`, `ecomm_inventory_changed` — N/A (the workspace isn't ecomm)
 - `user_account_added`, `user_account_updated`, `user_account_deleted` — Memberships, N/A
 
 ### Form submission API
@@ -109,6 +109,6 @@ These require Clearbit Reveal, RB2B, Warmly, or HubSpot tracking script on the W
 - **Layered adapter (if Reveal/RB2B/Warmly present):** add ~150 LOC for the de-anon tool's webhook + page-intent filter. Each de-anon tool has a distinct payload — pick one.
 
 ## Install-time discovery
-1. **Which de-anon tool (if any) is running on checkbox.com?** Check `<head>` for Clearbit Reveal script, RB2B pixel (`b2bjsstore.s3...`), Warmly tag, or HubSpot tracking. This determines whether the layered signals are real or aspirational, and which adapter to write second.
+1. **Which de-anon tool (if any) is running on the marketing site?** Check `<head>` for Clearbit Reveal script, RB2B pixel (`b2bjsstore.s3...`), Warmly tag, or HubSpot tracking. This determines whether the layered signals are real or aspirational, and which adapter to write second.
 2. **High-intent form taxonomy.** Pull `GET /v2/sites/{site_id}/forms` and have RevOps tag which `displayName` values are high-intent (demo/sales/pricing) vs newsletter/gated-content. Without this taxonomy the form_submission firehose is too noisy.
-3. **HubSpot tracking-script overlap.** If HubSpot's tracking script is the de-facto identity layer on checkbox.com, the Webflow form_submission webhook is largely duplicative of the HubSpot "form submission" event — decide which is canonical to avoid double-firing in Dugout. Default: HubSpot canonical for forms it tracks, Webflow webhook as fallback/backup ingest.
+3. **HubSpot tracking-script overlap.** If HubSpot's tracking script is the de-facto identity layer on the marketing site, the Webflow form_submission webhook is largely duplicative of the HubSpot "form submission" event — decide which is canonical to avoid double-firing in Dugout. Default: HubSpot canonical for forms it tracks, Webflow webhook as fallback/backup ingest.

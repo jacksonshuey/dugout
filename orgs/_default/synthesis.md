@@ -1,6 +1,6 @@
 # Synthesis — The Unified Signal Model
 
-> **Checkbox-specific instantiation of the Dugout product.** The general-purpose product spec lives at [`dugout_product_spec_v_0_1.md`](../../../dugout_product_spec_v_0_1.md) (3,495 lines, 16 sections). That spec defines the canonical ontology, integration input map, and module catalog for *any* Dugout customer. This doc takes that ontology and grounds it in Checkbox's 13-tool stack — what the 5 spec namespaces (`admin` / `raw` / `core` / `graph` / `intel`) actually look like when wired to Salesforce, Gong, Dock, Outreach, Granola, etc., plus the 12-signal-type taxonomy and cross-source correlation patterns that drive the Selected Vendor wedge.
+> **Workspace-level instantiation of the Dugout product.** The general-purpose product spec lives at [`dugout_product_spec_v_0_1.md`](../../../dugout_product_spec_v_0_1.md) (3,495 lines, 16 sections). That spec defines the canonical ontology, integration input map, and module catalog for *any* Dugout customer. This doc takes that ontology and grounds it in a representative 13-tool stack — what the 5 spec namespaces (`admin` / `raw` / `core` / `graph` / `intel`) actually look like when wired to Salesforce, Gong, Dock, Outreach, Granola, etc., plus the 12-signal-type taxonomy and cross-source correlation patterns that drive the Selected Vendor wedge.
 
 > The relational backbone. Every signal from every source — internal SaaS or live-world — fits one shape. That shape is the product.
 > **For what this schema actually MEASURES — the Selected Vendor Health Score formula and the case-derived metrics it powers — see [metrics.md](metrics.md)** *(backstop, not the lead demo pitch)*.
@@ -9,10 +9,10 @@
 
 **Dugout's product is anti-cold-meetings** — a centralized intelligence layer so no AE walks into a buyer conversation under-informed. The Selected Vendor wedge is the demo anchor; the schema below is what makes the broader product possible.
 
-The 13 per-tool dictionaries describe **49 distinct signals across 13 internal operating systems** (12 from the Checkbox case + Granola, which is actually built), plus 3 live-world adapters already in production (NewsAPI, SEC EDGAR, inbound email). Without synthesis they're 46+ dashboards. With synthesis they're a single queryable model where any signal can corroborate any other, any new source plugs into the same shape, and any cross-source correlation becomes a defensible product feature.
+The 13 per-tool dictionaries describe **49 distinct signals across 13 internal operating systems** (12 representative GTM tools + Granola, which is actually built), plus 3 live-world adapters already in production (NewsAPI, SEC EDGAR, inbound email). Without synthesis they're 46+ dashboards. With synthesis they're a single queryable model where any signal can corroborate any other, any new source plugs into the same shape, and any cross-source correlation becomes a defensible product feature.
 
 This document defines:
-1. The **canonical signal taxonomy** (12 signal types every source-signal maps to — the Checkbox contribution; the spec doesn't define one)
+1. The **canonical signal taxonomy** (12 signal types every source-signal maps to — the workspace's opinionated cut; the spec doesn't define one)
 2. The **5-namespace ontology** (admin / raw / core / graph / intel — per spec §4)
 3. The **tiered storage model** (hot / warm / cold — complements spec's raw/core split)
 4. The **relational schema** for `intel` (Postgres / Supabase tables — `signals`, `signal_correlations`, `rules`)
@@ -31,7 +31,7 @@ If `dictionary.md` is the input catalog and the spec is the blueprint, **this is
 
 All 49 source-signals collapse into **12 canonical signal types**. The signal_type is the abstraction that makes cross-source correlation possible — different tools observing the same underlying phenomenon get the same `signal_type`, even though their raw payloads differ. Polarity (good news vs bad news) is carried on the `direction` field of each signal, not in the type name — so `momentum_change` with `direction='positive'` is "next step committed" and `direction='negative'` is "stage stagnated."
 
-The spec defines `signal_definitions` (a global library) and `signal_instances` (detected occurrences) but is intentionally schema-agnostic about *naming* — the 12 types below are Checkbox's opinionated cut. They map cleanly onto `signal_definitions.name`.
+The spec defines `signal_definitions` (a global library) and `signal_instances` (detected occurrences) but is intentionally schema-agnostic about *naming* — the 12 types below are the workspace's opinionated cut. They map cleanly onto `signal_definitions.name`.
 
 | `signal_type` | What it means | Sources that observe it | Tiers |
 |---|---|---|---|
@@ -56,7 +56,7 @@ The spec defines `signal_definitions` (a global library) and `signal_instances` 
 
 ## 2. The 5-namespace ontology
 
-The spec organizes everything into 5 namespaces (§4.2). Checkbox adopts them verbatim — they're the right cut. Within each namespace, this section lists the canonical objects, names the 5–8 most important fields per object, and notes which Checkbox tools feed it.
+The spec organizes everything into 5 namespaces (§4.2). The workspace adopts them verbatim — they're the right cut. Within each namespace, this section lists the canonical objects, names the 5–8 most important fields per object, and notes which tools feed it.
 
 For full field-level definitions of every object, link to the spec section in the header. This doc gives the operator's view, not the schema dump.
 
@@ -66,14 +66,14 @@ The plumbing that lets one Dugout deployment serve N customers. Per spec §4.3.
 
 | Object | Purpose | Key fields |
 |---|---|---|
-| `workspaces` | The customer company (Checkbox = 1 workspace) | `id`, `name`, `domain`, `gtm_motion`, `primary_icp`, `primary_crm`, `timezone` |
+| `workspaces` | The customer company (each customer = 1 workspace) | `id`, `name`, `domain`, `gtm_motion`, `primary_icp`, `primary_crm`, `timezone` |
 | `workspace_users` | Internal users (AE / SDR / Manager / RevOps / SE / CS) | `workspace_id`, `email`, `role`, `team_id`, `crm_user_id`, `slack_user_id`, `is_active` |
 | `teams` | Org structure inside the workspace | `workspace_id`, `name`, `type`, `manager_user_id` |
 | `integration_catalog` | Global registry of supported integrations | `name`, `category`, `auth_type`, `status`, `supports_webhooks`, `data_classes_json` |
 | `workspace_integrations` | Customer's connected instance of an integration | `workspace_id`, `integration_catalog_id`, `auth_status`, `sync_status`, `last_successful_sync_at`, `last_error_message` |
 | `sync_runs` | Per-sync execution log (for debugging stale data) | `workspace_integration_id`, `sync_type`, `started_at`, `status`, `records_created`, `cursor_after` |
 
-**Checkbox note:** the existing build has implicit single-tenancy (cookie-backed workspace config). Adding `workspace_id` to every table from day one is cheap; the rewrite cost later is huge. Recommend yes — see Open Question §10.6.
+**Tenancy note:** the existing build has implicit single-tenancy (cookie-backed workspace config). Adding `workspace_id` to every table from day one is cheap; the rewrite cost later is huge. Recommend yes — see Open Question §10.6.
 
 ### 2.2 `raw` namespace — original-payload archive
 
@@ -89,7 +89,7 @@ The `raw` namespace overlaps with what this doc previously called "warm storage.
 
 ### 2.3 `core` namespace — canonical GTM objects
 
-The objects every feature reads from. Per spec §4.5. **This is where the spec expands what Checkbox previously called 5 entities (Account, Person, Opportunity, Initiative, Asset) into ~25 objects.** Naming follows the spec — most notably, Checkbox's `people` → spec's `contacts`.
+The objects every feature reads from. Per spec §4.5. **This is where the spec expands what the workspace previously called 5 entities (Account, Person, Opportunity, Initiative, Asset) into ~25 objects.** Naming follows the spec — most notably, the workspace's `people` → spec's `contacts`.
 
 | Object | Purpose | Key fields | Fed by |
 |---|---|---|---|
@@ -147,22 +147,22 @@ opportunity_contacts.role ∈ {
 }
 ```
 
-**The `assets.category` enum** is the cross-source comparable that previously lived in Checkbox's `asset_class`. A Dock pricing PDF view and a Webflow pricing page view both reduce to `category = 'pricing'` for correlation purposes. Per spec §4.5:
+**The `assets.category` enum** is the cross-source comparable that previously lived in the workspace's `asset_class`. A Dock pricing PDF view and a Webflow pricing page view both reduce to `category = 'pricing'` for correlation purposes. Per spec §4.5:
 ```
 assets.category ∈ {
   finance, it, legal, security, product, pricing,
   implementation, case_study
 }
 ```
-*Open question:* the spec's `category` enum is narrower than the previous Checkbox draft (which included `mutual_action_plan`, `sec_filing`, `newsletter_email`, etc.). MAP items now have their own table (`mutual_action_plan_items`); SEC filings live in `external_articles`. Net simplification.
+*Open question:* the spec's `category` enum is narrower than the previous workspace draft (which included `mutual_action_plan`, `sec_filing`, `newsletter_email`, etc.). MAP items now have their own table (`mutual_action_plan_items`); SEC filings live in `external_articles`. Net simplification.
 
 ### 2.5 `intel` namespace — signals, correlations, briefs, feedback
 
 What Dugout produces. The spec defines: `extracted_facts`, `topic_mentions`, `signal_definitions`, `signal_dependencies`, `workspace_signal_configs`, `signal_instances`, `signal_evidence`, `recommendations`, `briefs`, `brief_sections`, `user_feedback` (per §5).
 
-**Checkbox extends this** with two opinionated additions that the spec leaves to the implementer: `signal_correlations` (multi-source corroboration as a first-class object, not just a higher-confidence signal) and `rules` (a rule registry that pairs to the 12-type taxonomy so RevOps can tune per-rule trust). These are what makes the cross-source story queryable.
+**The workspace extends this** with two opinionated additions that the spec leaves to the implementer: `signal_correlations` (multi-source corroboration as a first-class object, not just a higher-confidence signal) and `rules` (a rule registry that pairs to the 12-type taxonomy so RevOps can tune per-rule trust). These are what makes the cross-source story queryable.
 
-See §4 below for the full schema of the Checkbox-specific extensions. The spec's standard `intel` objects map straightforwardly:
+See §4 below for the full schema of the workspace-specific extensions. The spec's standard `intel` objects map straightforwardly:
 - `signal_definitions` = the 12 canonical signal types from §1 above, one row each
 - `signal_instances` = one row per detection (what this doc previously called the `signals` table)
 - `signal_evidence` = the linkage from signal back to `raw_objects` / `transcript_segments` / `messages` etc.
@@ -208,7 +208,7 @@ The tiers map onto the spec's namespaces but aren't a 1:1 — tiered storage is 
 
 ### Cost back-of-envelope
 
-For one Checkbox-scale customer (assume 500 active opps, 200 calls/week, 1k emails/week, 50 deal rooms with 200 weekly engagements):
+For one mid-market-scale customer (assume 500 active opps, 200 calls/week, 1k emails/week, 50 deal rooms with 200 weekly engagements):
 - **Hot:** ~5M rows/year across all tables. Supabase Pro tier ($25/mo) handles this comfortably.
 - **Warm:** ~50GB/year of JSONB. ~$1/GB/mo on Postgres = $50/mo, OR $0.023/GB/mo on S3 = $1.50/mo. Recommend S3 for warm beyond 30d.
 - **Cold:** ~200GB/year of transcript + document text. $5/mo on S3.
@@ -217,18 +217,18 @@ For one Checkbox-scale customer (assume 500 active opps, 200 calls/week, 1k emai
 
 ---
 
-## 4. The Checkbox `intel` extensions — schema
+## 4. The workspace `intel` extensions — schema
 
-The spec's `signal_instances` is fine for single-source signals. The cross-source product needs `signal_correlations` as a first-class object and a `rules` registry that pairs to the 12-type taxonomy. These are Checkbox's contribution. Postgres / Supabase.
+The spec's `signal_instances` is fine for single-source signals. The cross-source product needs `signal_correlations` as a first-class object and a `rules` registry that pairs to the 12-type taxonomy. These are the workspace's contribution. Postgres / Supabase.
 
-### Signals (the spec's `signal_instances`, with Checkbox-specific columns)
+### Signals (the spec's `signal_instances`, with workspace-specific columns)
 
 ```sql
 create table signal_instances (
   id              uuid primary key default gen_random_uuid(),
   workspace_id    uuid not null references workspaces(id),
 
-  -- provenance (Checkbox addition: source_event_id for idempotency)
+  -- provenance (workspace addition: source_event_id for idempotency)
   source_tool     text not null,                          -- 'salesforce' | 'gong' | 'dock' | ...
   source_event_id text,                                   -- idempotency key
   occurred_at     timestamptz not null,                   -- when it happened in reality
@@ -272,7 +272,7 @@ Evidence rows (per spec §5.3) link each signal back to the `raw_objects` / `tra
 
 ### Correlations: the moat made queryable
 
-A *correlation* is an emergent record created when multiple signals of the same `signal_type` reinforce each other within a time window. Single-source signals are noisy; multi-source correlations are defensible. The spec doesn't define this object; Checkbox treats it as first-class.
+A *correlation* is an emergent record created when multiple signals of the same `signal_type` reinforce each other within a time window. Single-source signals are noisy; multi-source correlations are defensible. The spec doesn't define this object; the workspace treats it as first-class.
 
 ```sql
 create table signal_correlations (
@@ -358,7 +358,7 @@ Earlier drafts of this schema carried `confidence smallint (0–100)` on every `
 
 ### Rules: data, not code
 
-The 13 rules currently in `signal-engine.ts` (plus the 42 implied by the dictionaries) get registered in a table so the dictionary and the engine stay in sync. This is the Checkbox-specific operationalization of the spec's `signal_definitions`.
+The 13 rules currently in `signal-engine.ts` (plus the 42 implied by the dictionaries) get registered in a table so the dictionary and the engine stay in sync. This is the workspace-specific operationalization of the spec's `signal_definitions`.
 
 ```sql
 create table rules (
@@ -609,7 +609,7 @@ tools = [
 User: Why is the Helios deal stalling?
 
 Agent calls get_account_context("acc_helios", 90):
-  → Helios Manufacturing, stage=Selected Vendor (23d), $185K, owner=sarah@checkbox
+  → Helios Manufacturing, stage=Selected Vendor (23d), $185K, owner=sarah@example.com
   → Champion: Maria Chen (VP Eng), EB: Tom Wright (CFO)
   → 1 active correlation: champion_disengagement, 3 sources agreeing
 
@@ -662,7 +662,7 @@ Citations: [signal_instance_id_1, signal_instance_id_2, ...] each clickable to s
 - Per question (any provider): ~$0.02-0.10 depending on how many tools the agent uses. GPT-4o and Claude Sonnet 4.6 are at price parity for tool-use workloads. Haiku 4.5 ≈ $0.005/question for users who prefer cheap-and-fast.
 - **Hard cap to protect the budget:** 20 questions/hour and 100 questions/day per session; 500 questions/day global. At cap: 429 with `retry_after_seconds`. No stub fallback — hard stop. Backed by `ask_request_log` table; counts are per-session via the `dugout-ask-session` HttpOnly cookie.
 - **Prompt caching** on hot accounts: cache the account_context + recent timeline; subsequent questions on same account drop to <$0.01
-- At 9 AEs × ~5 questions/day = ~45 questions/day → ~$1-5/day per Checkbox-scale customer
+- At 9 AEs × ~5 questions/day = ~45 questions/day → ~$1-5/day per mid-market-scale customer
 
 ### What this DOES NOT do
 
@@ -789,7 +789,7 @@ The schema was designed for this from day one — no retrofit needed.
 
 These are the calls Jackson needs to make (or get RevOps input on) before code:
 
-1. **Asset category taxonomy** — the spec's `assets.category` enum is narrower than the previous Checkbox draft. Edge cases: do invoice PDFs warrant a category, or live as `assets.asset_type='pdf'` without category? Does newsletter content even land in `assets`, or only in `external_articles`? Editing this enum after launch is expensive.
+1. **Asset category taxonomy** — the spec's `assets.category` enum is narrower than the previous workspace draft. Edge cases: do invoice PDFs warrant a category, or live as `assets.asset_type='pdf'` without category? Does newsletter content even land in `assets`, or only in `external_articles`? Editing this enum after launch is expensive.
 
 2. **When (if ever) to re-introduce per-rule learned confidence.** The schema dropped per-signal confidence because we have no customers and no calibration data. The natural successor is `rules.acted_on_count / rules.hit_count` — but that requires ≥90 days of outcome data. Open: do we add a `rules.learned_trust` materialized column at that point, or compute live? And: do we ever surface trust to the rep, or keep it RevOps-internal?
 
@@ -807,7 +807,7 @@ These are the calls Jackson needs to make (or get RevOps input on) before code:
 
 ## 13. The one-paragraph version
 
-Every signal across every tool — internal CRM/marketing/sales/CS systems *and* live-world feeds like email, news, and SEC — fits the spec's 5-namespace ontology (`admin` / `raw` / `core` / `graph` / `intel`), classifies into 12 Checkbox-defined `signal_type` values, and cross-source correlation is a SQL query: "give me accounts where 2+ tools reported the same signal_type in the last N days." Each correlation lights up one of the spec's 14 product modules with a defensible evidence trail. The hard problem is identity resolution (one contact across 13 tools, governed by `entity_aliases` + `entity_match_candidates`); everything else is plumbing. Migration from current state is 2 weeks of dual-write parallel to the existing `external_signals` table — no big-bang rewrite. The spec is the blueprint; this doc is the Checkbox-specific operating system.
+Every signal across every tool — internal CRM/marketing/sales/CS systems *and* live-world feeds like email, news, and SEC — fits the spec's 5-namespace ontology (`admin` / `raw` / `core` / `graph` / `intel`), classifies into 12 workspace-defined `signal_type` values, and cross-source correlation is a SQL query: "give me accounts where 2+ tools reported the same signal_type in the last N days." Each correlation lights up one of the spec's 14 product modules with a defensible evidence trail. The hard problem is identity resolution (one contact across 13 tools, governed by `entity_aliases` + `entity_match_candidates`); everything else is plumbing. Migration from current state is 2 weeks of dual-write parallel to the existing `external_signals` table — no big-bang rewrite. The spec is the blueprint; this doc is the workspace-specific operating system.
 
 ---
 

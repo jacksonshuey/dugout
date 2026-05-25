@@ -1,7 +1,7 @@
 # Xero — Signal Dictionary
 
 **Category:** Finance / billing / accounting
-**Role in stack:** System of record for invoicing, AR, and payment lifecycle for Checkbox's existing customer base. Downstream wedge — tracks what happens *after* Selected Vendor → CW.
+**Role in stack:** System of record for invoicing, AR, and payment lifecycle for the workspace's existing customer base. Downstream wedge — tracks what happens *after* Selected Vendor → CW.
 **Integration surface:** REST API (Accounting API v2.0, base `https://api.xero.com/api.xro/2.0/`), Webhooks (Invoices + Contacts events only), OAuth 2.0 authorization code + PKCE with 30-min access tokens and 60-day rolling refresh tokens that rotate on every use ([developer.xero.com/documentation/oauth2/overview](https://developer.xero.com/documentation/oauth2/overview)).
 **Pricing/access reality:** Free developer access for uncertified apps capped at 25 connected tenants. Production scale requires Xero App Partner certification (security review + UX audit). Rate limits per tenant: **60 calls/min**, **5,000 calls/day**, **5 concurrent**, plus a 10,000/min app-wide ceiling ([developer.xero.com/documentation/guides/oauth2/limits](https://developer.xero.com/documentation/guides/oauth2/limits)) — adapter must respect `X-Rate-Limit-Problem` response header and back off.
 
@@ -42,7 +42,7 @@ Xero does not help with the Selected Vendor → budget approval wedge — those 
 - **Webhook trigger:** `eventCategory=INVOICE`, `eventType=CREATE` → fetch invoice → check first-touch heuristic.
 
 ## What we'd ignore
-- `ACCPAY` invoices and `ACCPAYPAYMENT` payments (Checkbox's own bills to vendors)
+- `ACCPAY` invoices and `ACCPAYPAYMENT` payments (the workspace's own bills to vendors)
 - `Payroll`, `Expenses`, `BankTransactions`, `ManualJournals`, `Assets`, `Files`, `Projects` APIs
 - `Reports` endpoint beyond AR aging (P&L, Balance Sheet, Trial Balance are out of scope)
 - Chart-of-accounts changes, `TaxRates`, `TrackingCategories` updates
@@ -53,9 +53,9 @@ Xero does not help with the Selected Vendor → budget approval wedge — those 
 ## Effort to wire
 - **Adapter LOC estimate:** ~450 LOC. OAuth refresh + rotating-refresh-token persistence ~80 LOC, webhook intent-to-receive HMAC-SHA256 signature verification against `x-xero-signature` header ~50 LOC, tenant-connections sync via `GET https://api.xero.com/connections` ~40 LOC, the rest is invoice/contact/payment fetch + signal evaluation.
 - **Time estimate:** 2–3 days for working adapter behind a feature flag, +1 day for Salesforce Contact↔Account mapping table and currency normalization.
-- **Hardest part:** Mapping Xero `Contact.ContactID` to Salesforce `Account.Id`. Xero contacts are billing entities (often "Acme Corp - AP" or a parent-company shell) and are not always 1:1 with sales accounts. Strategy: prefer `Contact.AccountNumber` as a deterministic key if Checkbox populates it from SFDC at invoice creation, fall back to fuzzy match on `Contact.Name` + EmailAddress, expose a manual override table. Multi-currency contracts require normalizing `Invoice.Total` via `Invoice.CurrencyRate` to a base reporting currency before any cross-period comparison.
+- **Hardest part:** Mapping Xero `Contact.ContactID` to Salesforce `Account.Id`. Xero contacts are billing entities (often "Acme Corp - AP" or a parent-company shell) and are not always 1:1 with sales accounts. Strategy: prefer `Contact.AccountNumber` as a deterministic key if the customer populates it from SFDC at invoice creation, fall back to fuzzy match on `Contact.Name` + EmailAddress, expose a manual override table. Multi-currency contracts require normalizing `Invoice.Total` via `Invoice.CurrencyRate` to a base reporting currency before any cross-period comparison.
 
 ## Install-time discovery
-1. **Xero Contact ↔ SFDC Account mapping setup** — does Checkbox already write Salesforce `Account.Id` (or a shared CRM ID) into Xero `Contact.AccountNumber` at invoice-creation time? If yes, mapping is a direct join; if no, we need a fuzzy-match + override table and an onboarding pass over the existing customer book.
-2. **Currency normalization base** — what reporting currency does Checkbox standardize on for cross-period comparisons (USD? AUD given Xero's NZ/AU heritage?), and is the FX rate sourced from `Invoice.CurrencyRate` at invoice date or a centralized FX feed? Locks down how signal #3 thresholds are evaluated for multi-currency customers.
+1. **Xero Contact ↔ SFDC Account mapping setup** — does the customer already write Salesforce `Account.Id` (or a shared CRM ID) into Xero `Contact.AccountNumber` at invoice-creation time? If yes, mapping is a direct join; if no, we need a fuzzy-match + override table and an onboarding pass over the existing customer book.
+2. **Currency normalization base** — what reporting currency does the customer standardize on for cross-period comparisons (USD? AUD given Xero's NZ/AU heritage?), and is the FX rate sourced from `Invoice.CurrencyRate` at invoice date or a centralized FX feed? Locks down how signal #3 thresholds are evaluated for multi-currency customers.
 3. **Renewal-tracking field convention** — is contract term tracked on `Invoice.Reference`, `Invoice.LineItems[].Description`, a Tracking Category, or only in Salesforce CPQ? Determines whether signal #1 reads from Xero directly or needs SFDC as the authoritative renewal-date source with Xero only confirming the invoice cadence.

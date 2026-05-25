@@ -11,7 +11,7 @@
 ## The 10 alignment principles
 
 ### 1. Schema fidelity
-- Field names match [`orgs/checkbox/synthesis.md §4`](synthesis.md) exactly
+- Field names match [`orgs/_default/synthesis.md §4`](synthesis.md) exactly
 - Table names match the same source: `signal_instances`, `signal_correlations`, `accounts`, `contacts`, `opportunities`, etc.
 - If a field is missing from the schema, *propose the addition* in a comment before using it — don't silently invent fields
 

@@ -43,7 +43,7 @@ const CLAIMS: TrustClaim[] = [
     body: "Adapters consume from Salesforce, Gong, Outreach, Granola — they never POST, PATCH, or DELETE. A bug in Dugout can produce a wrong signal. It cannot push a bad CRM update, send an unintended email, or modify your pipeline state. Read-only is the v1 contract.",
     evidence: {
       label: "Principle 9",
-      href: `${GITHUB_BASE}/orgs/checkbox/BUILD_ALIGNMENT.md`,
+      href: `${GITHUB_BASE}/orgs/_default/BUILD_ALIGNMENT.md`,
     },
   },
 ];

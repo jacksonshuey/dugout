@@ -2,7 +2,7 @@
 
 > What the people who'd use Dugout actually need, when, in what shape. Synthesizes [ae-workflow.md](ae-workflow.md) and [manager-workflow.md](manager-workflow.md). Becomes the spec for the UX surfaces built on top of [../synthesis.md](../synthesis.md).
 
-> **Relationship to the product spec.** The [Dugout Product Spec v0.1](../../../dugout_product_spec_v_0_1.md) defines the platform-level **module catalog** (14 modules, each with required canonical objects, signals, and routing). This doc is the **Checkbox-flavored UX synthesis** that sits on top of that catalog — it answers "what does an AE or manager actually *see* when these modules fire?" Modules are product features; surfaces are UI containers. One surface can render multiple modules; some modules don't yet have a Checkbox-prioritized surface. The mapping below makes that explicit.
+> **Relationship to the product spec.** The [Dugout Product Spec v0.1](../../../dugout_product_spec_v_0_1.md) defines the platform-level **module catalog** (14 modules, each with required canonical objects, signals, and routing). This doc is the **workspace-flavored UX synthesis** that sits on top of that catalog — it answers "what does an AE or manager actually *see* when these modules fire?" Modules are product features; surfaces are UI containers. One surface can render multiple modules; some modules don't yet have a workspace-prioritized surface. The mapping below makes that explicit.
 
 ## The one-line read
 
@@ -23,7 +23,7 @@ Dugout's actual product architecture is four surfaces, one thesis ("no AE walks 
 | **3. News + vertical inbox** | Newsletter ingestion + NewsAPI + SEC EDGAR keeping AEs informed about both their accounts AND the verticals they live in. | Live (`/market-intel` + drawer per-account signals). |
 | **4. Rep + manager metrics** | Task completion, action latency, deal velocity. Manager view is first-class, not an afterthought. | Implied today via the task layer; explicit manager view at `/manager` (session 5 in progress). The 6 surfaces below are this surface's UX spec. |
 
-**The wedge sits inside this.** Selected-Vendor deal-death is the demo example *within* surface 2. The architecture supports any "AE walks in cold" pain — Checkbox-specific framing is per-org content in `workspace.md`, not engine logic.
+**The wedge sits inside this.** Selected-Vendor deal-death is the demo example *within* surface 2. The architecture supports any "AE walks in cold" pain — workspace-specific framing is per-org content in `workspace.md`, not engine logic.
 
 ---
 
@@ -46,13 +46,13 @@ The spec's [§2.3 module catalog](../../../dugout_product_spec_v_0_1.md) lists 1
 - **Module #15 (proposed): Rep Coaching Digest** — aggregates per-rep call themes, discovery quality, MEDDPICC hygiene, and recommended Gong moments. Required: transcripts, MEDDPICC/SFDC fields, opportunity owner. Routing: pre-1:1 email or Slack DM to manager.
 - **Module #16 (proposed): Forecast Confidence Grading** — per-opp A/B/C/D grade computed from signal evidence vs. AE-committed category. Required: opportunity stage + forecast_category, signal instances, historical close-rate baseline. Routing: Thursday-AM manager view.
 
-## Modules from the spec that don't have a Checkbox-prioritized surface yet
+## Modules from the spec that don't have a workspace-prioritized surface yet
 
-These 14-module entries either (a) Checkbox §12 ranks P0/P1 but we haven't designed UX, or (b) are covered tangentially by an existing surface and need an explicit render. Listed in roughly the order we should design for them:
+These 14-module entries either (a) the workspace's §12 ranks P0/P1 but we haven't designed UX, or (b) are covered tangentially by an existing surface and need an explicit render. Listed in roughly the order we should design for them:
 
-| Spec module | Checkbox priority (§12) | Status in this doc | What's missing |
+| Spec module | Workspace priority (§12) | Status in this doc | What's missing |
 |---|---|---|---|
-| **Trial/POC Execution SLA (#4)** | P0 | No dedicated surface | The "KPI Assessment SLA Risk" signal (§12.6) is critical to Checkbox but has no UX home. Likely a sub-view inside the Procurement Tracker or its own SLA timer card. |
+| **Trial/POC Execution SLA (#4)** | P0 | No dedicated surface | The "KPI Assessment SLA Risk" signal (§12.6) is critical to the customer but has no UX home. Likely a sub-view inside the Procurement Tracker or its own SLA timer card. |
 | **Deal Execution Consistency (#5)** | P0 | No dedicated surface | Cross-deal pattern view — "do all Selected-Vendor opps have the 3 enablement assets sent?" Likely a manager-facing cohort grid. |
 | **Champion Risk (#7)** | Implied in Hero #0 | Partially covered | Champion-loss is a Hero #0 component, but no dedicated drill-down. Needs its own card on the account drawer. |
 | **Competitive Risk (#8)** | P1 | No dedicated surface | Competitor mention timeline exists in raw data; no rolled-up view yet. |
@@ -62,15 +62,15 @@ These 14-module entries either (a) Checkbox §12 ranks P0/P1 but we haven't desi
 | **Expansion/CS Risk (#13)** | P2 | No surface | Out of scope for the interview demo. Deferred. |
 | **Billing/Payment Risk (#14)** | P2 | No surface | Out of scope for the interview demo. Deferred. |
 
-**Implication for the build queue:** Trial/POC Execution SLA and Deal Execution Consistency are both P0 in the Checkbox configuration but unrepresented in our 6-surface plan. If interview prep extends past the current demo scope, these are the next two surfaces to design.
+**Implication for the build queue:** Trial/POC Execution SLA and Deal Execution Consistency are both P0 in the workspace configuration but unrepresented in our 6-surface plan. If interview prep extends past the current demo scope, these are the next two surfaces to design.
 
 ## Feature Dependency Engine — the platform backbone
 
 Per [spec §7](../../../dugout_product_spec_v_0_1.md), each integration declares what canonical objects and events it emits (`integration_data_capabilities`), and each module declares what it requires (`feature_requirements`). Dugout computes the join: **"given these connected integrations, which modules unlock with what confidence?"**
 
-This is what powers spec §3.4 — the onboarding screen that tells a new customer "you connected Salesforce + Gong + Outreach, so Meeting Readiness Brief + Budget Approval Risk + Finance/IT Sequencing are fully unlocked; Trial Execution SLA is partial until you connect a task system." It's also what lets the same module catalog serve customers with very different stacks (Checkbox runs on Salesforce + Gong + Outreach + Dock; a HubSpot/Granola shop gets a different unlock matrix from the same module definitions).
+This is what powers spec §3.4 — the onboarding screen that tells a new customer "you connected Salesforce + Gong + Outreach, so Meeting Readiness Brief + Budget Approval Risk + Finance/IT Sequencing are fully unlocked; Trial Execution SLA is partial until you connect a task system." It's also what lets the same module catalog serve customers with very different stacks (a Salesforce + Gong + Outreach + Dock customer vs. a HubSpot/Granola shop each get a different unlock matrix from the same module definitions).
 
-**For the Checkbox demo, the practical implication is:** every surface in this doc declares its module dependencies, and every module declares its data dependencies. When `workspace.md` says "Dock not connected yet," the SV Procurement Tracker's asset-engagement column gracefully degrades to "—" rather than crashing. The dependency engine is the contract that makes that degradation predictable.
+**For the demo, the practical implication is:** every surface in this doc declares its module dependencies, and every module declares its data dependencies. When `workspace.md` says "Dock not connected yet," the SV Procurement Tracker's asset-engagement column gracefully degrades to "—" rather than crashing. The dependency engine is the contract that makes that degradation predictable.
 
 ---
 
@@ -128,7 +128,7 @@ This split is what determines the routes:
 
 ## Hero Surface #0 — Selected Vendor Health Score
 
-> Added after reading the Checkbox case PDF. See `../metrics.md` for the full formula and rationale.
+> Added after reading the customer case PDF. See `../metrics.md` for the full formula and rationale.
 
 This is the surface the CEO, SVP Revenue, Director of Finance, and RevOps Lead (the interview panel) will look at first. It sits above all 6 surfaces below and is the **single number that justifies the entire system.**
 
@@ -167,7 +167,7 @@ Three per persona, ranked by behavioral impact. **Surfaces 1 and 4 share the sam
 - **Backend:** `get_account_context()` + `get_account_timeline()` + `get_committee_engagement()` tools from the AI query layer
 - **First demo moment:** "Sarah opens Slack at 9:15am, sees the brief for her 9:30 call, reads it in 60 seconds, walks in armed"
 
-**2. Selected-Vendor Procurement Tracker** *(highest wedge alignment — the Checkbox-specific killer feature)*
+**2. Selected-Vendor Procurement Tracker** *(highest wedge alignment — the workspace-specific killer feature)*
 - **Trigger:** any open opp in Selected Vendor / Negotiation stage
 - **Content:** per-opp dashboard showing Finance/Legal/IT/Procurement engagement: who from each role exists on the deal, what they've touched, days-since-last-touch, redline cycle time, doc view depth (opened vs. lingered vs. downloaded)
 - **Replaces:** the AE's mental tracking of "where are we on legal/security/finance"
@@ -303,13 +303,13 @@ Our UX phases are sequenced for *interview demoability*; the spec's [§11 phases
 | **Phase 5** | Daily Deal Delta (Slack) + Per-Rep Coaching Brief | Habit-forming + manager-side adoption | ~2 days | ↔ Spec Phase 5 (Deal room and Slack adapter) — Slack delivery routing; Coaching Brief is a proposed spec addition |
 | **Phase 6** | Forecast Confidence Panel | Stretch — the highest-ceiling feature but most accuracy risk | ~3 days | *No direct spec phase — proposed Module #16 (Forecast Confidence Grading) belongs after spec Phase 3* |
 
-**Spec phases 6–8 (External Intelligence Inbox, Enrichment/ABM, Support/Billing) are P1/P2 for Checkbox** (§12.4–12.5) and don't gate the interview demo. They become the post-demo roadmap if the engagement continues.
+**Spec phases 6–8 (External Intelligence Inbox, Enrichment/ABM, Support/Billing) are P1/P2 for this workspace** (§12.4–12.5) and don't gate the interview demo. They become the post-demo roadmap if the engagement continues.
 
 **Total: ~15.5 days** if every adapter were already wired. Realistically, since the *backend signals* feeding these surfaces don't all exist yet, Phase 1-4 is the demoable scope.
 
 ---
 
-## For the Checkbox interview specifically — the minimum to demo
+## For the interview specifically — the minimum to demo
 
 If you have only ~1 week of build time before the interview, ship:
 
@@ -346,7 +346,7 @@ These need decisions before Phase 1 starts:
 
 ## See also
 
-- [Dugout Product Spec v0.1](../../../dugout_product_spec_v_0_1.md) — the platform-level module catalog (§2.3), feature dependency engine (§7), build sequence (§11), and Checkbox-specific configuration (§12)
+- [Dugout Product Spec v0.1](../../../dugout_product_spec_v_0_1.md) — the platform-level module catalog (§2.3), feature dependency engine (§7), build sequence (§11), and workspace-specific configuration (§12)
 - [ae-workflow.md](ae-workflow.md) — full AE day-in-the-life research
 - [manager-workflow.md](manager-workflow.md) — full manager day-in-the-life research
 - [../synthesis.md](../synthesis.md) — the unified signal model + tiered storage + AI query layer architecture

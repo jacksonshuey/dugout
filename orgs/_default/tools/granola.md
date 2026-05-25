@@ -47,7 +47,7 @@ The shipping `granola-classifier.ts` extracts **7 buying-process signal types** 
 - **Why for the wedge:** Time pressure is the single best predictor of close.
 
 ## What we'd ignore
-- Internal Checkbox-only meetings (no external attendees) — filtered at adapter level
+- Internal-only meetings (no external attendees) — filtered at adapter level
 - Meetings in private user folders not opted into sync (per the folder-allowlist privacy gate, when shipped)
 - Notes < 100 chars (too short to classify usefully)
 - Notes without a transcript (Haiku needs the substance, not just title)

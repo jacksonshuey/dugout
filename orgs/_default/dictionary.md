@@ -1,16 +1,16 @@
-# Checkbox — Signal Dictionary (Index)
+# Workspace — Signal Dictionary (Index)
 
-> The structured catalog of what Dugout knows about Checkbox's world. Per-tool details live in `tools/*.md`.
+> The structured catalog of what Dugout knows about the workspace's world. Per-tool details live in `tools/*.md`.
 > - **The metrics this all powers (Selected Vendor Health Score + case-derived numbers):** [metrics.md](metrics.md) *(backstop, not the lead pitch)*
 > - **The unified relational model + tiered storage + AI query layer:** [synthesis.md](synthesis.md)
 > - **AE + Manager workflow research + UX prioritization:** [discovery/](discovery/) — start with [information-requirements.md](discovery/information-requirements.md)
-> - **What to build next beyond the Checkbox stack:** [../../docs/gtm-tool-expansion-research.md](../../docs/gtm-tool-expansion-research.md) *(Dugout-wide roadmap; identifies G2 Buyer Intent, Common Room, real Gong API as the next must-haves)*
+> - **What to build next beyond the workspace's stack:** [../../docs/gtm-tool-expansion-research.md](../../docs/gtm-tool-expansion-research.md) *(Dugout-wide roadmap; identifies G2 Buyer Intent, Common Room, real Gong API as the next must-haves)*
 
-> **Where this fits in the broader product:** this dictionary is the **Checkbox-specific instantiation** of the Dugout product spec at [`../../dugout_product_spec_v_0_1.md`](../../dugout_product_spec_v_0_1.md). The spec defines the universal source taxonomy (§6), canonical objects (§4), and signal model (§7); this file is what those abstractions look like when grounded in Checkbox's actual 14-tool stack and Selected Vendor wedge. New tools added here should also live somewhere in spec §6 — if they don't, one of the two docs is behind.
+> **Where this fits in the broader product:** this dictionary is the **workspace-specific instantiation** of the Dugout product spec at [`../../dugout_product_spec_v_0_1.md`](../../dugout_product_spec_v_0_1.md). The spec defines the universal source taxonomy (§6), canonical objects (§4), and signal model (§7); this file is what those abstractions look like when grounded in the workspace's actual 14-tool stack and a Selected Vendor wedge. New tools added here should also live somewhere in spec §6 — if they don't, one of the two docs is behind.
 
 ## What this is
 
-A "dictionary" in Dugout's sense is **not** a glossary of terms. It is the structured contract between Checkbox's operating systems (the 14 tools below + the live-world feeds Dugout already ingests) and Dugout's signal engine. Each entry answers:
+A "dictionary" in Dugout's sense is **not** a glossary of terms. It is the structured contract between the workspace's operating systems (the 14 tools below + the live-world feeds Dugout already ingests) and Dugout's signal engine. Each entry answers:
 
 - *What data does this source emit?*
 - *Which 2–4 signals from it actually move the needle?*
@@ -26,7 +26,7 @@ The dictionary is read by humans (sales ops authoring playbooks, AEs understandi
 
 **The product (per HANDOFF §3.5):** *a centralized intelligence layer for sales teams — no AE walks into a meeting cold.* Every tool, every signal, every news cycle and vertical trend, synthesized so neither the AE nor their manager is operating blind.
 
-**The wedge is the demo anchor, not the whole product.** Checkbox-specifically, deals die at **Selected Vendor** — the gap between verbal champion buy-in and procurement/finance/IT/legal approval. That's the case-aligned story we use in the interview. The architecture below applies whether the customer's pain is "Selected Vendor stalls" (Checkbox) or "Series A founders going dark in week 6" (a different ICP). The signals are universal; the *priority weighting* is per-customer.
+**The wedge is the demo anchor, not the whole product.** For this workspace, deals die at **Selected Vendor** — the gap between verbal champion buy-in and procurement/finance/IT/legal approval. That's the customer-aligned story used in the demo. The architecture below applies whether the customer's pain is "Selected Vendor stalls" or "Series A founders going dark in week 6" (a different ICP). The signals are universal; the *priority weighting* is per-customer.
 
 Every signal in this dictionary is graded on: *does it shorten the time between "thing happens on the buyer side" and "AE knows about it"?*
 
@@ -42,7 +42,7 @@ Severity tiers:
 
 ## The 14 internal operating systems
 
-12 from the Checkbox case PDF + **Granola** (added session 5, the only one wired end-to-end) + **Slack** (added on this pass per product spec §6.3 and §12.2 — missed in the original case-PDF list).
+12 from the customer's stack + **Granola** (added session 5, the only one wired end-to-end) + **Slack** (added on this pass per product spec §6.3 and §12.2 — missed in the original list).
 
 | Tool | Category | Signals | Top tier | Wedge fit | Wire effort |
 |---|---|---|---|---|---|
@@ -208,7 +208,7 @@ The point of the dictionary is not the 14 individual cards — it's the **relati
 
 ## What's outside the 14: the live-world signal layer
 
-The 14 internal systems above tell us what Checkbox's *own systems* observe. The other half of Dugout — already built — is what the *outside world* says about Checkbox's accounts. Today this layer has three adapters:
+The 14 internal systems above tell us what the workspace's *own systems* observe. The other half of Dugout — already built — is what the *outside world* says about the workspace's accounts. Today this layer has three adapters:
 
 | Source | Status | Adapter | Tier |
 |---|---|---|---|
@@ -226,8 +226,8 @@ The inbound email pipeline is the **universal extension slot** for the live-worl
 | Crunchbase funding/M&A | Funding event = budget unlocks for procurement | Public API; ~150 LOC adapter |
 | Glassdoor sentiment | Layoff signals before press release | Web scrape (TOS risk) or licensed provider |
 | Built With / technographics | Stack changes at account = re-eval moment | BuiltWith API |
-| Public company earnings transcripts | Mentions of legal-ops investment, GRC priorities | Inbound email (subscribe to AlphaSense/Seeking Alpha) |
-| Reddit / Hacker News | Engineering-led buying signals for legal-tech adoption | Subscription via Google Alerts → email pipeline |
+| Public company earnings transcripts | Mentions of category investment + budget priorities in the customer's vertical | Inbound email (subscribe to AlphaSense/Seeking Alpha) |
+| Reddit / Hacker News | Engineering-led buying signals for the customer's category | Subscription via Google Alerts → email pipeline |
 | Substack newsletters by buyer-persona authors | What the buying committee is actually reading | Subscribe each to inbound email — no new adapter |
 
 The inbound-email pipeline absorbs at least the bottom four with zero engineering work.
@@ -236,8 +236,8 @@ The inbound-email pipeline absorbs at least the bottom four with zero engineerin
 
 ## What's NOT in this dictionary (deliberately)
 
-- **Workspace config** — handled in `src/lib/workspace.ts` cookie today; will move to `orgs/checkbox/workspace.md` when the Obsidian-style context layer ships.
-- **Playbooks** — `src/data/playbooks.ts` today; will move to `orgs/checkbox/playbooks/*.md` in the same migration.
+- **Workspace config** — handled in `src/lib/workspace.ts` cookie today; will move to `orgs/_default/workspace.md` when the Obsidian-style context layer ships.
+- **Playbooks** — `src/data/playbooks.ts` today; will move to `orgs/_default/playbooks/*.md` in the same migration.
 - **Account-specific notes** — these are *per-account* per-org context, distinct from *per-tool* signal definitions. They live in `orgs/<slug>/accounts/<account>.md` if/when that view ships.
 
 The signal dictionary is **the contract with the data sources**. Workspace config is **the contract with the customer's GTM motion**. Playbooks are **the contract with the rep's playbook responses**. Three different artifacts, three different lifecycles.
@@ -275,5 +275,5 @@ The 14 tool dictionaries here are templates — for a different customer, swap S
 1. **Build `/stack` page in Dugout.** Renders this dictionary as a visual flow: 14 tool logos → Dugout → sales team. Each tool clickable → opens its `tools/<slug>.md` rendered. Half a day of work, lands the demo visual.
 2. **Wire the existing `signal-engine.ts` rule names to the signals in this dictionary.** Right now the dictionary references rule shapes that don't yet exist in code. Even a stub `// TODO: rule for dock_buying_committee_gap` in `signal-engine.ts` for each BLOCKING signal makes the dictionary executable-by-aspiration.
 3. **Pick one Tier-S tool and write the adapter for real.** Dock if access is possible, otherwise ZoomInfo (public docs are clean). Demonstrates the pattern works end-to-end.
-4. **Schedule a 15-min call with Jacob Katz** to answer the highest-leverage open questions from this dictionary (Dock SF package event granularity, Swyft custom field names, ZoomInfo SKU bundle, Gong tracker config ownership).
-5. **Extend the inbound-email pipeline** to subscribe to 3-5 legal-ops-focused newsletters as a "live-world layer" demonstration. Zero engineering work; pure GTM curation.
+4. **Schedule a 15-min call with the stakeholder mentor** to answer the highest-leverage open questions from this dictionary (Dock SF package event granularity, Swyft custom field names, ZoomInfo SKU bundle, Gong tracker config ownership).
+5. **Extend the inbound-email pipeline** to subscribe to 3-5 newsletters focused on the customer's vertical as a "live-world layer" demonstration. Zero engineering work; pure GTM curation.

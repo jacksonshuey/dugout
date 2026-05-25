@@ -6,7 +6,7 @@
 - REST API at `https://api.chilipiper.com` (see [developers.chilipiper.com/reference/getting-started](https://developers.chilipiper.com/reference/getting-started)) — API-key auth via the `X-Api-Key` header for service-to-service; OAuth2 for user-context calls. The REST surface is thin (meetings, routes, queues, availability) — lifecycle data is realistically pulled from webhooks, not polled.
 - Outbound webhooks per workspace (see [developers.chilipiper.com/reference/webhooks](https://developers.chilipiper.com/reference/webhooks)) — JSON POSTs, HMAC-signed with the workspace secret in `X-ChiliPiper-Signature`, retried with exponential backoff on non-2xx for ~24h.
 - Native Salesforce package (managed AppExchange app) writes `Event` and `Task` records with the `ChiliPiper__` namespace, including custom fields like `ChiliPiper__Reschedule_Count__c`, `ChiliPiper__No_Show__c`, `ChiliPiper__Meeting_Type__c`, `ChiliPiper__Router__c`, and `ChiliPiper__Booked_From__c`. We query these directly rather than the API for the SFDC-linked side.
-- Native HubSpot integration mirrors meetings to the Meetings object with similar custom properties; relevant only if Checkbox's primary CRM is HubSpot rather than SFDC.
+- Native HubSpot integration mirrors meetings to the Meetings object with similar custom properties; relevant only if the workspace's primary CRM is HubSpot rather than SFDC.
 
 **Pricing/access reality:** Webhook delivery and CRM write-back ship on the standard Concierge / Handoff / Distro tiers. Some event types (notably the granular reschedule/no-show stream with actor attribution) are gated to Concierge Enterprise — confirm at install time. See "Install-time discovery."
 
@@ -44,7 +44,7 @@ The Salesforce sync is the more reliable join key for active opps: Chili Piper w
 
 ### 3. New persona joins the buying committee — AWARENESS
 - **What it is:** First-ever meeting booked at an account with an invitee whose title matches Finance, Legal, IT, Security, or Procurement, on an account where prior meetings only included the champion persona.
-- **Why for the wedge:** Committee expansion is the signal Checkbox deals most need surfaced early — it tells the AE which late-stage gate is about to open and who to arm the champion against.
+- **Why for the wedge:** Committee expansion is the signal these deals most need surfaced early — it tells the AE which late-stage gate is about to open and who to arm the champion against.
 - **Rule shape:** `event.type=meeting.booked AND invitee.email NOT IN (prior_meeting_invitees WHERE salesforce.account_id=X) AND classify_persona(invitee.title) IN ('finance','legal','it','security','procurement') AND opp.stage IN ('Discovery','Proposal','Selected Vendor')`
 - **Source fields:** `event.type`, `invitee.email`, `invitee.title` (enrich via ZoomInfo if blank on form), `salesforce.account_id`, `meeting_type.name`
 
