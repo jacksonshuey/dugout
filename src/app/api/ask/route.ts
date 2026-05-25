@@ -131,7 +131,6 @@ export async function POST(req: Request) {
       { status: 429 },
     );
     res.headers.set("Retry-After", String(gate.retryAfterSeconds));
-    if (mintedSession) attachSessionCookie(res, sessionId);
     return res;
   }
 
