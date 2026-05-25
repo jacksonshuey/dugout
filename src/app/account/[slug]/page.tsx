@@ -494,6 +494,7 @@ function OpenOpportunitiesSection({
               return (
                 <tr
                   key={opp.id}
+                  id={`opp-${opp.id}`}
                   className="border-b border-border last:border-0 hover:bg-slate-50 transition-colors"
                 >
                   <td className="px-3 py-2.5 font-medium">
