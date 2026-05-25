@@ -95,6 +95,7 @@ function Footer() {
     { href: "/console", label: "AE Console", sub: "Pipeline · Today · Digest" },
     { href: "/manager", label: "Manager view", sub: "Team aggregates · per-rep" },
     { href: "/market-intel", label: "Market intel", sub: "Workspace-wide news inbox" },
+    { href: "/trial-intake", label: "Trial intake", sub: "48h SLA · companion system" },
     { href: "/spec", label: "Spec", sub: "Architecture + rollout" },
   ];
   return (
@@ -138,7 +139,7 @@ function Footer() {
         </div>
         <nav
           aria-label="Operator surfaces"
-          className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 border-t border-border"
+          className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 pt-4 border-t border-border"
         >
           {links.map((l) => (
             <Link
