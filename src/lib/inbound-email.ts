@@ -165,3 +165,48 @@ export async function getInboundStats(): Promise<InboundStats> {
     lastReceivedAt: (last.data?.received_at as string | undefined) ?? null,
   };
 }
+
+// Snapshot used by the Market Intel empty state when external_signals is
+// empty but inbound_emails is not — i.e. newsletters have arrived but the
+// classifier hasn't emitted signals for them yet. Lets the page say
+// "X newsletters waiting to be parsed" instead of the misleading "no
+// market intel yet."
+export interface InboundQueueSummary {
+  totalCount: number;
+  pendingCount: number;
+  recent: Array<{
+    id: string;
+    from_domain: string;
+    subject: string | null;
+    received_at: string;
+    classified_at: string | null;
+  }>;
+}
+
+export async function getInboundQueueSummary(
+  sampleSize = 5,
+): Promise<InboundQueueSummary> {
+  const sb = supabaseAdmin();
+  const [total, pending, recent] = await Promise.all([
+    sb.from("inbound_emails").select("id", { count: "exact", head: true }),
+    sb
+      .from("inbound_emails")
+      .select("id", { count: "exact", head: true })
+      .is("classified_at", null),
+    sb
+      .from("inbound_emails")
+      .select("id, from_domain, subject, received_at, classified_at")
+      .order("received_at", { ascending: false })
+      .limit(sampleSize),
+  ]);
+
+  if (total.error) throw new Error(`inbound_emails count failed: ${total.error.message}`);
+  if (pending.error) throw new Error(`inbound_emails count failed: ${pending.error.message}`);
+  if (recent.error) throw new Error(`inbound_emails read failed: ${recent.error.message}`);
+
+  return {
+    totalCount: total.count ?? 0,
+    pendingCount: pending.count ?? 0,
+    recent: (recent.data ?? []) as InboundQueueSummary["recent"],
+  };
+}

@@ -24,7 +24,7 @@ export function IntegrationsMatrix({
   health?: Record<string, IntegrationHealth>;
 }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-background">
+    <div className="overflow-x-auto rounded-xl border border-border bg-background">
       {/* Mobile: card list. Tables collapse badly under 640px. */}
       <div className="md:hidden divide-y divide-border">
         {INTEGRATIONS.map((spec) => (

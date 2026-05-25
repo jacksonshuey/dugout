@@ -8,6 +8,10 @@ import {
   getHighRelevanceSignals,
   type ExternalSignal,
 } from "@/lib/external-signals";
+import {
+  getInboundQueueSummary,
+  type InboundQueueSummary,
+} from "@/lib/inbound-email";
 import { displayNameFor } from "@/lib/inbound-publishers";
 import { rankSignals } from "@/lib/ranker";
 import type {
@@ -270,13 +274,31 @@ export default async function MarketIntelPage() {
           </section>
         </div>
       ) : (
-        <EmptyState />
+        <EmptyStateAsync />
       )}
     </div>
   );
 }
 
-function EmptyState() {
+// Server component — queries the inbox so the empty state can distinguish
+// "literally no newsletters yet" from "newsletters received, classifier
+// hasn't run." Fail-soft: if the inbox query throws, fall back to the
+// generic empty state.
+async function EmptyStateAsync() {
+  let summary: InboundQueueSummary | null = null;
+  try {
+    summary = await getInboundQueueSummary(5);
+  } catch (e) {
+    console.warn(
+      `[market-intel] getInboundQueueSummary failed (fail-soft): ${e instanceof Error ? e.message : String(e)}`,
+    );
+  }
+
+  if (!summary || summary.totalCount === 0) return <NoNewslettersYet />;
+  return <PendingClassificationState summary={summary} />;
+}
+
+function NoNewslettersYet() {
   return (
     <Card className="p-6 text-sm space-y-2">
       <div className="font-medium">No market intel yet</div>
@@ -285,6 +307,65 @@ function EmptyState() {
         here within seconds. Setup steps live in the README under{" "}
         <span className="font-mono text-xs">## Newsletter inbox</span>.
       </div>
+    </Card>
+  );
+}
+
+function PendingClassificationState({
+  summary,
+}: {
+  summary: InboundQueueSummary;
+}) {
+  const { totalCount, pendingCount, recent } = summary;
+  return (
+    <Card className="p-6 text-sm space-y-4">
+      <div className="space-y-1">
+        <div className="font-medium">
+          {pendingCount > 0
+            ? `${pendingCount} newsletter${pendingCount === 1 ? "" : "s"} waiting to be parsed`
+            : `${totalCount} newsletter${totalCount === 1 ? "" : "s"} received — no material signals extracted yet`}
+        </div>
+        <div className="text-muted">
+          {pendingCount > 0
+            ? "Newsletters have landed in the inbox. The classifier emits signals here as it runs — usually within seconds of arrival, or on the next sweeper pass."
+            : "Every received newsletter was parsed; nothing in the last batch matched a tracked account or hit the material-event bar."}
+        </div>
+      </div>
+
+      {recent.length > 0 && (
+        <div className="space-y-2">
+          <div className="text-xs uppercase tracking-wider text-muted font-medium">
+            Latest in inbox
+          </div>
+          <ul className="space-y-1.5">
+            {recent.map((row) => (
+              <li
+                key={row.id}
+                className="flex items-baseline gap-3 text-xs leading-snug"
+              >
+                <span className="text-muted font-mono shrink-0 w-20">
+                  {formatDate(row.received_at)}
+                </span>
+                <span className="text-muted font-mono shrink-0 truncate max-w-[160px]">
+                  {row.from_domain}
+                </span>
+                <span className="flex-1 truncate">
+                  {row.subject ?? <span className="text-muted">(no subject)</span>}
+                </span>
+                <span
+                  className={`shrink-0 text-[10px] uppercase tracking-wider font-mono ${
+                    row.classified_at
+                      ? "text-severity-green"
+                      : "text-severity-action"
+                  }`}
+                >
+                  {row.classified_at ? "parsed" : "pending"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </Card>
   );
 }
