@@ -149,13 +149,7 @@ const METRICS: Metric[] = [
     sources: SALES_ENGAGEMENT,
   },
 
-  // Deal rooms (ASSET_GAP_*, NO_TRIAL_BRIEF_AT_DEMO_SAT)
-  {
-    id: "trial-brief",
-    name: "Outcome-first trial brief delivered",
-    description: "Whether the outcome-first trial brief landed in the deal room before Demo Sat.",
-    sources: DEAL_ROOMS,
-  },
+  // Deal rooms (ASSET_GAP_*)
   {
     id: "finance-brief",
     name: "Finance brief delivered",

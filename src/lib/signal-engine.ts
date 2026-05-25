@@ -344,40 +344,6 @@ const ruleNoITAtEvaluating: SignalRule = {
         detectedAt: TODAY.toISOString(),
       })),
 };
-
-const ruleNoTrialBriefAtDemoSat: SignalRule = {
-  id: "NO_TRIAL_BRIEF_AT_DEMO_SAT",
-  name: "Demo Sat without outcome-first trial brief",
-  description:
-    "Strategic priority #1 (the case's 'highest-leverage change available in H1'). Every Evaluating+ deal should have a trial brief delivered before the next meeting.",
-  severity: "action",
-  strategicPriority: "P1",
-  evaluate: (ctx) =>
-    ctx.opportunities
-      .filter(
-        (o) =>
-          o.stage === "Demo Sat" &&
-          !hasAsset(o, ctx, "outcome_first_trial_brief"),
-      )
-      .map((o) => ({
-        id: ruleId("NO_TRIAL_BRIEF_AT_DEMO_SAT", o.id),
-        ruleId: "NO_TRIAL_BRIEF_AT_DEMO_SAT",
-        oppId: o.id,
-        severity: "action",
-        // Awkward fit: this is a playbook-step gap, not a clean fit for any of
-        // the 12 types. Closest is momentum_change (negative direction) -
-        // missing the trial brief stalls the deal's forward motion. Not
-        // data_hygiene_gap, which is specifically about structured deal
-        // metadata (MEDDPICC fields), not playbook execution.
-        signalType: "momentum_change",
-        title: "No outcome-first trial brief delivered",
-        body: `Per company playbook, every Demo Sat deal should have an ${assetName(ctx, "outcome_first_trial_brief", "outcome-first trial brief")} in place before the next meeting. This one doesn't.`,
-        suggestedAction: `Request intake from your champion today. SE will return ${assetName(ctx, "kpi_assessment", "KPI Assessment")} + ${assetName(ctx, "pre_seeded_demo", "pre-seeded demo")} in 48 hours.`,
-        assetLink: "Trigger SE Intake",
-        detectedAt: TODAY.toISOString(),
-      })),
-};
-
 const ruleSingleThreadRisk: SignalRule = {
   id: "SINGLE_THREAD_RISK",
   name: "Single-thread risk on Evaluating+ deal",
@@ -889,7 +855,6 @@ export const RULES: SignalRule[] = [
   ruleSelectedVendorNoProcurement,
   ruleNoFinanceAtEvaluating,
   ruleNoITAtEvaluating,
-  ruleNoTrialBriefAtDemoSat,
   ruleAssetGapFinance,
   ruleAssetGapIT,
   ruleSingleThreadRisk,

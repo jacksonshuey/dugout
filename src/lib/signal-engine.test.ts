@@ -247,36 +247,6 @@ describe("NO_IT_AT_EVALUATING", () => {
   });
 });
 
-describe("NO_TRIAL_BRIEF_AT_DEMO_SAT", () => {
-  test("fires when Demo Sat deal has no trial brief delivered", () => {
-    const opp = makeOpp({ stage: "Demo Sat" });
-    const signals = evaluateRule(
-      "NO_TRIAL_BRIEF_AT_DEMO_SAT",
-      makeCtx({ opportunities: [opp] }),
-    );
-    expect(signals).toHaveLength(1);
-    expect(signals[0].signalType).toBe("momentum_change");
-  });
-
-  test("does not fire when trial brief has been delivered", () => {
-    const opp = makeOpp({ stage: "Demo Sat" });
-    const signals = evaluateRule(
-      "NO_TRIAL_BRIEF_AT_DEMO_SAT",
-      makeCtx({
-        opportunities: [opp],
-        deliveries: [
-          {
-            oppId: opp.id,
-            asset: "outcome_first_trial_brief",
-            deliveredAt: "2026-05-15T00:00:00Z",
-          },
-        ],
-      }),
-    );
-    expect(signals).toHaveLength(0);
-  });
-});
-
 describe("SINGLE_THREAD_RISK", () => {
   test("fires for Evaluating deal with exactly one contact", () => {
     const champion = makeContact({ id: "c_ch", role: "Champion" });
