@@ -85,7 +85,22 @@ function isCommitting(cat: ForecastCategory): boolean {
 }
 
 export function computeConfidenceGrade(inputs: GradeInputs): ConfidenceGrade {
-  const { svHealthScore, blockingCount, actionCount, forecastCategory } = inputs;
+  const { svHealthScore, blockingCount: rawBlockingCount, actionCount, forecastCategory } = inputs;
+
+  // Guard: blockingCount must be a number. Real callers can pass undefined when
+  // signal aggregation has a missing field — the type says `number` but runtime
+  // data is untrustworthy. Degrade gracefully to "C" (Watch) and log so the
+  // caller knows something went wrong, rather than letting `undefined >= 1` and
+  // `undefined === 0` both evaluate to false and silently produce wrong grades.
+  const blockingCount: number | null =
+    typeof rawBlockingCount === "number" ? rawBlockingCount : null;
+  if (blockingCount === null) {
+    console.warn(
+      `forecast-confidence: blockingCount must be a number, got ${typeof rawBlockingCount} — returning safe default "C"`,
+    );
+    return "C";
+  }
+
   const committing = isCommitting(forecastCategory);
 
   // D (warning) — checked first so the overcommitment case dominates.

@@ -260,7 +260,13 @@ export function runStage1(
   // ── 5.3: body stats — words + link ratio + only-unsub check ────────────
   const truncated = plaintext.slice(0, BODY_TRUNCATION_FOR_STATS);
   const wordCount = countWords(truncated);
-  const linkRatio = computeLinkRatio(email.html_body ?? "", truncated);
+  // Truncate HTML to the same bound as `truncated` (BODY_TRUNCATION_FOR_STATS)
+  // so that anchor-char count and plaintext-length share the same input bound.
+  // Without this, a very large HTML body could yield more anchor chars than
+  // plaintext chars, pushing the ratio above 1.0 before Math.min caps it —
+  // making the cap meaningless and masking the actual content composition.
+  const htmlTruncated = (email.html_body ?? "").slice(0, BODY_TRUNCATION_FOR_STATS);
+  const linkRatio = computeLinkRatio(htmlTruncated, truncated);
   const isOnlyUnsubLinks = onlyUnsubAndPreferenceLinks(email.html_body ?? "");
 
   if (wordCount < MIN_BODY_WORDS) {

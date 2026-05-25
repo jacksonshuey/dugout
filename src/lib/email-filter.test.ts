@@ -212,6 +212,39 @@ describe("runStage1 · body stats rejects", () => {
     expect(r.accepted === false && r.detail).toContain(`< ${MIN_BODY_WORDS}`);
   });
 
+  // ─── 7a. link-ratio uses truncated HTML, not full HTML ─────────────────
+  test("link-ratio anchor-char scan uses truncated HTML (both sides same bound)", () => {
+    // Construct an oversized HTML body where anchor chars spill well beyond
+    // BODY_TRUNCATION_FOR_STATS. With the old code, anchorChars would be
+    // scanned on the full multi-MB HTML while plaintext was truncated, making
+    // the ratio exceed 1.0 before Math.min capped it. With the fix, both sides
+    // are truncated, so the cap stays meaningful.
+    //
+    // Strategy: very long text body (>BODY_TRUNCATION_FOR_STATS) so plaintext
+    // gets truncated; HTML has massive anchor block that starts AFTER the
+    // truncation boundary — after the fix, those far-away anchors are not
+    // counted, so the ratio stays low and the email is accepted.
+    // Build plaintext that exceeds BODY_TRUNCATION_FOR_STATS (20 000 chars).
+    const longTextBody = Array.from({ length: 4_000 }, (_, i) => `word${i}`).join(" ");
+    // Prefix the HTML with real content up to the truncation boundary, then
+    // add a huge anchor block after it (beyond the slice boundary).
+    const htmlPrefix = "<p>" + "a ".repeat(5_000) + "</p>"; // ~10 000 chars, no anchors
+    const htmlSuffix =
+      "<a>" + "X".repeat(200_000) + "</a>"; // massive anchor block beyond 20 000-char truncation
+    const html = htmlPrefix + htmlSuffix; // total > TRUNC
+
+    const r = runStage1(
+      mkEmail({
+        text_body: longTextBody,
+        html_body: html,
+      }),
+    );
+    // With fix: anchors beyond the truncation boundary aren't counted, ratio
+    // stays < MAX_LINK_RATIO, email passes link-ratio check.
+    // Without fix: ratio would blow past 1.0, email would (wrongly) be rejected.
+    expect(r.accepted).toBe(true);
+  });
+
   // ─── 7. stage1_rejects_link_farm_body ──────────────────────────────────
   test("link-farm body (linkRatio > MAX_LINK_RATIO) is rejected", () => {
     // Construct HTML where anchor text dominates visible chars.
