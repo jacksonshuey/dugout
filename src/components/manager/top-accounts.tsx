@@ -103,7 +103,13 @@ export function TopAccountsCard({
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="inline-flex items-center rounded-full border border-border bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-muted">
+                      <span
+                        className={
+                          account.segment === "Strategic"
+                            ? "inline-flex items-center rounded-full border border-slate-900 bg-slate-900 px-2 py-0.5 text-[11px] font-medium text-white"
+                            : "inline-flex items-center rounded-full border border-border bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-muted"
+                        }
+                      >
                         {account.segment}
                       </span>
                     </td>

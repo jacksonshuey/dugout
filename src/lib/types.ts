@@ -39,7 +39,7 @@ export interface Rep {
   managerId?: string;
 }
 
-export type AccountSegment = "Enterprise" | "Mid-Market";
+export type AccountSegment = "Strategic" | "Enterprise" | "Mid-Market";
 
 export type Industry =
   | "Pharma"
