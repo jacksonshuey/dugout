@@ -36,7 +36,15 @@ interface SignalSource {
   email_subject: string | null;
   occurred_at: string;
   summary: string;
+  source: string | null;
 }
+
+const SOURCE_DISPLAY: Record<string, string> = {
+  news: "NewsAPI",
+  sec_edgar: "SEC EDGAR",
+  web_scrape: "Firecrawl",
+  newsletter: "Newsletter",
+};
 
 type LoadedSource =
   | { kind: "email"; email: RawEmail }
@@ -257,6 +265,17 @@ function SignalBody({ signal }: { signal: SignalSource }) {
               <span>·</span>
               <span className="font-mono text-[10px] uppercase tracking-wider">
                 {signal.source_content_kind.replace(/_/g, " ")}
+              </span>
+            </>
+          )}
+          {signal.source && (
+            <>
+              <span>·</span>
+              <span className="text-[11px] text-muted">
+                Retrieved via{" "}
+                <span className="font-medium text-foreground">
+                  {SOURCE_DISPLAY[signal.source] ?? signal.source}
+                </span>
               </span>
             </>
           )}
