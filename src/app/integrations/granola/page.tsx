@@ -152,7 +152,7 @@ function SyncSummary({ status }: { status: WorkspaceIntegrationStatus }) {
         {status.lastSyncedAt ? (
           <>
             <span className="text-foreground font-medium">
-              {new Date(status.lastSyncedAt).toLocaleString()}
+              {new Date(status.lastSyncedAt).toLocaleString('en-US', { timeZone: 'UTC', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
             </span>
             {status.lastSyncStatus && (
               <span
@@ -263,7 +263,7 @@ function RecentMeetingsTable({
                 </td>
                 <td className="px-4 py-3 align-top text-muted text-xs font-mono">
                   {first.meeting_date
-                    ? new Date(first.meeting_date).toLocaleDateString()
+                    ? new Date(first.meeting_date).toLocaleDateString('en-US', { timeZone: 'UTC', year: 'numeric', month: 'short', day: 'numeric' })
                     : "—"}
                 </td>
               </tr>
