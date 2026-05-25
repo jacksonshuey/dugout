@@ -157,6 +157,7 @@ export async function GET(req: Request) {
       companyName: workspace.companyName,
       assets: workspace.assets,
       stack: workspace.stack,
+      contractIdleAmountFloor: workspace.contractIdleAmountFloor,
     },
   });
   const oppToAccount = new Map(opportunities.map((o) => [o.id, o.accountId]));
