@@ -4,6 +4,7 @@
 // falling back to the inline glyph if the request fails or the token is
 // missing. Kept separate from logos.tsx so getBrandName / BRANDS stay
 // server-renderable.
+// server-renderable.
 //
 // Source history (see commit log for context):
 //   - Brandfetch → 302'd without a paid client ID
