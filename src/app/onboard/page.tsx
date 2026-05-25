@@ -20,13 +20,23 @@ export default function OnboardPage() {
         Onboard a customer
       </div>
       <h1 className="mt-3 text-3xl font-semibold tracking-tight">
-        Find or add a company to track.
+        Find a company. Click integrate.
       </h1>
       <p className="mt-3 text-sm text-foreground/70 leading-relaxed max-w-2xl">
-        Type a company name. Anything already in the workspace surfaces under
-        &ldquo;already tracked.&rdquo; Anything else comes back from a public
-        company directory; click to add it to your session. Session adds live
-        in this browser only; nothing reaches the server.
+        Type a company name. Already-tracked companies surface first.
+        Everything else comes from a public company directory — clicking{" "}
+        <span className="font-mono text-foreground/90">Integrate</span> mints
+        a primary key for that account. That key is the join across every
+        integration the company has: Granola transcripts, SEC filings,
+        AgentMail newsletters, Firecrawl scrapes. We call the consolidation
+        of those signals into a single account view{" "}
+        <span className="text-brand font-medium">zippering</span> — and the
+        pkey is the thread.
+      </p>
+      <p className="mt-2 text-xs text-muted leading-relaxed max-w-2xl">
+        Session-only: integrations created here live in this browser.
+        Production onboarding writes to Supabase with a UUID pkey
+        (gen_random_uuid).
       </p>
 
       <div className="mt-8">

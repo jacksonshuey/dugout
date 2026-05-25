@@ -183,11 +183,12 @@ export function OnboardSearch() {
       {results.external.length > 0 && (
         <section>
           <h2 className="text-sm font-semibold tracking-tight text-foreground/80">
-            Add to your session
+            Integrate a new account
           </h2>
           <p className="text-xs text-muted mt-1">
-            From Clearbit&apos;s public directory. Adds live in your browser
-            only.
+            From Clearbit&apos;s public directory. Clicking{" "}
+            <span className="font-mono">Integrate</span> mints a primary
+            key + readies the account for zippering across your stack.
           </p>
           <ul className="mt-3 space-y-2">
             {results.external.map((m) => {
@@ -224,7 +225,7 @@ export function OnboardSearch() {
                           : "text-[10px] font-mono uppercase tracking-[0.1em] py-1 px-3 rounded border border-brand/40 bg-brand/10 text-brand shrink-0 hover:bg-brand/20 transition-colors"
                       }
                     >
-                      {alreadyAdded ? "Added" : "Add"}
+                      {alreadyAdded ? "Integrated" : "Integrate"}
                     </button>
                   </div>
                 </li>
@@ -245,19 +246,20 @@ export function OnboardSearch() {
 
       <section className="border-t border-border pt-6">
         <h2 className="text-sm font-semibold tracking-tight text-foreground/80">
-          Your session accounts
+          Integrated accounts (this session)
           <span className="ml-2 text-[11px] font-mono uppercase tracking-[0.1em] text-muted">
-            {session.length} added
+            {session.length} integrated
           </span>
         </h2>
         <p className="text-xs text-muted mt-1">
-          Stored in this browser only. Closing the tab keeps them; clearing
-          site data wipes them.
+          Each one has a minted primary key. As real integrations fire,
+          zippering ties their signals back to the same key.
         </p>
         {session.length === 0 ? (
           <div className="mt-3 rounded-lg border border-border bg-foreground/[0.02] p-4 text-xs text-muted">
-            Nothing added yet. Search above and click &ldquo;Add&rdquo; on a
-            result.
+            None integrated yet. Search above and click{" "}
+            <span className="font-mono">Integrate</span> on a result to mint
+            its primary key.
           </div>
         ) : (
           <ul className="mt-3 space-y-2">
@@ -271,16 +273,22 @@ export function OnboardSearch() {
                   <img
                     src={a.logoUrl}
                     alt=""
-                    width={28}
-                    height={28}
-                    className="w-7 h-7 rounded bg-foreground/[0.04] shrink-0 object-contain"
+                    width={32}
+                    height={32}
+                    className="w-8 h-8 rounded bg-foreground/[0.04] shrink-0 object-contain"
                     loading="lazy"
                   />
                   <div className="min-w-0">
                     <div className="text-sm font-medium tracking-tight truncate">
                       {a.name}
                     </div>
-                    <div className="text-xs text-muted truncate">{a.domain}</div>
+                    <div className="text-[11px] font-mono text-foreground/60 truncate mt-0.5">
+                      pkey:{" "}
+                      <span className="text-brand">{a.id}</span>
+                    </div>
+                    <div className="text-[10px] font-mono uppercase tracking-[0.08em] text-muted mt-0.5">
+                      0 signals · zippering ready
+                    </div>
                   </div>
                 </div>
                 <button
@@ -288,7 +296,7 @@ export function OnboardSearch() {
                   onClick={() => onRemove(a.id)}
                   className="text-[10px] font-mono uppercase tracking-[0.1em] py-1 px-3 rounded border border-border bg-background text-muted hover:text-foreground hover:border-foreground/30 shrink-0 transition-colors"
                 >
-                  Remove
+                  Disconnect
                 </button>
               </li>
             ))}
