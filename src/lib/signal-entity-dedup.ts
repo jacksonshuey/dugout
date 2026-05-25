@@ -111,8 +111,17 @@ export function dedupByEntity(signals: ExternalSignal[]): ExternalSignal[] {
     }
 
     // Keep the newer occurred_at when collapsing.
+    // Guard: if either side is missing/non-string, coercion would produce the
+    // string "undefined" which sorts after most ISO timestamps, picking the
+    // wrong winner silently. Fall back to keeping the incumbent instead.
     const incumbent = survivors[mergedIndex];
-    if (sig.occurred_at > incumbent.occurred_at) {
+    const sigDate = sig.occurred_at;
+    const incDate = incumbent.occurred_at;
+    if (
+      typeof sigDate === "string" &&
+      typeof incDate === "string" &&
+      sigDate > incDate
+    ) {
       survivors[mergedIndex] = sig;
       cache[mergedIndex] = { entity, headline };
     }
