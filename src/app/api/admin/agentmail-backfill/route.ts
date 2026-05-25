@@ -118,6 +118,12 @@ interface BackfillResult {
   messagesProcessed: number;
   outcomes: Record<OutcomeKind, number>;
   signalsEmitted: number;
+  // Per-domain count of messages dropped at the sender allowlist gate. Lets
+  // operators see WHICH senders aren't currently allowlisted so the gap can
+  // be filled in INBOUND_SENDER_ALLOWLIST. Sender domains aren't sensitive
+  // (newsletter from-addresses are public), so safe to surface in the API
+  // response.
+  droppedSenders: Record<string, number>;
   errors: { message_id: string; error: string }[];
   note?: string;
 }
@@ -150,6 +156,7 @@ async function handle(req: Request): Promise<NextResponse> {
     OUTCOME_KINDS.map((k) => [k, 0]),
   ) as Record<OutcomeKind, number>;
   const errors: { message_id: string; error: string }[] = [];
+  const droppedSenders: Record<string, number> = {};
   let signalsEmitted = 0;
   let processed = 0;
 
@@ -203,6 +210,10 @@ async function handle(req: Request): Promise<NextResponse> {
           if (outcome.kind === "stored" && outcome.classification.ok) {
             signalsEmitted += outcome.classification.signals;
           }
+          if (outcome.kind === "sender_not_allowlisted") {
+            droppedSenders[outcome.domain] =
+              (droppedSenders[outcome.domain] ?? 0) + 1;
+          }
         } catch (e) {
           errors.push({
             message_id: item.message_id,
@@ -221,6 +232,7 @@ async function handle(req: Request): Promise<NextResponse> {
     messagesProcessed: processed,
     outcomes,
     signalsEmitted,
+    droppedSenders,
     errors,
   };
   if (processed >= limit) {
