@@ -12,6 +12,7 @@ import {
   computeDealHealth,
 } from "./signal-engine";
 import type {
+  Account,
   Activity,
   CallTranscript,
   Contact,
@@ -638,6 +639,84 @@ describe("CONTRACT_IDLE", () => {
           contractIdleAmountFloor: 250000, // raise floor above opp.amount
         },
       }),
+    );
+    expect(signals).toHaveLength(0);
+  });
+});
+
+describe("ABM_SHADOW_RESEARCH", () => {
+  // Account-level rule. Fires once per qualifying account, attached to the
+  // account's most-recently-created opp so the existing oppId-keyed UI has a
+  // target.
+  const baseAccount = (overrides: Partial<Account> = {}): Account => ({
+    id: "acc_abm",
+    name: "Test Co",
+    industry: "SaaS",
+    segment: "Enterprise",
+    hqLocation: "San Francisco, CA",
+    legalTeamSize: 50,
+    ...overrides,
+  });
+
+  test("fires for Enterprise account with 4 signals from 3 sources", () => {
+    const account = baseAccount({
+      abmTrigger: {
+        highRelevanceSignalsLast7d: 4,
+        sources: ["news", "sec_edgar", "newsletter"],
+        lastSignalAt: "2026-05-22T16:00:00Z",
+      },
+    });
+    const opp = makeOpp({ accountId: account.id });
+    const signals = evaluateRule(
+      "ABM_SHADOW_RESEARCH",
+      makeCtx({ accounts: [account], opportunities: [opp] }),
+    );
+    expect(signals).toHaveLength(1);
+    expect(signals[0].ruleId).toBe("ABM_SHADOW_RESEARCH");
+    expect(signals[0].severity).toBe("action");
+    expect(signals[0].signalType).toBe("shadow_research");
+    expect(signals[0].oppId).toBe(opp.id);
+  });
+
+  test("does not fire for Enterprise account with 1 signal from 1 source", () => {
+    const account = baseAccount({
+      abmTrigger: {
+        highRelevanceSignalsLast7d: 1,
+        sources: ["news"],
+        lastSignalAt: "2026-05-22T16:00:00Z",
+      },
+    });
+    const opp = makeOpp({ accountId: account.id });
+    const signals = evaluateRule(
+      "ABM_SHADOW_RESEARCH",
+      makeCtx({ accounts: [account], opportunities: [opp] }),
+    );
+    expect(signals).toHaveLength(0);
+  });
+
+  test("does not fire for Mid-Market account regardless of signal volume", () => {
+    const account = baseAccount({
+      segment: "Mid-Market",
+      abmTrigger: {
+        highRelevanceSignalsLast7d: 5,
+        sources: ["news", "sec_edgar", "newsletter"],
+        lastSignalAt: "2026-05-22T16:00:00Z",
+      },
+    });
+    const opp = makeOpp({ accountId: account.id });
+    const signals = evaluateRule(
+      "ABM_SHADOW_RESEARCH",
+      makeCtx({ accounts: [account], opportunities: [opp] }),
+    );
+    expect(signals).toHaveLength(0);
+  });
+
+  test("does not fire for Enterprise account with no abmTrigger field", () => {
+    const account = baseAccount(); // no abmTrigger
+    const opp = makeOpp({ accountId: account.id });
+    const signals = evaluateRule(
+      "ABM_SHADOW_RESEARCH",
+      makeCtx({ accounts: [account], opportunities: [opp] }),
     );
     expect(signals).toHaveLength(0);
   });
