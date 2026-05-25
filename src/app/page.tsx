@@ -790,6 +790,87 @@ function SecurityTrustSection() {
 // outage doesn't take down the landing page.
 // ---------------------------------------------------------------------------
 
+// Hand-curated examples that visibly demonstrate the Haiku summarization
+// step. The live feed below is real production data; this block is a
+// teaching aid so a first-time visitor understands "what am I looking at
+// in those signal rows?" Uses real Checkbox customer names so the demo
+// reads honestly to a Checkbox audience.
+interface HaikuShowcaseItem {
+  publication: string;
+  rawExcerpt: string;
+  haikuSummary: string;
+  account: string;
+  topicTag: string;
+}
+
+const HAIKU_SHOWCASE: HaikuShowcaseItem[] = [
+  {
+    publication: "EU AI Office daily brief",
+    rawExcerpt:
+      "EU AI Office published draft enforcement guidance for general-purpose AI providers under Article 56 of the AI Act, with first compliance reviews scheduled for Q3.",
+    haikuSummary:
+      "EU AI Office released GPAI enforcement guidance. SAP's BTP AI services likely scoped under Article 56 obligations — compliance review window opens Q3.",
+    account: "SAP",
+    topicTag: "Regulatory · EU AI Act",
+  },
+  {
+    publication: "Stratechery weekly",
+    rawExcerpt:
+      "Commerce expanded the Entity List to include three additional Chinese chip designers; export-license requirements now apply to 7nm-and-below process nodes used in radar and automotive applications.",
+    haikuSummary:
+      "US tightened semi export rules. ADI's automotive radar SKUs sold into China now require new licensing review under the expanded Entity List.",
+    account: "Analog Devices",
+    topicTag: "Trade · Export controls",
+  },
+  {
+    publication: "Politico EU Daily Brief",
+    rawExcerpt:
+      "European Commission moved PFAS restriction proposal to formal adoption; food-contact materials now in scope for 2027 implementation, with derogations limited to specified industrial applications.",
+    haikuSummary:
+      "EU PFAS restriction reaches formal proposal. CCEP's beverage-can interior liners face 2027 compliance deadline; reformulation lead time begins now.",
+    account: "Coca-Cola Europacific Partners",
+    topicTag: "Regulatory · EU PFAS",
+  },
+];
+
+function HaikuShowcaseFlow() {
+  return (
+    <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-4">
+      {HAIKU_SHOWCASE.map((item, i) => (
+        <HaikuShowcaseCard key={i} item={item} />
+      ))}
+    </div>
+  );
+}
+
+function HaikuShowcaseCard({ item }: { item: HaikuShowcaseItem }) {
+  return (
+    <div className="rounded-lg border border-border bg-foreground/[0.02] p-4 flex flex-col">
+      <div className="text-[10px] font-mono uppercase tracking-[0.1em] text-muted">
+        {item.publication}
+      </div>
+      <div className="mt-3 text-xs italic text-foreground/60 leading-snug line-clamp-3">
+        {item.rawExcerpt}
+      </div>
+      <div className="mt-3 text-[10px] text-brand font-mono uppercase tracking-[0.1em] flex items-center gap-1">
+        <span aria-hidden>↓</span>
+        <span>Haiku summary</span>
+      </div>
+      <div className="mt-2 text-sm font-medium tracking-tight leading-snug">
+        {item.haikuSummary}
+      </div>
+      <div className="mt-auto pt-4 flex items-center gap-2 flex-wrap">
+        <span className="text-[10px] font-mono uppercase tracking-[0.1em] py-0.5 px-2 rounded border border-brand/40 bg-brand/10 text-brand">
+          {item.account}
+        </span>
+        <span className="text-[10px] font-mono uppercase tracking-[0.08em] text-muted">
+          {item.topicTag}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 // Pulled out of the component so the time math doesn't trip the
 // react-hooks/purity lint rule. Server components technically run once
 // per request (or once per ISR cycle), but the rule lints conservatively;
@@ -838,12 +919,20 @@ async function MarketIntelLiveSection() {
       <p className="mt-4 text-base text-foreground/70 leading-relaxed max-w-3xl">
         AgentMail + NewsAPI + SEC EDGAR + Firecrawl feed the workspace inbox.
         A two-stage Haiku classifier (deterministic regex first, LLM second)
-        tags each item with a workspace-relevance tier. Only items the team
-        should actually read surface here — the rest stays out of the way.
+        reads each item, summarizes what matters, and matches it to the
+        accounts you track. The examples below show the synthesis step on
+        real customer scenarios; the live feed underneath is production data,
+        ranked, and refreshed every few minutes.
       </p>
 
+      <HaikuShowcaseFlow />
+
+      <h3 className="mt-12 text-sm font-semibold tracking-tight text-foreground/80">
+        Live from the workspace inbox
+      </h3>
+
       {items.length === 0 ? (
-        <div className="mt-10 rounded-lg border border-border bg-foreground/[0.02] p-6 text-sm text-muted">
+        <div className="mt-4 rounded-lg border border-border bg-foreground/[0.02] p-6 text-sm text-muted">
           Pipeline is running; no items in the current window. See{" "}
           <Link
             href="/market-intel"
@@ -854,7 +943,7 @@ async function MarketIntelLiveSection() {
           for the full chronological view.
         </div>
       ) : (
-        <div className="mt-10 space-y-2">
+        <div className="mt-4 space-y-2">
           {items.map(({ signal, ageLabel }) => (
             <LandingSignalRow
               key={signal.id}
