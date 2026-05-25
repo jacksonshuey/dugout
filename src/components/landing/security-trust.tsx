@@ -16,7 +16,7 @@ interface TrustClaim {
 const CLAIMS: TrustClaim[] = [
   {
     title: "API keys never reach the browser",
-    body: "Integration credentials live in Supabase Vault, encrypted at rest. Server-side adapters retrieve them through SECURITY DEFINER RPCs. Plaintext keys never appear in client bundles, never log, never round-trip through your network.",
+    body: "Credentials encrypted in Supabase Vault. Server-side only; never in client bundles or logs.",
     evidence: {
       label: "Vault migration",
       href: `${GITHUB_BASE}/supabase/migrations/20260523_granola_integration.sql`,
@@ -24,7 +24,7 @@ const CLAIMS: TrustClaim[] = [
   },
   {
     title: "Inbound webhooks are cryptographically verified",
-    body: "Every inbound email webhook checks an HMAC signature with a 5-minute replay window. Unsigned, expired, or tampered payloads are rejected before any DB write. No 'open inbox' attack surface.",
+    body: "HMAC signature with a 5-min replay window. Unsigned or tampered payloads rejected before any DB write.",
     evidence: {
       label: "Inbound route",
       href: `${GITHUB_BASE}/src/app/api/inbound-email/agentmail/route.ts`,
@@ -32,7 +32,7 @@ const CLAIMS: TrustClaim[] = [
   },
   {
     title: "Database is deny-all by default",
-    body: "Row-level security is enabled on every public.* table. The service role runs Dugout's reads and writes; the anon role can do nothing. A leaked anon key gets you a 404 instead of your customers' data.",
+    body: "RLS on every public.* table. Anon role can do nothing; a leaked anon key gets a 404, not data.",
     evidence: {
       label: "RLS posture",
       href: `${GITHUB_BASE}/supabase/migrations`,
@@ -40,7 +40,7 @@ const CLAIMS: TrustClaim[] = [
   },
   {
     title: "Dugout never writes back to your source systems",
-    body: "Adapters consume from Salesforce, Gong, Outreach, Granola - they never POST, PATCH, or DELETE. A bug in Dugout can produce a wrong signal. It cannot push a bad CRM update, send an unintended email, or modify your pipeline state. Read-only is the v1 contract.",
+    body: "Adapters only read from your stack. A bug here produces a wrong signal; it cannot push a bad CRM update or send an unintended email.",
     evidence: {
       label: "Principle 9",
       href: `${GITHUB_BASE}/orgs/_default/BUILD_ALIGNMENT.md`,
