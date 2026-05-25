@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Dugout — The Intelligence Layer for Sales Teams",
+  title: "Dugout - The Intelligence Layer for Sales Teams",
   description:
     "Centralized knowledge layer so no AE walks into a meeting cold. Every tool, every signal, every news cycle synthesized into the next action. Built by Jackson Shuey.",
 };

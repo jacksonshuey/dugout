@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "./supabase";
 
-// Workspace integrations — Supabase-backed config for per-workspace API
+// Workspace integrations - Supabase-backed config for per-workspace API
 // keys. Plaintext keys NEVER live in this code path; they're stored in
 // Supabase Vault and only resolved on demand via the
 // `get_workspace_integration_key` RPC.
@@ -32,7 +32,7 @@ const NOT_CONNECTED: WorkspaceIntegrationStatus = {
 };
 
 // ---------------------------------------------------------------------------
-// Status read — never returns the secret. Used by the settings page to show
+// Status read - never returns the secret. Used by the settings page to show
 // "Connected · last synced 5m ago" without exposing the key.
 // ---------------------------------------------------------------------------
 
@@ -65,7 +65,7 @@ export async function getIntegrationStatus(
 }
 
 // ---------------------------------------------------------------------------
-// Secret resolution — returns the plaintext key. Treat as sensitive.
+// Secret resolution - returns the plaintext key. Treat as sensitive.
 // ---------------------------------------------------------------------------
 
 export async function getIntegrationKey(
@@ -110,7 +110,7 @@ export async function setIntegrationKey(
 }
 
 // ---------------------------------------------------------------------------
-// Disconnect — removes the Vault secret AND the row so a revoked key can
+// Disconnect - removes the Vault secret AND the row so a revoked key can
 // never be decrypted again.
 // ---------------------------------------------------------------------------
 
@@ -130,7 +130,7 @@ export async function deleteIntegration(
 }
 
 // ---------------------------------------------------------------------------
-// Sync bookkeeping — called by the adapter after a run finishes. Updates
+// Sync bookkeeping - called by the adapter after a run finishes. Updates
 // the status fields without touching the secret.
 // ---------------------------------------------------------------------------
 

@@ -1,21 +1,21 @@
-// Forecast Confidence — grades each open opportunity A/B/C/D from signal
+// Forecast Confidence - grades each open opportunity A/B/C/D from signal
 // evidence vs the AE's forecast category. Pure derivation, no I/O.
 //
 // The question this answers: "for each deal the AE is committing to, does the
 // signal evidence back that call?" When the AE forecasts Commit/Best Case on a
 // deal where SV Health is low or blocking signals exist, the manager wants to
-// see that mismatch surfaced — that's the D-grade case.
+// see that mismatch surfaced - that's the D-grade case.
 //
 // Grade rubric (per the manager-view brief):
-//   A — SV Health ≥ 80 AND no blocking signals AND AE forecast = Commit | Best Case
-//   B — SV Health 60-79 AND ≤ 1 action signal AND AE forecast = Commit | Best Case
+//   A - SV Health ≥ 80 AND no blocking signals AND AE forecast = Commit | Best Case
+//   B - SV Health 60-79 AND ≤ 1 action signal AND AE forecast = Commit | Best Case
 //       OR  SV Health ≥ 80 AND AE forecast = Pipeline
-//   C — SV Health 40-59 OR ≥ 2 action signals
-//   D — SV Health < 40 OR (any blocking signal AND AE forecast = Commit | Best Case)
+//   C - SV Health 40-59 OR ≥ 2 action signals
+//   D - SV Health < 40 OR (any blocking signal AND AE forecast = Commit | Best Case)
 //
 // Resolution order matters: D-grade checks first (the warning), then A, then B,
 // then C as the catch-all. This keeps the "AE may be overcommitting" case
-// dominant — if both A and D would technically match (they shouldn't, but
+// dominant - if both A and D would technically match (they shouldn't, but
 // defensively), D wins.
 
 import type { Opportunity, Signal, Stage } from "@/lib/types";
@@ -33,11 +33,11 @@ export type ForecastCategory =
 export type ConfidenceGrade = "A" | "B" | "C" | "D";
 
 // Stage → forecast category default. Used when an opp has no explicit
-// `forecastCategory` field set — i.e. every seeded opp today. The mapping is
+// `forecastCategory` field set - i.e. every seeded opp today. The mapping is
 // the conservative AE default in most SFDC orgs: late-stage deals roll up to
 // Commit/Best Case, mid-stage to Pipeline, early to Omitted.
 //
-// This is the fallback only — if/when `Opportunity.forecastCategory` is
+// This is the fallback only - if/when `Opportunity.forecastCategory` is
 // populated upstream, the explicit value wins. Documented as a tuning knob in
 // the panel UI ("derived from stage when AE hasn't categorized").
 const STAGE_TO_FORECAST: Record<Stage, ForecastCategory> = {
@@ -50,7 +50,7 @@ const STAGE_TO_FORECAST: Record<Stage, ForecastCategory> = {
 };
 
 export function deriveForecastCategory(opp: Opportunity): ForecastCategory {
-  // Support an upstream-provided value via a permissive cast — same pattern the
+  // Support an upstream-provided value via a permissive cast - same pattern the
   // SV Health module uses for `assetsShared` (see lib/sv-health.ts §"Asset
   // shape"). When the field arrives via SFDC sync, no schema change required.
   const explicit = (opp as Opportunity & { forecastCategory?: ForecastCategory })
@@ -60,7 +60,7 @@ export function deriveForecastCategory(opp: Opportunity): ForecastCategory {
 }
 
 // Stages eligible for forecast grading. Anything earlier than Evaluating is
-// too speculative to grade — the AE hasn't taken a real position yet.
+// too speculative to grade - the AE hasn't taken a real position yet.
 const GRADABLE_STAGES: ReadonlySet<Stage> = new Set<Stage>([
   "Evaluating",
   "Selected Vendor",
@@ -88,7 +88,7 @@ export function computeConfidenceGrade(inputs: GradeInputs): ConfidenceGrade {
   const { svHealthScore, blockingCount: rawBlockingCount, actionCount, forecastCategory } = inputs;
 
   // Guard: blockingCount must be a number. Real callers can pass undefined when
-  // signal aggregation has a missing field — the type says `number` but runtime
+  // signal aggregation has a missing field - the type says `number` but runtime
   // data is untrustworthy. Degrade gracefully to "C" (Watch) and log so the
   // caller knows something went wrong, rather than letting `undefined >= 1` and
   // `undefined === 0` both evaluate to false and silently produce wrong grades.
@@ -96,23 +96,23 @@ export function computeConfidenceGrade(inputs: GradeInputs): ConfidenceGrade {
     typeof rawBlockingCount === "number" ? rawBlockingCount : null;
   if (blockingCount === null) {
     console.warn(
-      `forecast-confidence: blockingCount must be a number, got ${typeof rawBlockingCount} — returning safe default "C"`,
+      `forecast-confidence: blockingCount must be a number, got ${typeof rawBlockingCount} - returning safe default "C"`,
     );
     return "C";
   }
 
   const committing = isCommitting(forecastCategory);
 
-  // D (warning) — checked first so the overcommitment case dominates.
+  // D (warning) - checked first so the overcommitment case dominates.
   // Either signal evidence is dire (SV < 40) regardless of the AE's call,
   // OR the AE is committing on a deal with a blocking signal.
   if (svHealthScore < 40) return "D";
   if (blockingCount >= 1 && committing) return "D";
 
-  // A — signal evidence matches a confident AE call.
+  // A - signal evidence matches a confident AE call.
   if (svHealthScore >= 80 && blockingCount === 0 && committing) return "A";
 
-  // B — two paths:
+  // B - two paths:
   //   1. Mid-health + low-friction action volume + AE committing
   //   2. High health but AE has it in Pipeline (under-commit; still B)
   if (
@@ -126,7 +126,7 @@ export function computeConfidenceGrade(inputs: GradeInputs): ConfidenceGrade {
   }
   if (svHealthScore >= 80 && forecastCategory === "Pipeline") return "B";
 
-  // C — catch-all: mid-band health, action volume building, or pipeline-call
+  // C - catch-all: mid-band health, action volume building, or pipeline-call
   // when health is mid. Matches the spec's "SV Health 40-59 OR ≥ 2 action
   // signals" trigger, but also acts as the fallback for any combo that didn't
   // land an A or B.
@@ -137,7 +137,7 @@ export function computeConfidenceGrade(inputs: GradeInputs): ConfidenceGrade {
 //
 // For the table's "Top Signal" column we surface the single most-severe
 // signal on the opp. Severity order: blocking > action > awareness. Within a
-// tier we take the first by detectedAt desc — most recent wins.
+// tier we take the first by detectedAt desc - most recent wins.
 
 const SEVERITY_RANK: Record<Signal["severity"], number> = {
   blocking: 3,
@@ -172,6 +172,6 @@ export const GRADE_LABELS: Record<ConfidenceGrade, string> = {
 export const GRADE_DESCRIPTIONS: Record<ConfidenceGrade, string> = {
   A: "High SV Health, no blocking signals, AE forecast is confident.",
   B: "Mid-to-high health with limited friction, or healthy deal under-committed.",
-  C: "Mid-band health or rising action volume — worth a closer look.",
+  C: "Mid-band health or rising action volume - worth a closer look.",
   D: "Signal evidence does not support an AE Commit/Best Case call.",
 };

@@ -2,7 +2,7 @@
 //
 // Companion system to the signal engine. The engine detects "Demo Sat without
 // outcome-first trial brief" via NO_TRIAL_BRIEF_AT_DEMO_SAT; this module is
-// the workflow that takes the next 6 steps — AE submits an intake, SE returns
+// the workflow that takes the next 6 steps - AE submits an intake, SE returns
 // a KPI Assessment + pre-seeded demo within 48 hours, deal room is populated.
 //
 // Storage: localStorage, matching the task layer in tasks.ts. Pure functions
@@ -21,7 +21,7 @@ import type {
 import { TRIAL_INTAKE_SLA_MS } from "./types";
 
 // ---------------------------------------------------------------------------
-// Storage — client-only. Safe to call from server components; will return [].
+// Storage - client-only. Safe to call from server components; will return [].
 // Workspace-scoped exactly like tasks so preset switches don't bleed intakes
 // across.
 // ---------------------------------------------------------------------------
@@ -56,7 +56,7 @@ export function saveIntakes(
       JSON.stringify(intakes),
     );
   } catch {
-    // Quota / disabled — fail silently. Production would alert.
+    // Quota / disabled - fail silently. Production would alert.
   }
 }
 
@@ -66,7 +66,7 @@ export function clearIntakes(workspaceKey: string): void {
 }
 
 // ---------------------------------------------------------------------------
-// Pure helpers — SLA + status derivation. These are the tested seams.
+// Pure helpers - SLA + status derivation. These are the tested seams.
 // ---------------------------------------------------------------------------
 
 export interface SlaState {
@@ -98,7 +98,7 @@ export function computeSla(
   return { remainingMs, totalMs: TRIAL_INTAKE_SLA_MS, overdue, bucket };
 }
 
-// Surfaced status — "overdue" is computed at read time, never stored. Once an
+// Surfaced status - "overdue" is computed at read time, never stored. Once an
 // intake is delivered the stored status sticks (a delivered intake can't go
 // overdue retroactively).
 export function deriveStatus(
@@ -122,7 +122,7 @@ export function formatRemaining(remainingMs: number): string {
 }
 
 // ---------------------------------------------------------------------------
-// Mutators — used by action buttons in the UI. Each returns the updated list
+// Mutators - used by action buttons in the UI. Each returns the updated list
 // and persists to localStorage. Mirrors the tasks.ts shape.
 // ---------------------------------------------------------------------------
 
@@ -254,7 +254,7 @@ function appendEvent(
 }
 
 // ---------------------------------------------------------------------------
-// Signal/task reconciliation — when an intake is created for an opportunity,
+// Signal/task reconciliation - when an intake is created for an opportunity,
 // the corresponding NO_TRIAL_BRIEF_AT_DEMO_SAT task should auto-resolve. The
 // brief is in flight, the signal's behavioral premise no longer holds.
 //

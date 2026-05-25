@@ -56,7 +56,7 @@ const INTEGRATIONS: IntegrationId[] = [
 
 // Metrics map 1:1 onto the RULES library in src/lib/signal-engine.ts where
 // possible; the rest are derived measurements that flow from the same
-// integration categories. Source lists are inclusive — any one source unlocks
+// integration categories. Source lists are inclusive - any one source unlocks
 // the row.
 const CRM: IntegrationId[] = ["salesforce", "hubspot"];
 const CONV_INTEL: IntegrationId[] = ["gong", "granola"];
@@ -69,43 +69,43 @@ const METRICS: Metric[] = [
   {
     id: "finance-gate",
     name: "Finance gate unmanned (Selected Vendor)",
-    description: "Deal hit Selected Vendor without a Finance contact attached — budget approval will stall here.",
+    description: "Deal hit Selected Vendor without a Finance contact attached - budget approval will stall here.",
     sources: CRM,
   },
   {
     id: "procurement-late",
     name: "Procurement not engaged",
-    description: "Selected Vendor with no Procurement contact — signing jams unless you re-engage now.",
+    description: "Selected Vendor with no Procurement contact - signing jams unless you re-engage now.",
     sources: CRM,
   },
   {
     id: "no-finance-eval",
     name: "No Finance contact on Evaluating",
-    description: "Evaluating-stage deal still missing Finance — pull them in before the next demo, not after.",
+    description: "Evaluating-stage deal still missing Finance - pull them in before the next demo, not after.",
     sources: CRM,
   },
   {
     id: "no-it-eval",
     name: "No IT/Security contact on Evaluating",
-    description: "Evaluating-stage deal missing IT/Sec — late-stage technical block risk.",
+    description: "Evaluating-stage deal missing IT/Sec - late-stage technical block risk.",
     sources: CRM,
   },
   {
     id: "single-thread",
     name: "Single-thread risk",
-    description: "Only one contact on a real deal — one departure = full stall.",
+    description: "Only one contact on a real deal - one departure = full stall.",
     sources: CRM,
   },
   {
     id: "stage-age",
     name: "Stage age vs. benchmark",
-    description: "Deal aged past your stage benchmark in days — surface for manager triage.",
+    description: "Deal aged past your stage benchmark in days - surface for manager triage.",
     sources: CRM,
   },
   {
     id: "committee-cov",
     name: "Buying-committee coverage",
-    description: "Coverage gaps across Finance, IT, Procurement, Exec, Legal — fills as contacts get attached.",
+    description: "Coverage gaps across Finance, IT, Procurement, Exec, Legal - fills as contacts get attached.",
     sources: [...CRM, ...ENRICHMENT],
   },
 
@@ -165,7 +165,7 @@ const METRICS: Metric[] = [
   {
     id: "asset-engmt",
     name: "Buyer asset engagement",
-    description: "Time-on-asset, return visits, and who looked — straight from deal-room analytics.",
+    description: "Time-on-asset, return visits, and who looked - straight from deal-room analytics.",
     sources: DEAL_ROOMS,
   },
 
@@ -375,7 +375,7 @@ export function MetricsCheckboxDemo() {
   );
 }
 
-// Hover tooltip — description + source integration chips. Positioned above
+// Hover tooltip - description + source integration chips. Positioned above
 // the row so it overlays the row above instead of pushing layout. Stays open
 // when cursor is on the tooltip because the tooltip is a DOM child of the
 // row (mouseleave doesn't fire while cursor is on a descendant).

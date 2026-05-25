@@ -6,13 +6,13 @@ import { displayNameFor } from "@/lib/inbound-publishers";
 import { verticalFor, isTechOrAI } from "@/lib/newsletter-verticals";
 import { dedupByEntity } from "@/lib/signal-entity-dedup";
 
-// Workspace digest — tech & AI. Read-only server component that renders
+// Workspace digest - tech & AI. Read-only server component that renders
 // above the existing /market-intel tables. Merges two signal pools, dedups
 // by entity, scores by rank + recency, and renders the top 10 with
 // provenance.
 //
 // NAMING NOTE (audit P1 #10 resolution): this component is exported as
-// `WorkspaceDigest` because that's what it actually is — a workspace-wide
+// `WorkspaceDigest` because that's what it actually is - a workspace-wide
 // newsletter + relevance digest. The legacy `AEBrief` name was misleading:
 // the true AE pre-meeting brief surface lives at /account/[slug]/prep and
 // is composed of the focused components under src/components/meeting-prep/.
@@ -20,11 +20,11 @@ import { dedupByEntity } from "@/lib/signal-entity-dedup";
 // canonical entry point.
 //
 // Dual-pool logic (WS3):
-//   1. Newsletter pool — workspace-scoped signals (account_id =
+//   1. Newsletter pool - workspace-scoped signals (account_id =
 //      '__workspace__') filtered by isTechOrAI(verticalFor(publisher)).
 //      These come in via the rankedItems join and must have a
 //      publisher_canonical_name to pass the vertical gate.
-//   2. Account signal pool — account-level signals tagged workspace_relevance
+//   2. Account signal pool - account-level signals tagged workspace_relevance
 //      'high' or 'medium' by the Haiku news filter (PR #31). These have no
 //      publisher_canonical_name (NewsAPI source) so they bypass the vertical
 //      gate and are included directly.
@@ -32,7 +32,7 @@ import { dedupByEntity } from "@/lib/signal-entity-dedup";
 // Both pools are passed in via `signals`; the join loop classifies each
 // signal into exactly one gate. dedupByEntity() handles cross-pool dupes.
 //
-// Pure render — no Supabase calls, no client hooks (per BUILD_ALIGNMENT
+// Pure render - no Supabase calls, no client hooks (per BUILD_ALIGNMENT
 // #7 + #9). Every bullet renders SignalSourceChip for citation (#6).
 
 interface WorkspaceDigestProps {
@@ -82,7 +82,7 @@ function relativeAge(occurredAt: string, now: Date): string {
 }
 
 // Confidence tier from the Haiku Stage 2 filter (workspace_relevance).
-// Renders only for account-pool signals — newsletter-pool rows have no
+// Renders only for account-pool signals - newsletter-pool rows have no
 // workspace_relevance tag and the gate filters "low"/"none" out before
 // reaching this component, so in practice this renders for "high" and
 // "medium" only.
@@ -143,7 +143,7 @@ export function WorkspaceDigest({ signals, rankedItems, now }: WorkspaceDigestPr
   const joinedIds = new Set(joined.map((j) => j.signal.id));
   for (const sig of signals) {
     if (joinedIds.has(sig.id)) continue;
-    if (!!sig.publisher_canonical_name) continue; // newsletter — skip (handled above)
+    if (!!sig.publisher_canonical_name) continue; // newsletter - skip (handled above)
     if (
       sig.workspace_relevance !== "high" &&
       sig.workspace_relevance !== "medium"
@@ -175,7 +175,7 @@ export function WorkspaceDigest({ signals, rankedItems, now }: WorkspaceDigestPr
   // 5. Top 10.
   const top = scored.slice(0, 10);
 
-  // 6. Empty state — muted card only, no section header.
+  // 6. Empty state - muted card only, no section header.
   if (top.length === 0) {
     return (
       <Card className="p-4 text-sm text-muted">
@@ -188,7 +188,7 @@ export function WorkspaceDigest({ signals, rankedItems, now }: WorkspaceDigestPr
     <section>
       <div className="space-y-1 mb-3">
         <h3 className="text-sm font-semibold tracking-tight uppercase tracking-wider text-muted font-mono">
-          Workspace digest — tech &amp; AI
+          Workspace digest - tech &amp; AI
         </h3>
         <p className="text-sm text-muted">
           Top tech and AI signals from the last 48 hours, deduped and ranked

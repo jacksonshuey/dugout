@@ -16,7 +16,7 @@ import { filterEmail } from "./email-filter";
 // second provider later is just a new route handler that lands here with
 // a NormalizedInboundEmail.
 //
-// Lives in its own file to avoid a circular import — `newsletter-adapter`
+// Lives in its own file to avoid a circular import - `newsletter-adapter`
 // already imports the InboundEmail type from `inbound-email`, so we can't
 // put the pipeline back in `inbound-email.ts`.
 
@@ -93,14 +93,14 @@ async function classifyAndPersist(
   headers?: Record<string, string>,
 ): Promise<ClassificationOutcome> {
   try {
-    // Resolve publisher up front — used by both the filter (Stage 2 prompt
+    // Resolve publisher up front - used by both the filter (Stage 2 prompt
     // context) and the classifier (signal attribution columns).
     const publisherInfo = resolvePublisher({
       list_id: row.list_id ?? null,
       sender_domain: row.from_domain,
     });
 
-    // Stage 1 + Stage 2 gate. Fails CLOSED — any failure routes to
+    // Stage 1 + Stage 2 gate. Fails CLOSED - any failure routes to
     // needs_review and the classifier is NOT called. See
     // docs/filter-design.md §6 + §8.
     const filterResult = await filterEmail({
@@ -167,7 +167,7 @@ export async function processInboundEmail(
   const totalBytes = email.text_body.length + email.html_body.length;
   if (totalBytes > MAX_BODY_BYTES) {
     console.warn(
-      `[inbound-email/${provider}] body too large (${totalBytes} bytes) from=${email.from_raw.slice(0, 80)} — dropping`,
+      `[inbound-email/${provider}] body too large (${totalBytes} bytes) from=${email.from_raw.slice(0, 80)} - dropping`,
     );
     return { kind: "body_too_large", bytes: totalBytes };
   }
@@ -214,7 +214,7 @@ export async function processInboundEmail(
   }
 
   if (!row) {
-    // unique_violation on message_id — provider retried, we already have it
+    // unique_violation on message_id - provider retried, we already have it
     return { kind: "dedup" };
   }
 
@@ -224,7 +224,7 @@ export async function processInboundEmail(
 
   // Classify synchronously. Haiku averages 2-3s; well under provider webhook
   // timeouts (SendGrid 30s, Mailgun 75s). Classification failures don't 5xx
-  // — the row is saved and the daily sweeper picks it up on next run.
+  // - the row is saved and the daily sweeper picks it up on next run.
   const classification = await classifyAndPersist(row, provider, email.headers);
   return { kind: "stored", id: row.id, classification };
 }

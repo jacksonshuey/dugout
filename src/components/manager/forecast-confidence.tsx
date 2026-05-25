@@ -1,8 +1,8 @@
-// Forecast Confidence panel — per-opp A/B/C/D grade from signal evidence vs
+// Forecast Confidence panel - per-opp A/B/C/D grade from signal evidence vs
 // AE forecast category. Default sort puts D-graded deals at the top so the
 // manager sees "where the AE may be overcommitting" first.
 //
-// Pure renderer — all grading happens in lib/forecast-confidence.ts.
+// Pure renderer - all grading happens in lib/forecast-confidence.ts.
 
 import Link from "next/link";
 import {
@@ -55,8 +55,8 @@ const SEVERITY_TEXT: Record<Signal["severity"], string> = {
 // ─── Pure helper: shape the rows from raw inputs ─────────────────────────
 //
 // Kept in this file (not lib/forecast-confidence.ts) because it joins
-// React-adjacent display concerns — Account/Rep lookups, sort order, the
-// gradable-stage filter — rather than pure grading logic.
+// React-adjacent display concerns - Account/Rep lookups, sort order, the
+// gradable-stage filter - rather than pure grading logic.
 
 export function buildForecastConfidenceRows({
   opportunities,
@@ -78,7 +78,7 @@ export function buildForecastConfidenceRows({
     const owner = reps.find((r) => r.id === opp.ownerId);
     if (!account || !owner) continue;
     // If a deal has no SV Health score (e.g. no demo-scenario assetsShared
-    // populated), default to 50 — the neutral midpoint. This pushes the deal
+    // populated), default to 50 - the neutral midpoint. This pushes the deal
     // into C-grade unless other signals escalate it. Avoids silently dropping
     // deals from the panel.
     const svHealthScore = svHealthByOpp[opp.id]?.score ?? 50;

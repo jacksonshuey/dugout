@@ -10,12 +10,12 @@ export type ExternalSignalSource =
   | "sec_edgar" // public-company 8-K filings
   | "newsletter" // workspace-wide intel via the AgentMail webhook
   | "web_scrape" // per-account Firecrawl markdown scrape + Haiku classifier
-  | "claude_web_search" // deprecated — too slow for sync 60s budget
+  | "claude_web_search" // deprecated - too slow for sync 60s budget
   | "manual"
   | "demo";
 
 // Sentinel account_id for signals that aren't tied to any specific tracked
-// account — e.g. a newsletter article about a broad market trend. Stored as
+// account - e.g. a newsletter article about a broad market trend. Stored as
 // a string so the existing schema (NOT NULL account_id) doesn't need a
 // migration. Queries that scope per-account (`.eq("account_id", id)`) will
 // never match this value because no real Account uses it.
@@ -54,7 +54,7 @@ export interface ExternalSignal {
   email_subject?: string | null;
   // Set by /api/admin/signal-feedback when an operator marks a signal as
   // bad. `getWorkspaceSignals()` filters `where suppressed_at is null` so
-  // suppressed rows don't render on /market-intel (Q0 resolution — see
+  // suppressed rows don't render on /market-intel (Q0 resolution - see
   // docs/filter-design.md §12).
   suppressed_at?: string | null;
   // Universal source-content persistence (20260524_signal_source_content):
@@ -117,7 +117,7 @@ export async function getSignalsForAccount(
   // passed the old heuristic but should not reach the AE.
   //
   // Non-NewsAPI sources (newsletter, sec_edgar, demo, manual, web_scrape) are
-  // always shown — they were filtered upstream by their own pipelines.
+  // always shown - they were filtered upstream by their own pipelines.
   const { data, error } = await sb
     .from("external_signals")
     .select("*")
@@ -156,7 +156,7 @@ export async function getWorkspaceSignals(
   // /market-intel. Older rows that pre-date the column also satisfy this
   // (NULL is null), so the filter is backward-compatible.
   // Universal-source filter: only return signals that carry a verifiable
-  // source — either an inbound_email_id (newsletter body in inbound_emails)
+  // source - either an inbound_email_id (newsletter body in inbound_emails)
   // or persisted source_content_md (NewsAPI / Firecrawl / SEC). Signals
   // without either are hidden until backfill catches them up. Honors the
   // principle "every signal must verify against the exact derivation source".
@@ -272,7 +272,7 @@ export async function insertSignal(
 // Bulk insert with simple dedup-by-url: if a signal with the same account_id
 // + url already exists, skip it. Returns the inserted count.
 //
-// This is good-enough dedup for daily cron runs — real production would use
+// This is good-enough dedup for daily cron runs - real production would use
 // a unique constraint + ON CONFLICT, but this keeps the schema simple and
 // works fine at our volume.
 //
@@ -300,7 +300,7 @@ export async function insertSignalsDedup(
   );
 
   const toInsert = signals.filter((s) => {
-    if (!s.url) return true; // can't dedup without URL — let it through
+    if (!s.url) return true; // can't dedup without URL - let it through
     return !existingKey.has(`${s.account_id}::${s.url}`);
   });
 

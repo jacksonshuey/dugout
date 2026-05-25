@@ -11,7 +11,7 @@
 //
 // At cap: the route returns 429 with retry_after_seconds. The UI shows a
 // clear "you've hit a cap" message. We do NOT silently downgrade to stub
-// at cap — Jackson wants hard stops, not invisible degradation.
+// at cap - Jackson wants hard stops, not invisible degradation.
 //
 // Supabase-unavailable posture: we treat it as "allow, log a warning."
 // Failing closed would mean a Supabase outage takes /ask offline; that
@@ -68,7 +68,7 @@ export async function checkAndRecordAskRequest(
   try {
     return await checkAndRecordInner(args, deps);
   } catch (e) {
-    // Defense-in-depth catch — any unexpected Supabase or network failure
+    // Defense-in-depth catch - any unexpected Supabase or network failure
     // degrades to allow rather than blocking the demo. Visible in logs.
     console.warn(
       `[ask-rate-limit] Unexpected error, allowing request: ${e instanceof Error ? e.message : String(e)}`,
@@ -85,7 +85,7 @@ async function checkAndRecordInner(
   const nowMs = now.getTime();
 
   // Resolve the Supabase client. If it's not configured (no env vars), we
-  // log once and allow through — see the "Supabase-unavailable posture"
+  // log once and allow through - see the "Supabase-unavailable posture"
   // note in the file header.
   let sb: SupabaseClient;
   try {
@@ -168,10 +168,10 @@ async function checkAndRecordInner(
     };
   }
 
-  // All caps clear — record the request and allow. We write the row BEFORE
+  // All caps clear - record the request and allow. We write the row BEFORE
   // the agent runs so a request that crashes mid-agent still counts
   // against the cap. (Worst case: a few "completed" rows that didn't
-  // actually finish — fine for cap math.)
+  // actually finish - fine for cap math.)
   const { error: insertErr } = await sb.from("ask_request_log").insert({
     session_id: args.sessionId,
     workspace_id: args.workspaceId ?? null,
@@ -193,7 +193,7 @@ async function checkAndRecordInner(
 
 // ─── Helpers ────────────────────────────────────────────────────────────
 
-// Hourly cap uses a sliding window — once the oldest in-window request
+// Hourly cap uses a sliding window - once the oldest in-window request
 // ages out, capacity returns. We don't have cheap access to the oldest
 // timestamp in this code path without an extra query, so we return the
 // full hour as a conservative retry hint. A few minutes of over-quote on

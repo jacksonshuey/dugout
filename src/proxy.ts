@@ -2,7 +2,7 @@
 // first page request so that subsequent client-side calls to the protected
 // API routes (digest, studio, slack, external-signals) carry it.
 //
-// Matcher excludes /api so this never runs on the API itself — auth is
+// Matcher excludes /api so this never runs on the API itself - auth is
 // checked inside each route handler, which the Next docs explicitly call
 // out as the correct pattern (proxy is not a substitute for in-handler
 // auth, especially for server actions which can be moved between routes).
@@ -18,7 +18,7 @@ export async function proxy(req: NextRequest) {
   if (req.cookies.get(UI_SESSION_COOKIE_NAME)) return res;
 
   const token = await mintUiSessionToken();
-  if (!token) return res; // secret missing — API routes will 500 with a clear error
+  if (!token) return res; // secret missing - API routes will 500 with a clear error
 
   res.cookies.set({
     name: UI_SESSION_COOKIE_NAME,

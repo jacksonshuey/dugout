@@ -1,4 +1,4 @@
-// /account/[slug] — the substrate surface. One account, full chronological
+// /account/[slug] - the substrate surface. One account, full chronological
 // timeline, every signal source unified, every signal citation-chain'd back
 // to source_event_id. This is the click-through destination for citation
 // chips from every other surface (drawer, console, /ask, manager, digest).
@@ -8,22 +8,22 @@
 //     (see node_modules/next/dist/docs/01-app/01-getting-started/03-layouts-
 //     and-pages.md and AGENTS.md "This is NOT the Next.js you know").
 //   - Reads via the same `src/lib/*` helpers that back /api/account-context
-//     (B3) — skipping the HTTP roundtrip per BUILD_ALIGNMENT principle #7
+//     (B3) - skipping the HTTP roundtrip per BUILD_ALIGNMENT principle #7
 //     (server components prefer lib functions over self-fetch).
 //   - Imports the SV Health Hero (U2) and Procurement Tracker (U3) via the
-//     coordination contract names — those siblings own their files; this
+//     coordination contract names - those siblings own their files; this
 //     page only renders them with the agreed prop shape.
 //
 // Layout, top to bottom (per the build brief):
 //   1. Account header (brand-color band, name, domain, industry, segment,
 //      owner of the most-advanced opp).
-//   2. SV Health Score Hero — only when an SV/Contracting opp exists.
+//   2. SV Health Score Hero - only when an SV/Contracting opp exists.
 //   3. Open opportunities table.
 //   4. Buying committee panel (grouped by role, engagement-coded).
 //   5. Procurement tracker (SV/Contracting opps only).
-//   6. External-context strip — news + SEC + newsletter, lifted out of the
+//   6. External-context strip - news + SEC + newsletter, lifted out of the
 //      timeline for visual prominence.
-//   7. Unified signal timeline — every source, newest first, citation chips.
+//   7. Unified signal timeline - every source, newest first, citation chips.
 //
 // Hard rules respected:
 //   - No direct Supabase. Only `src/lib/*` helpers.
@@ -80,7 +80,7 @@ import { SVHealthHero } from "@/components/sv-health-hero";
 import { ProcurementTracker } from "@/components/procurement-tracker";
 import { TimelineRow } from "./timeline-row";
 
-// Force dynamic — this page reads workspace config + Supabase-backed signal
+// Force dynamic - this page reads workspace config + Supabase-backed signal
 // stores and should never be statically prerendered. Mirrors the route handler.
 export const dynamic = "force-dynamic";
 
@@ -96,7 +96,7 @@ const STAGE_RANK: Record<Stage, number> = {
   Contracting: 5,
 };
 
-// External-context-eligible source tools — these get lifted out of the
+// External-context-eligible source tools - these get lifted out of the
 // unified timeline into the "External context" strip for visual prominence.
 const EXTERNAL_SOURCE_TOOLS = new Set([
   "newsapi",
@@ -225,7 +225,7 @@ export default async function AccountPage({
   );
 }
 
-// ─── Data load (server-side, lib helpers only — principle #7) ───────────
+// ─── Data load (server-side, lib helpers only - principle #7) ───────────
 
 type AccountContext = {
   account: Account;
@@ -275,7 +275,7 @@ async function loadAccountContext(account: Account): Promise<AccountContext> {
   );
   const engineSignals = [...evaluatedSignals, ...demoForAccount];
 
-  // ── Source #2: external_signals (Supabase) — non-fatal ────────────────
+  // ── Source #2: external_signals (Supabase) - non-fatal ────────────────
   let externalSignals: ExternalSignal[] = [];
   try {
     externalSignals = await getExternalSignalsForAccount(account.id, 100);
@@ -287,7 +287,7 @@ async function loadAccountContext(account: Account): Promise<AccountContext> {
     );
   }
 
-  // ── Source #3: meeting_signals (Granola via Supabase) — non-fatal ─────
+  // ── Source #3: meeting_signals (Granola via Supabase) - non-fatal ─────
   let meetingSignals: MeetingSignalRow[] = [];
   try {
     const ctx = await getIntegrationContext();
@@ -304,7 +304,7 @@ async function loadAccountContext(account: Account): Promise<AccountContext> {
     );
   }
 
-  // ── Unify into one timeline; newest first. No window-filter here — the
+  // ── Unify into one timeline; newest first. No window-filter here - the
   // full account page should show the long tail by default. Pagination
   // happens in the timeline component.
   const unified: UnifiedSignal[] = [];
@@ -339,13 +339,13 @@ async function loadAccountContext(account: Account): Promise<AccountContext> {
     }
   }
 
-  // Correlations computed but unused on the page today — the SV Hero (U2)
+  // Correlations computed but unused on the page today - the SV Hero (U2)
   // and the procurement tracker (U3) cite specific correlation patterns
   // (e.g. champion_disengagement across 3 sources). Left in scope for a
   // future "Patterns" section if the call for it lands.
   void computeCorrelations(unified);
 
-  // Account-scoped activities — used by per-opp surfaces that need to
+  // Account-scoped activities - used by per-opp surfaces that need to
   // observe the raw activity log (e.g. ProcurementTracker milestone state).
   const accountOppIds = new Set(accountOpps.map((o) => o.id));
   const accountActivities = activities.filter((a) => accountOppIds.has(a.oppId));
@@ -429,7 +429,7 @@ function SVHealthSection({
       <section className="space-y-2">
         <SectionHeader label="SV Health Score" />
         <div className="rounded-xl border border-dashed border-border px-4 py-6 text-sm text-muted italic">
-          No active Selected-Vendor deal — health score not applicable.
+          No active Selected-Vendor deal - health score not applicable.
         </div>
       </section>
     );
@@ -461,7 +461,7 @@ function OpenOpportunitiesSection({
       </section>
     );
   }
-  // Pull champion name as the "next next-step" proxy — the seed Opportunity
+  // Pull champion name as the "next next-step" proxy - the seed Opportunity
   // shape doesn't carry an explicit next_step field, so we surface the
   // champion's name as a stand-in. Schema proposal: add `nextStep` +
   // `nextStepDate` to Opportunity for v1.5.
@@ -515,7 +515,7 @@ function OpenOpportunitiesSection({
                     {ageDays}d
                   </td>
                   <td className="px-3 py-2.5 text-muted">
-                    {owner?.name ?? "—"}
+                    {owner?.name ?? "-"}
                   </td>
                   <td className="px-3 py-2.5 text-muted">
                     {champ?.name ?? (
@@ -540,7 +540,7 @@ function OpenOpportunitiesSection({
 // Engagement proxy: a contact is "engaged" if at least one signal in the
 // last 14 days mentions them in its derived JSONB. v1 doesn't yet have
 // per-contact attribution in the unified pipeline, so we fall back to a
-// simpler heuristic — a contact counts as engaged if a signal of type
+// simpler heuristic - a contact counts as engaged if a signal of type
 // `committee_expansion` or `momentum_change`+positive references their opp
 // recently, AND silent if a `champion_disengagement` or `committee_gap`
 // signal references their opp recently. When neither, status is shown as
@@ -760,7 +760,7 @@ function UnifiedTimelineSection({ signals }: { signals: UnifiedSignal[] }) {
       </section>
     );
   }
-  // First page only on the server — 30 rows per the brief. Future iteration:
+  // First page only on the server - 30 rows per the brief. Future iteration:
   // wire URL-driven pagination (?page=2). The full row count is in the
   // section sub so the user knows how much is below the fold.
   const PAGE = 30;

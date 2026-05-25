@@ -1,7 +1,7 @@
-// Firecrawl client — typed wrapper around POST https://api.firecrawl.dev/v2/scrape.
+// Firecrawl client - typed wrapper around POST https://api.firecrawl.dev/v2/scrape.
 // Spec source: https://docs.firecrawl.dev/api-reference/v2-endpoint/scrape
 //
-// We use the markdown format with onlyMainContent enabled — that's the
+// We use the markdown format with onlyMainContent enabled - that's the
 // sweet spot for LLM ingestion: navs/footers/cookie banners stripped,
 // content kept readable. Firecrawl's `onlyCleanContent` runs an extra
 // LLM pass to remove boilerplate; we skip it (extra latency + cost on
@@ -9,16 +9,16 @@
 // anyway).
 //
 // 404s / 500s on the scraped URL come back as `success: true` with the
-// target's statusCode in metadata — we surface that as `ok: false` so
+// target's statusCode in metadata - we surface that as `ok: false` so
 // the adapter can decide whether to store an error row or skip.
 //
-// 429 from Firecrawl itself (we exceeded our rate limit) throws — the
+// 429 from Firecrawl itself (we exceeded our rate limit) throws - the
 // adapter catches and records the per-account error.
 
 const FIRECRAWL_BASE = "https://api.firecrawl.dev/v2";
 const REQUEST_TIMEOUT_MS = 30_000;
 // /map is a sitemap+crawl-graph lookup, typically much faster than /scrape
-// (no page render). 25s is generous — most calls return in <3s.
+// (no page render). 25s is generous - most calls return in <3s.
 const MAP_REQUEST_TIMEOUT_MS = 25_000;
 
 export interface FirecrawlScrapeOptions {
@@ -73,7 +73,7 @@ function getApiKey(): string {
 }
 
 // Acceptable target page status codes. Anything outside this range we treat
-// as a soft failure — the page either doesn't exist (404) or is broken
+// as a soft failure - the page either doesn't exist (404) or is broken
 // (5xx) and there's nothing to classify.
 function isUsableStatus(code: number | null | undefined): boolean {
   return typeof code === "number" && code >= 200 && code < 400;
@@ -180,7 +180,7 @@ export async function scrapeUrl(
 // Returns up to `limit` URLs discovered from the target's sitemap.xml +
 // crawl graph. Much cheaper + faster than /scrape (no page render, no
 // markdown extraction). We use it from the adapter to discover the actual
-// content paths a site exposes — replaces the hardcoded
+// content paths a site exposes - replaces the hardcoded
 // `["/", "/about", "/news", "/leadership"]` set that fails on sites that
 // route differently (Stripe uses /blog, Boeing uses /newsroom, etc).
 //
@@ -189,7 +189,7 @@ export async function scrapeUrl(
 // continue with the next account.
 
 export interface FirecrawlMapOptions {
-  // Cap on the returned URL list. Default 20 — enough to filter down to
+  // Cap on the returned URL list. Default 20 - enough to filter down to
   // ~6 high-signal pages after substring matching.
   limit?: number;
   // Optional server-side search filter Firecrawl applies before returning
@@ -243,7 +243,7 @@ export async function mapUrl(
   clearTimeout(timer);
 
   if (res.status === 429) {
-    // Same posture as scrapeUrl — surface as a throw so the adapter's
+    // Same posture as scrapeUrl - surface as a throw so the adapter's
     // try/catch records it as a per-account skip and moves on.
     throw new Error("Firecrawl rate limit (429)");
   }
@@ -271,7 +271,7 @@ export async function mapUrl(
 
   // Firecrawl v2 returns `links` as an array. Historically responses have
   // shipped as either `["https://..."]` or `[{ url: "https://..." }]`
-  // depending on the request — accept both shapes defensively.
+  // depending on the request - accept both shapes defensively.
   const raw = Array.isArray(body.links) ? body.links : [];
   const urls = raw
     .map((entry): string | null => {

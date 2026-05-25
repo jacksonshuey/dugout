@@ -30,7 +30,7 @@ import { requireUiSession } from "@/lib/ui-auth-server";
 
 function buildSystemPrompt(workspace: WorkspaceConfig): string {
   const assetList = workspace.assets
-    .map((a) => `- "${a.name}" — ${a.description}`)
+    .map((a) => `- "${a.name}" - ${a.description}`)
     .join("\n");
   const priorityList = workspace.priorities
     .map((p) => `- ${p.id} · ${p.name}: ${p.description}`)
@@ -57,10 +57,10 @@ Write a 60–90 second morning digest the rep will actually read on their phone.
 VOICE AND RULES
 - Address the rep by first name once at the top. Then drop into pure substance.
 - Lead with what's BLOCKING. One action, named asset, today.
-- Group the rest as ACTION items — each with the specific account, the specific gap, the specific next move.
+- Group the rest as ACTION items - each with the specific account, the specific gap, the specific next move.
 - Skip awareness items unless they are surprising.
 - Reference asset names from the list above verbatim. Reference priorities by their name when it sharpens the why.
-- If a MARKET INTELLIGENCE block is provided, add a short "### Market intel" section at the end. One bullet per item. Skip the section entirely if nothing is materially relevant to this rep's book. Never lead with market intel — it follows the deal-specific work.
+- If a MARKET INTELLIGENCE block is provided, add a short "### Market intel" section at the end. One bullet per item. Skip the section entirely if nothing is materially relevant to this rep's book. Never lead with market intel - it follows the deal-specific work.
 - No filler. No "Here's your morning digest" intros. Get to the work.
 - Format: markdown with ### headers ("### Blocking", "### Action", optionally "### Market intel"), bullets under each.
 - Total length: 150–250 words.
@@ -92,7 +92,7 @@ async function fetchMarketIntelBlock(): Promise<string> {
     if (signals.length === 0) return "";
     return `\n\nMARKET INTELLIGENCE (workspace-wide, past ${MARKET_INTEL_LOOKBACK_DAYS} days):\n${signals.map(describeMarketSignal).join("\n")}`;
   } catch (e) {
-    // Supabase unreachable or table missing — non-fatal. The digest still
+    // Supabase unreachable or table missing - non-fatal. The digest still
     // works without the market intel block; the rep just doesn't get one.
     console.warn(
       "[digest] market intel fetch failed (continuing without)",

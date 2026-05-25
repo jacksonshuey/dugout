@@ -27,7 +27,7 @@ import {
 } from "@/components/manager/coaching-brief";
 import { TopAccountsCard } from "@/components/manager/top-accounts";
 
-// Manager view. Derived entirely from the signal engine — same source as the
+// Manager view. Derived entirely from the signal engine - same source as the
 // AE Console, just aggregated by owner. Server-rendered (no localStorage,
 // unlike the task layer which is per-browser).
 //
@@ -72,7 +72,7 @@ export default async function ManagerPage() {
     .map(([label, accountId]) => {
       const account = accounts.find((a) => a.id === accountId);
       if (!account) return null;
-      // First Selected Vendor / Contracting opp on the account — matches the
+      // First Selected Vendor / Contracting opp on the account - matches the
       // SV+ gating used by /api/account-context.
       const opp = opportunities.find(
         (o) =>
@@ -106,7 +106,7 @@ export default async function ManagerPage() {
       } => s !== null,
     );
 
-  // SV Health Score per opportunity — used by the Forecast Confidence panel
+  // SV Health Score per opportunity - used by the Forecast Confidence panel
   // below. We compute it for every opp (not just the 3 demo scenarios above)
   // so the panel grades the full open book. Same composition as the hero card.
   const svHealthByOpp: Record<string, SVHealthScore | undefined> = {};
@@ -128,7 +128,7 @@ export default async function ManagerPage() {
     });
   }
 
-  // Forecast confidence rows + coaching briefs — both pure derivations from
+  // Forecast confidence rows + coaching briefs - both pure derivations from
   // the same in-process state the rest of the page reads. Computed at render
   // time so the manager view stays a single server render with no client work.
   const forecastRows = buildForecastConfidenceRows({
@@ -145,7 +145,7 @@ export default async function ManagerPage() {
     accounts,
   });
 
-  // Per-AE roll-up. Filter to AE role specifically — managers, SDRs, SEs
+  // Per-AE roll-up. Filter to AE role specifically - managers, SDRs, SEs
   // don't own deals in the seed.
   const aes = reps.filter((r) => r.role === "AE");
 
@@ -216,7 +216,7 @@ export default async function ManagerPage() {
         </h1>
         <p className="text-sm text-muted mt-1 max-w-2xl">
           Team health at a glance. Rep-level metrics derived from the signal
-          engine — same source as the AE Console at{" "}
+          engine - same source as the AE Console at{" "}
           <Link href="/console" className="text-foreground hover:underline">
             /console
           </Link>
@@ -224,7 +224,7 @@ export default async function ManagerPage() {
         </p>
       </div>
 
-      {/* Hero #0 — SV Health Score dashboard. The demo opening shot per
+      {/* Hero #0 - SV Health Score dashboard. The demo opening shot per
          discovery/information-requirements.md "Hero Surface #0". */}
       {scenarios.length > 0 && <SVHealthHeroDashboard scenarios={scenarios} />}
 
@@ -335,17 +335,17 @@ export default async function ManagerPage() {
         </div>
       </section>
 
-      {/* Forecast confidence — per-opp A/B/C/D grade from SV Health + signal
+      {/* Forecast confidence - per-opp A/B/C/D grade from SV Health + signal
          evidence vs AE forecast category. D-grade rows surface first so the
          manager sees overcommit risk before anything else. */}
       <ForecastConfidencePanel rows={forecastRows} />
 
-      {/* Per-rep coaching brief — clusters CallTranscript.riskFlags into
+      {/* Per-rep coaching brief - clusters CallTranscript.riskFlags into
          recurring themes per rep, recommends the highest-density risky call
          as a "review this" CTA. */}
       <CoachingBriefPanel briefs={coachingBriefs} />
 
-      {/* Named accounts momentum — ranks strategic/enterprise accounts by
+      {/* Named accounts momentum - ranks strategic/enterprise accounts by
          recent external research-signal volume (P6: ABM motion). Pairs with
          the ABM_SHADOW_RESEARCH rule. */}
       <TopAccountsCard
@@ -359,7 +359,7 @@ export default async function ManagerPage() {
         <span className="font-semibold text-foreground">v1.5 roadmap:</span>{" "}
         task completion rate, action latency (time-from-signal-to-action), and
         deal velocity (stage age vs benchmark). All require persisting tasks
-        server-side — currently localStorage in the Console. When tasks move to
+        server-side - currently localStorage in the Console. When tasks move to
         Supabase, this page is the natural surface.
       </div>
     </div>
@@ -367,7 +367,7 @@ export default async function ManagerPage() {
 }
 
 // ---------------------------------------------------------------------------
-// StatCard — local to this page; mirrors the visual language of the
+// StatCard - local to this page; mirrors the visual language of the
 // drawer/settings stat tiles without taking a dep on a shared component.
 // ---------------------------------------------------------------------------
 

@@ -1,6 +1,6 @@
 // Publisher → vertical lookup. Source of truth for canonical names is
 // `inbound-publishers.ts`; vertical taxonomy is `docs/newsletters/MASTER.md`
-// §1 (the 9-vertical inventory). Pure module — no I/O.
+// §1 (the 9-vertical inventory). Pure module - no I/O.
 
 export type NewsletterVertical =
   | "ai-cross-cutting"
@@ -36,7 +36,7 @@ const PUBLISHER_VERTICAL: Record<string, NewsletterVertical> = {
 };
 
 // Unknown publishers return null. Callers decide whether to include or
-// exclude — we don't fall back to a default vertical because misrouting a
+// exclude - we don't fall back to a default vertical because misrouting a
 // signal silently is worse than leaving it untagged.
 export function verticalFor(
   publisherCanonicalName: string,

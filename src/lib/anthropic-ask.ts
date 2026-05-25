@@ -53,7 +53,7 @@ function getKeyFromEnvOrFile(): string | null {
 export const HAS_ANTHROPIC_KEY: boolean = Boolean(getKeyFromEnvOrFile());
 
 // Returns an Anthropic client, or null if no key is configured. Callers
-// MUST handle the null case — see `src/lib/ask-agent.ts` for the stub
+// MUST handle the null case - see `src/lib/ask-agent.ts` for the stub
 // fallback.
 export function getAnthropicClient(): Anthropic | null {
   const key = getKeyFromEnvOrFile();

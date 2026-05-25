@@ -24,7 +24,7 @@ export async function requireUiSession(): Promise<NextResponse | null> {
   return null;
 }
 
-// Server action guard. Throws on failure — Next propagates the error to the
+// Server action guard. Throws on failure - Next propagates the error to the
 // client. The message is intentionally generic.
 export async function requireUiSessionAction(): Promise<void> {
   const c = await cookies();

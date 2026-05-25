@@ -1,6 +1,6 @@
 // Types for the market-intel ranker.
 //
-// Pure type module — no imports beyond ExternalSignal. Keeps the ranker
+// Pure type module - no imports beyond ExternalSignal. Keeps the ranker
 // dependency graph shallow: the cache, stub, prompt, and main entry all
 // import from here and nowhere else for shared shapes.
 //
@@ -56,9 +56,9 @@ export type StubReason =
   | "haiku_timeout" // request exceeded 15s wall clock
   | "haiku_malformed_json" // parser couldn't validate response
   | "haiku_schema_violation" // valid JSON, failed our schema (>20, missing field, bad signal_id, citation mismatch, items>signals)
-  | "empty_input"; // signals: [] — short-circuit to empty result
+  | "empty_input"; // signals: [] - short-circuit to empty result
 
-// Cache key composition — deterministic, no Date.now inside the type.
+// Cache key composition - deterministic, no Date.now inside the type.
 export interface CacheKey {
   workspace_key: string; // slugified workspace name
   date_bucket: string; // formatHourBucketUTC(now) → "2026-05-23-17"

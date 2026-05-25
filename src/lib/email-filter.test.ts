@@ -504,7 +504,7 @@ describe("filterEmail · fail-closed paths", () => {
     expect(r.decision).toBe("needs_review");
     expect(r.stage2_failure).toBe("no_api_key");
     expect(recorder.writes[0].model).toBeNull();
-    expect(recorder.writes[0].reasoning).toBe("no_api_key — Stage 2 skipped");
+    expect(recorder.writes[0].reasoning).toBe("no_api_key - Stage 2 skipped");
   });
 });
 

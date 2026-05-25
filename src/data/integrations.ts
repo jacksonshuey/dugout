@@ -18,7 +18,7 @@ export type AuthMethod =
 export type DeploymentMode =
   | "hosted"        // Dugout runs the adapter / cron / connection
   | "your-stack"    // workspace-config display only; runs against your existing tenant
-  | "your-channel"; // delivery surface — your Slack workspace, etc.
+  | "your-channel"; // delivery surface - your Slack workspace, etc.
 
 export type DataDirection = "read" | "inbound" | "outbound" | "bidirectional";
 
@@ -213,7 +213,7 @@ export const INTEGRATIONS: IntegrationSpec[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Display helpers — keep the matrix and the constellation aligned without
+// Display helpers - keep the matrix and the constellation aligned without
 // each surface inventing its own label vocabulary.
 // ---------------------------------------------------------------------------
 

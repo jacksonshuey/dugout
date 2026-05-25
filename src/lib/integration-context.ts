@@ -1,4 +1,4 @@
-// Integration context — the single swap point between "cookie-derived
+// Integration context - the single swap point between "cookie-derived
 // workspace identity" (today) and "authed user/workspace identity" (future).
 //
 // Why this file exists: when Google sign-in lands, every adapter, route, and
@@ -39,7 +39,7 @@ export function slugifyWorkspaceKey(companyName: string): string {
 
 // Server-only: derive an IntegrationContext from the current request's
 // workspace cookie. Imports `next/headers` transitively via
-// getWorkspaceConfig() — never call this from a client component.
+// getWorkspaceConfig() - never call this from a client component.
 export async function getIntegrationContext(): Promise<IntegrationContext> {
   const cfg = await getWorkspaceConfig();
   return {

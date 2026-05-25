@@ -6,13 +6,13 @@ import { SourcePreviewModal } from "./source-preview-modal";
 // Source-attribution chip for a single market-intel signal.
 //
 // Renders, in order: publisher chip + subject line + view-source link.
-// "View source" always opens the SourcePreviewModal — the universal
+// "View source" always opens the SourcePreviewModal - the universal
 // verification path. The modal picks its render strategy by source kind:
 // emails get a sandboxed HTML iframe via /api/admin/inbound-email/<id>;
 // non-email signals (NewsAPI, Firecrawl, SEC) render persisted markdown
 // via /api/admin/signal-source/<signalId>. Publisher attribution falls
 // back to `sender_domain` when `publisher_canonical_name` is missing
-// (older pre-attribution rows — Q8 resolution, docs/filter-design.md §12).
+// (older pre-attribution rows - Q8 resolution, docs/filter-design.md §12).
 //
 // Stateless except for the modal/feedback open booleans. The parent passes
 // the resolved display + URL fields; the chip does not query Supabase
@@ -42,7 +42,7 @@ export function SignalSourceChip(props: SignalSourceChipProps) {
   const [feedbackBusy, setFeedbackBusy] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
 
-  const publisherLabel = publisherDisplayName ?? senderDomainFallback ?? "—";
+  const publisherLabel = publisherDisplayName ?? senderDomainFallback ?? "-";
 
   async function submitFeedback() {
     if (!feedbackReason.trim()) return;
@@ -62,7 +62,7 @@ export function SignalSourceChip(props: SignalSourceChipProps) {
       if (!r.ok || json.error) {
         setFeedbackMsg(json.error ?? `HTTP ${r.status}`);
       } else {
-        setFeedbackMsg("Marked bad — refresh to see it disappear.");
+        setFeedbackMsg("Marked bad - refresh to see it disappear.");
         setFeedbackReason("");
       }
     } catch (e) {

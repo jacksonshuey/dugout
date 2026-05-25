@@ -10,7 +10,7 @@ import {
 // misconfigured). Lists every message currently in every inbox on the
 // account, fetches each one's full body, and runs the same
 // `processInboundEmail` pipeline the live webhook uses. Storage dedup on
-// `inbound_emails.message_id` makes this idempotent — running it twice
+// `inbound_emails.message_id` makes this idempotent - running it twice
 // stores nothing the second time.
 //
 // Auth: CRON_SECRET via `Authorization: Bearer ${CRON_SECRET}`. Mirrors
@@ -24,9 +24,9 @@ import {
 //     https://trydugout.com/api/admin/agentmail-backfill
 //
 // Optional query params:
-//   ?limit=50       (default 50, max 200) — caps total messages processed
+//   ?limit=50       (default 50, max 200) - caps total messages processed
 //                   per invocation to stay under the 300s function timeout.
-//   ?inbox_id=…     — restrict to one inbox; default is all inboxes.
+//   ?inbox_id=…     - restrict to one inbox; default is all inboxes.
 //
 // AgentMail API reference (live): https://docs.agentmail.to/llms-full.txt
 
@@ -92,7 +92,7 @@ async function agentMailGet<T>(path: string, apiKey: string): Promise<T> {
 }
 
 // RFC-2919: List-ID may be "<inner-id>" or "Description <inner-id>". The
-// webhook handler does the same extraction — mirror it so backfilled rows
+// webhook handler does the same extraction - mirror it so backfilled rows
 // resolve to the same publisher.
 function extractListId(headers?: Record<string, string>): string | null {
   if (!headers) return null;

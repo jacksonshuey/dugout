@@ -5,8 +5,8 @@
 // source_event_id, or "engine-derived" when source_event_id is null).
 //
 // Per BUILD_ALIGNMENT principle #6 (evidence chain mandatory): every signal
-// MUST surface its citation. Where source_event_id is missing — which
-// happens for the deterministic rule-engine signals — we render an explicit
+// MUST surface its citation. Where source_event_id is missing - which
+// happens for the deterministic rule-engine signals - we render an explicit
 // "engine-derived" note so the user understands why there's no link to a
 // raw source row. The unifier currently stamps `sourceEventId = ruleId` for
 // engine signals, so the null path is reserved for future cases (e.g. if we
@@ -35,7 +35,7 @@ export function TimelineRow({ signal }: { signal: UnifiedSignal }) {
       ? "▲"
       : signal.direction === "negative"
         ? "▼"
-        : "—";
+        : "-";
   const directionClass =
     signal.direction === "positive"
       ? "text-severity-green"
@@ -46,9 +46,9 @@ export function TimelineRow({ signal }: { signal: UnifiedSignal }) {
   const sourceLabel = SOURCE_LABEL[signal.sourceTool] ?? signal.sourceTool;
   const sourceIcon = SOURCE_ICON[signal.sourceTool] ?? "·";
 
-  // Citation chip — either a "view source" affordance (when source_event_id
+  // Citation chip - either a "view source" affordance (when source_event_id
   // exists) or a plain "engine-derived" note. We don't currently navigate
-  // anywhere on click — the affordance is the visible source attribution
+  // anywhere on click - the affordance is the visible source attribution
   // itself, which is what the alignment principle requires.
   const citationLabel = signal.sourceEventId
     ? `${sourceLabel} · ${truncate(signal.sourceEventId, 28)}`
@@ -116,7 +116,7 @@ export function TimelineRow({ signal }: { signal: UnifiedSignal }) {
               )}
               title={
                 signal.sourceEventId ??
-                "Engine-derived signal — no source_event_id"
+                "Engine-derived signal - no source_event_id"
               }
             >
               {citationLabel}
@@ -130,7 +130,7 @@ export function TimelineRow({ signal }: { signal: UnifiedSignal }) {
             <Field label="source_tool" value={signal.sourceTool} />
             <Field
               label="source_event_id"
-              value={signal.sourceEventId ?? "(null — engine-derived)"}
+              value={signal.sourceEventId ?? "(null - engine-derived)"}
             />
             <Field label="occurred_at" value={signal.occurredAt} />
           </div>
@@ -180,7 +180,7 @@ const SOURCE_LABEL: Record<string, string> = {
   manual: "Manual",
 };
 
-// Source icons — emojis intentionally avoided per voice rule #8. Using
+// Source icons - emojis intentionally avoided per voice rule #8. Using
 // monospace glyphs as inline source markers instead. Replaced 1:1 with the
 // simple-icons SVGs once the design pass lands.
 const SOURCE_ICON: Record<string, string> = {

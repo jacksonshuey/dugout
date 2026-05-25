@@ -1,11 +1,11 @@
 import type { ExternalSignalType, NewExternalSignal } from "./external-signals";
 import { scrapeUrl } from "./firecrawl-client";
 
-// SEC EDGAR adapter — fetches recent 8-K filings for public-company accounts
+// SEC EDGAR adapter - fetches recent 8-K filings for public-company accounts
 // and maps the filing's Item codes into ExternalSignal rows.
 //
 // Why 8-K specifically: it's the form companies file when something material
-// happens between scheduled reports — acquisitions, earnings, executive
+// happens between scheduled reports - acquisitions, earnings, executive
 // departures, layoffs/restructuring, material agreements. By definition the
 // "material events" form. 10-K / 10-Q (annual / quarterly) are noise for
 // sales because by the time those file the AE already knows.
@@ -48,8 +48,8 @@ const TICKER_TO_CIK: Record<string, string> = {
 // 8-K Item code → signal classification + human label. Codes from SEC Form 8-K
 // instructions. Ordered by sales-team materiality: when a single filing
 // carries multiple items, the first match wins as the primary classification.
-// Item 9.01 ("Financial Statements and Exhibits") is procedural — it just
-// declares that exhibits are attached — and is excluded from priority lookup
+// Item 9.01 ("Financial Statements and Exhibits") is procedural - it just
+// declares that exhibits are attached - and is excluded from priority lookup
 // so it doesn't shadow the real material item it's paired with.
 const ITEM_PRIORITY: {
   code: string;
@@ -219,7 +219,7 @@ export async function fetchSignalsForTicker(
     const summary = buildSummary(companyName, itemCodes);
     const filingUrl = accession ? buildFilingUrl(cik, accession, primaryDoc) : null;
 
-    // Universal source-content persistence — Firecrawl the 8-K primary
+    // Universal source-content persistence - Firecrawl the 8-K primary
     // document so SourcePreviewModal can render the actual filing the AE
     // Brief is summarizing. Skip the signal on scrape failure (principle:
     // every signal must verify against the exact source). Firecrawl handles
@@ -232,11 +232,11 @@ export async function fetchSignalsForTicker(
         scrapedMd = scrape.markdown;
       } else {
         console.warn(
-          `[sec-adapter] scrape failed accession=${accession} status=${scrape.ok ? "empty_body" : scrape.statusCode ?? "err"} — skipping signal`,
+          `[sec-adapter] scrape failed accession=${accession} status=${scrape.ok ? "empty_body" : scrape.statusCode ?? "err"} - skipping signal`,
         );
       }
     } catch (e) {
-      // 429 from Firecrawl — propagate so the cron handler can break.
+      // 429 from Firecrawl - propagate so the cron handler can break.
       throw e;
     }
     if (!scrapedMd) continue;

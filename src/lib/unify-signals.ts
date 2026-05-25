@@ -4,7 +4,7 @@
 // agent's get_account_context tool.
 //
 // Design rules (per orgs/_default/BUILD_ALIGNMENT.md):
-//   - Pure functions only — no I/O, no fetch, no Supabase here.
+//   - Pure functions only - no I/O, no fetch, no Supabase here.
 //   - signal_type ∈ the canonical 12 only (#2).
 //   - severity ∈ {blocking, action, awareness} only (#3).
 //   - direction ∈ {negative, positive, neutral} only (#4).
@@ -63,7 +63,7 @@ export type Correlation = {
 //
 // Per synthesis.md §1: NewsAPI / SEC items about a specific account land in
 // `account_context`. Newsletter items default to `vertical_context` UNLESS
-// they were classified to a real account (account_id !== sentinel) — by
+// they were classified to a real account (account_id !== sentinel) - by
 // the time we get here the caller has already filtered to a specific
 // account, so we always emit `account_context`. Severity floor is
 // `awareness` unless the type itself is more urgent.
@@ -92,7 +92,7 @@ function directionForExternalType(t: ExternalSignalType): SignalDirection {
       return "neutral";
     default:
       // leadership_change, champion_job_change, ma_acquisition, layoff,
-      // competitor_mention, regulatory_action — negative for v1 risk lens.
+      // competitor_mention, regulatory_action - negative for v1 risk lens.
       return "negative";
   }
 }
@@ -138,7 +138,7 @@ export function mapMeetingSignal(s: MeetingSignalRow): {
     case "budget_concern":
       return { signalType: "momentum_change", direction: "negative" };
     default:
-      // Defensive — schema validates the enum upstream, but keep an honest
+      // Defensive - schema validates the enum upstream, but keep an honest
       // fallback so a future classifier type doesn't crash the route.
       return { signalType: "account_context", direction: "neutral" };
   }
@@ -345,7 +345,7 @@ export function computeCorrelations(signals: UnifiedSignal[]): Correlation[] {
     });
   }
 
-  // Most-recently-reinforced first — that's what the UI cares about.
+  // Most-recently-reinforced first - that's what the UI cares about.
   out.sort((a, b) => (a.lastReinforcedAt < b.lastReinforcedAt ? 1 : -1));
   return out;
 }

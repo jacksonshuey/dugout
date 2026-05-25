@@ -18,7 +18,7 @@ import {
   type WorkspaceRelevance,
 } from "./workspace-relevance";
 
-// Newsletter adapter — takes a stored inbound email, extracts material
+// Newsletter adapter - takes a stored inbound email, extracts material
 // business signals via Haiku, and maps them to either a tracked account
 // (when a known company is named) or the workspace sentinel (general
 // market intelligence).
@@ -26,7 +26,7 @@ import {
 // Mirrors the structure of news-adapter.ts so the two pipelines stay
 // legible together. Key differences:
 //   - One Haiku call per email, not per company.
-//   - Output is { mention, type, summary, url?, workspace_relevance } —
+//   - Output is { mention, type, summary, url?, workspace_relevance } -
 //     the mention is a free-text entity name we match against trackable
 //     accounts post-hoc.
 //   - Unmatched mentions become workspace-scoped signals.
@@ -47,11 +47,11 @@ const HAIKU_TIMEOUT_MS = 15_000;
 
 // Truncate email body to this many characters before sending to Haiku.
 // Newsletters past this length (e.g. 50K-char digests) get costly and the
-// signal-density drops off fast — earliest content is usually the lead.
+// signal-density drops off fast - earliest content is usually the lead.
 const MAX_BODY_CHARS = 12_000;
 
 // ---------------------------------------------------------------------------
-// Env loading — same fallback as news-adapter.ts.
+// Env loading - same fallback as news-adapter.ts.
 // ---------------------------------------------------------------------------
 
 function getEnvOrFile(name: string): string | null {
@@ -76,7 +76,7 @@ function anthropicClient(): Anthropic {
 }
 
 // ---------------------------------------------------------------------------
-// HTML → plaintext fallback. Minimal regex stripper — good enough for
+// HTML → plaintext fallback. Minimal regex stripper - good enough for
 // newsletters that don't include text_body. Avoids adding cheerio/parse5
 // as a dependency just for this.
 // ---------------------------------------------------------------------------
@@ -138,7 +138,7 @@ interface RawExtraction {
 // ---------------------------------------------------------------------------
 // Forced tool-use schema. Modeled on news-filter.ts's submit_verdict tool:
 // single tool, forced tool_choice, schema-validated post-hoc. The model
-// returns { items: [...] } — one extraction per material event.
+// returns { items: [...] } - one extraction per material event.
 // ---------------------------------------------------------------------------
 
 const TOOL_NAME = "submit_extraction";
@@ -203,10 +203,10 @@ ${body}
 
 YOUR JOB
 Extract every material business event mentioned that the sales team should know about. For each event:
-1. Identify the company/entity it concerns (the "mention" — exactly as it appears in the text, e.g. "Stripe", "Moderna", "OpenAI").
+1. Identify the company/entity it concerns (the "mention" - exactly as it appears in the text, e.g. "Stripe", "Moderna", "OpenAI").
 2. Classify the event type using one of: leadership_change, champion_job_change, ma_acquisition, funding_round, layoff, earnings, product_launch, press_release, competitor_mention, regulatory_action, partnership, other.
 3. Write a 1-2 sentence factual summary (≤200 chars, no markdown).
-4. Tag the workspace_relevance tier per the rubric below — REQUIRED on every extraction.
+4. Tag the workspace_relevance tier per the rubric below - REQUIRED on every extraction.
 5. If a specific URL is referenced for that event, capture it (omit if no URL).
 
 Skip:
@@ -217,7 +217,7 @@ Skip:
 
 ${WORKSPACE_RELEVANCE_DEFINITION}
 
-# Output format — forced tool-use, mandatory
+# Output format - forced tool-use, mandatory
 You MUST emit your answer via the \`${TOOL_NAME}\` tool. Free-text replies are invalid. Return an empty items array when the newsletter contains no material events. Do not invent facts. No preamble.`;
 }
 
@@ -243,7 +243,7 @@ async function callHaikuReal(args: {
         model: HAIKU_MODEL,
         max_tokens: 2000,
         // Locked at 0.1 (was implicit SDK default ~1.0). Newsletter
-        // classification needs determinism, not creativity — same email
+        // classification needs determinism, not creativity - same email
         // should yield the same extraction list across re-runs.
         temperature: 0.1,
         tools: [
@@ -320,7 +320,7 @@ async function classifyWithHaiku(
 }
 
 // ---------------------------------------------------------------------------
-// Account matching — deterministic, post-hoc against the mention text.
+// Account matching - deterministic, post-hoc against the mention text.
 // We match against account name, ticker, and a normalized website slug
 // (e.g. "modernatx.com" → matches mention "Moderna" via name; mention
 // "MRNA" via ticker).
@@ -367,7 +367,7 @@ export interface NewsletterClassification {
   workspace: number;
 }
 
-// Optional injection seam — tests can pass `haikuCall` to skip the network
+// Optional injection seam - tests can pass `haikuCall` to skip the network
 // entirely. Production callers omit it and the real Anthropic SDK is used.
 export interface ClassifyNewsletterDeps {
   haikuCall?: NewsletterHaikuCall;
@@ -384,7 +384,7 @@ export async function classifyNewsletter(
   try {
     extractions = await classifyWithHaiku(email, deps.haikuCall);
   } catch (e) {
-    // No heuristic fallback here — newsletters are too varied for keyword
+    // No heuristic fallback here - newsletters are too varied for keyword
     // matching to produce useful signals. Better to leave them unclassified
     // and let a re-run pick them up when Haiku is healthy again.
     console.warn(
@@ -433,7 +433,7 @@ export async function classifyNewsletter(
         matched: Boolean(acc),
         // Capture the ingestion time independently of occurred_at so the
         // ranker has access to "when Dugout learned this" distinct from
-        // "when the event happened" — newsletter classifiers usually
+        // "when the event happened" - newsletter classifiers usually
         // align them, but a digest published on Monday about a Saturday
         // event has a real gap the ranker should see.
         received_at: email.received_at,
@@ -452,7 +452,7 @@ export async function classifyNewsletter(
       // types. Prefer html_body for fidelity; fall back to text_body.
       source_content_md: email.html_body ?? email.text_body ?? null,
       source_content_kind: email.html_body ? "email_html" : "email_text",
-      // Workspace relevance tier set by Haiku — drives the AE Brief filter.
+      // Workspace relevance tier set by Haiku - drives the AE Brief filter.
       workspace_relevance: x.workspace_relevance,
     } as NewExternalSignal;
   });

@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 //
 // Server availability comes from GET /api/ask/providers. We fetch once on
 // mount; if the call fails we treat both providers as unavailable
-// (everything but stub greys out) — defensive default keeps the demo
+// (everything but stub greys out) - defensive default keeps the demo
 // usable on a Supabase outage.
 //
 // Sticky choice: persisted in localStorage under DUGOUT_ASK_CHOICE so a
@@ -107,7 +107,7 @@ export function useAskChoice(): {
         return parsed;
       }
     } catch {
-      // ignore — corrupt LS falls back to the default
+      // ignore - corrupt LS falls back to the default
     }
     return DEFAULT_CHOICE;
   });
@@ -146,7 +146,7 @@ export function useAskChoice(): {
     };
   }, []);
 
-  // Derive the "effective" choice from the stored choice + availability —
+  // Derive the "effective" choice from the stored choice + availability -
   // no setState-in-effect needed. If the user persisted (say) "openai"
   // but the key isn't configured this session, the dropdown shows stub
   // without rewriting localStorage. As soon as the key shows up (server
@@ -167,7 +167,7 @@ export function useAskChoice(): {
     try {
       window.localStorage.setItem(LS_KEY, JSON.stringify(c));
     } catch {
-      // ignore — non-persistent is fine
+      // ignore - non-persistent is fine
     }
   }, []);
 

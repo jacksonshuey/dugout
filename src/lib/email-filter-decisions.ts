@@ -66,14 +66,14 @@ export async function writeDecision(
 
     if (error) {
       console.warn(
-        `[email-filter] audit_write_failed: ${error.message} id=${decision.inbound_email_id} — continuing`,
+        `[email-filter] audit_write_failed: ${error.message} id=${decision.inbound_email_id} - continuing`,
       );
       return null;
     }
     return (data as { id: string }).id;
   } catch (e) {
     console.warn(
-      `[email-filter] audit_write_failed: ${e instanceof Error ? e.message : String(e)} id=${decision.inbound_email_id} — continuing`,
+      `[email-filter] audit_write_failed: ${e instanceof Error ? e.message : String(e)} id=${decision.inbound_email_id} - continuing`,
     );
     return null;
   }

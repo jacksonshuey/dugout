@@ -24,18 +24,18 @@ import { getWorkspaceConfig } from "@/lib/workspace-server";
 import { workspaceKey } from "@/lib/workspace";
 import { DEFAULT_CONFIG } from "@/lib/workspace";
 
-// Browser for workspace-scoped market intel signals — the items extracted
+// Browser for workspace-scoped market intel signals - the items extracted
 // by the newsletter classifier (src/lib/newsletter-adapter.ts) that didn't
 // match any tracked account. Complements the morning digest's "Market intel"
 // section: the digest summarizes; this page lists.
 //
 // Two tables now:
-//   1. "Ranked by relevance" — top 20 from the Haiku ranker (or stub
+//   1. "Ranked by relevance" - top 20 from the Haiku ranker (or stub
 //      fallback). Hidden entirely when items.length === 0.
-//   2. "All signals (chronological)" — the existing full list, newest first.
+//   2. "All signals (chronological)" - the existing full list, newest first.
 //
 // Read-only server render. Fails soft if Supabase is unreachable or the
-// inbound_emails / external_signals pipeline hasn't been set up yet — the
+// inbound_emails / external_signals pipeline hasn't been set up yet - the
 // page renders a "no intel yet" empty state pointing at the README.
 
 // Force per-request rendering. The page reads from Supabase and otherwise
@@ -46,7 +46,7 @@ export const dynamic = "force-dynamic";
 const LOOKBACK_DAYS = 30;
 const MAX_ITEMS = 200;
 
-// Ranker window — 48h per design doc §0. Distinct from LOOKBACK_DAYS
+// Ranker window - 48h per design doc §0. Distinct from LOOKBACK_DAYS
 // (which gates the chronological table) so the ranker focuses on the
 // freshest material.
 const RANKER_LOOKBACK_HOURS = 48;
@@ -109,7 +109,7 @@ const TYPE_LABELS: Record<string, string> = {
 
 // Build the AccountKeyword[] the ranker uses for account fan-in. Cheap
 // projection of the seed accounts that are marked trackable. `domain_slug`
-// is derived from `Account.website` when present — e.g. "modernatx.com"
+// is derived from `Account.website` when present - e.g. "modernatx.com"
 // → "modernatx". Falls back to undefined when the seed row has no
 // website, in which case name + ticker matching is what the ranker uses.
 function buildAccountKeywords(): AccountKeyword[] {
@@ -129,7 +129,7 @@ function buildAccountKeywords(): AccountKeyword[] {
 }
 
 export default async function MarketIntelPage() {
-  // Server component with force-dynamic — reading current time is fine here
+  // Server component with force-dynamic - reading current time is fine here
   // because the page re-runs per request. The react-hooks/purity rule can't
   // tell server components apart from client ones, so suppress this line.
   // eslint-disable-next-line react-hooks/purity
@@ -193,7 +193,7 @@ export default async function MarketIntelPage() {
   );
 
   // Run the ranker over the last 48h of workspace signals. Wrapped in its
-  // own try so a ranker bug never bubbles up and 500s the page — the
+  // own try so a ranker bug never bubbles up and 500s the page - the
   // ranker module also has an outer try/catch, this is belt-and-braces.
   let rankerResult: RankerResult | null = null;
   if (signals && signals.length > 0 && !fetchError) {
@@ -252,7 +252,7 @@ export default async function MarketIntelPage() {
         </Card>
       ) : signals && signals.length > 0 ? (
         <div className="space-y-10">
-          {/* Section 1: account-named signals first — audit P2 #16. The
+          {/* Section 1: account-named signals first - audit P2 #16. The
               prior order put workspace newsletters above account-named
               intel; reversed here so the AE sees the items tied to a
               tracked account (KKR, Snowflake, etc.) before generic
@@ -278,7 +278,7 @@ export default async function MarketIntelPage() {
             <div className="border-t border-border pt-2" aria-hidden />
           )}
 
-          {/* Section 2: workspace intel — newsletters + the legacy AE
+          {/* Section 2: workspace intel - newsletters + the legacy AE
               brief synthesis. Renamed component, same shape. */}
           <section className="space-y-6">
             <div className="space-y-1">
@@ -319,7 +319,7 @@ export default async function MarketIntelPage() {
   );
 }
 
-// Server component — queries the inbox so the empty state can distinguish
+// Server component - queries the inbox so the empty state can distinguish
 // "literally no newsletters yet" from "newsletters received, classifier
 // hasn't run." Fail-soft: if the inbox query throws, fall back to the
 // generic empty state.
@@ -362,11 +362,11 @@ function PendingClassificationState({
         <div className="font-medium">
           {pendingCount > 0
             ? `${pendingCount} newsletter${pendingCount === 1 ? "" : "s"} waiting to be parsed`
-            : `${totalCount} newsletter${totalCount === 1 ? "" : "s"} received — no material signals extracted yet`}
+            : `${totalCount} newsletter${totalCount === 1 ? "" : "s"} received - no material signals extracted yet`}
         </div>
         <div className="text-muted">
           {pendingCount > 0
-            ? "Newsletters have landed in the inbox. The classifier emits signals here as it runs — usually within seconds of arrival, or on the next sweeper pass."
+            ? "Newsletters have landed in the inbox. The classifier emits signals here as it runs - usually within seconds of arrival, or on the next sweeper pass."
             : "Every received newsletter was parsed; nothing in the last batch matched a tracked account or hit the material-event bar."}
         </div>
       </div>
@@ -411,7 +411,7 @@ function PendingClassificationState({
 
 // Ranked-by-relevance table. Joins the page's signal list against the
 // ranker's items[] by signal_id. Items whose signal_id is no longer in the
-// chronological list (shouldn't happen — same fetch — but defensive) are
+// chronological list (shouldn't happen - same fetch - but defensive) are
 // skipped silently. The rationale renders the [citation:id] marker as a
 // small monospace chip so it's visually distinct from the prose.
 function RankedTable({
@@ -439,7 +439,7 @@ function RankedTable({
             const s = byId.get(item.signal_id);
             if (!s) return null;
             const meta = readMeta(s);
-            const mention = meta.mention ?? "—";
+            const mention = meta.mention ?? "-";
             const typeLabel = TYPE_LABELS[s.type] ?? s.type;
             return (
               <tr
@@ -502,7 +502,7 @@ function renderRationale(rationale: string): React.ReactNode {
 
 // Table for the "Your tracked accounts" section. Each row links the
 // account name + summary + source. Sort key: workspace_relevance HIGH
-// before MEDIUM, then newest first inside each band — keeps the most
+// before MEDIUM, then newest first inside each band - keeps the most
 // material items at the top regardless of recency drift.
 function AccountNamedTable({ signals }: { signals: ExternalSignal[] }) {
   const accountById = new Map(accounts.map((a) => [a.id, a]));
@@ -595,8 +595,8 @@ function SignalTable({ signals }: { signals: ExternalSignal[] }) {
         <tbody>
           {signals.map((s) => {
             const meta = readMeta(s);
-            const sender = meta.sender_domain ?? "—";
-            const mention = meta.mention ?? "—";
+            const sender = meta.sender_domain ?? "-";
+            const mention = meta.mention ?? "-";
             const typeLabel = TYPE_LABELS[s.type] ?? s.type;
             return (
               <tr

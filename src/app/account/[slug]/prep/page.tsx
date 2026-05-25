@@ -1,14 +1,14 @@
-// /account/[slug]/prep — the AE pre-meeting prep surface.
+// /account/[slug]/prep - the AE pre-meeting prep surface.
 //
 // Server-rendered. Reads the MeetingBrief shape via the in-process
-// synthesizer (no HTTP roundtrip to /api/firecrawl/company-scope —
+// synthesizer (no HTTP roundtrip to /api/firecrawl/company-scope -
 // BUILD_ALIGNMENT principle #7 says server components prefer lib helpers
 // over self-fetch). The HTTP route exists for the Phase 6 Claude Code
 // skill agent and any future external consumer.
 //
 // UX: minimal, scannable in 30 seconds. No client state, no carousel.
 // Optional `?refresh=1` searchParam is a hint to the caller that the
-// brief was just regenerated — used to inject a small toast band so the
+// brief was just regenerated - used to inject a small toast band so the
 // AE sees the freshness; otherwise the page is purely declarative.
 
 import Link from "next/link";
@@ -88,7 +88,7 @@ export default async function MeetingPrepPage({
       {showPendingEmptyState ? (
         <Card className="px-6 py-8 text-center space-y-3">
           <div className="text-sm font-medium">
-            Crawling {brief.accountName} now — check back in ~60 seconds.
+            Crawling {brief.accountName} now - check back in ~60 seconds.
           </div>
           <p className="text-sm text-muted max-w-xl mx-auto">
             No scraped data is available yet. Hitting refresh will regenerate

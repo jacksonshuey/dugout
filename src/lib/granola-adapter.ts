@@ -17,7 +17,7 @@ import {
 } from "./meeting-signals";
 import { recordSyncResult } from "./workspace-integrations";
 
-// Granola adapter — orchestrates one sync run for one workspace.
+// Granola adapter - orchestrates one sync run for one workspace.
 //
 // Pipeline:
 //   1. List notes created in the lookback window.
@@ -61,7 +61,7 @@ export interface SyncOptions {
 }
 
 // ---------------------------------------------------------------------------
-// Helpers — pure so they're testable without the network.
+// Helpers - pure so they're testable without the network.
 // ---------------------------------------------------------------------------
 
 export function extractDomain(email: string): string | null {
@@ -71,7 +71,7 @@ export function extractDomain(email: string): string | null {
 }
 
 // All attendee + organiser emails, deduped. The Granola attendee list and the
-// calendar_event.invitees can overlap — collapse both.
+// calendar_event.invitees can overlap - collapse both.
 export function collectAllEmails(note: GranolaNote): string[] {
   const set = new Set<string>();
   for (const a of note.attendees) {
@@ -88,7 +88,7 @@ export function collectAllEmails(note: GranolaNote): string[] {
   return [...set];
 }
 
-// Domains we treat as "internal" — the organiser's domain plus the note
+// Domains we treat as "internal" - the organiser's domain plus the note
 // owner's. Used to filter internal-only meetings AND to strip the
 // vendor side out of attendee-matching.
 export function internalDomains(note: GranolaNote): string[] {
@@ -103,7 +103,7 @@ export function internalDomains(note: GranolaNote): string[] {
 }
 
 // True when every attendee+invitee shares an internal domain. Cheap free
-// filter — saves the LLM call for vendor 1:1s / team standups.
+// filter - saves the LLM call for vendor 1:1s / team standups.
 export function isInternalOnly(note: GranolaNote): boolean {
   const emails = collectAllEmails(note);
   if (emails.length === 0) return true; // No attendees → nothing to extract.
@@ -210,7 +210,7 @@ async function processMatchedNote(
       const fetched = await client.getNote(note.id);
       summary = fetched.summary_markdown ?? fetched.summary_text ?? "";
     } catch {
-      // Couldn't refetch — treat as no-summary, classifier will short-circuit.
+      // Couldn't refetch - treat as no-summary, classifier will short-circuit.
     }
   }
 
@@ -267,7 +267,7 @@ export async function syncGranola(opts: SyncOptions): Promise<SyncResult> {
   try {
     overrides = await getAccountOverrides(workspaceKey);
   } catch (e) {
-    // Non-fatal — proceed without overrides if Supabase is grumpy.
+    // Non-fatal - proceed without overrides if Supabase is grumpy.
     console.warn(
       "[granola-adapter] Override fetch failed; proceeding without overrides",
       e instanceof Error ? e.message : String(e),
@@ -398,7 +398,7 @@ export async function syncGranola(opts: SyncOptions): Promise<SyncResult> {
         ? "partial"
         : "error";
 
-  // Bookkeeping write — store enough to show "last sync" in settings.
+  // Bookkeeping write - store enough to show "last sync" in settings.
   try {
     await recordSyncResult(workspaceKey, "granola", {
       status,

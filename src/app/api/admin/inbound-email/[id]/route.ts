@@ -8,11 +8,11 @@ import { requireUiSession } from "@/lib/ui-auth-server";
 // /market-intel. Fields: id, subject, from_address, from_domain,
 // received_at, text_body, html_body.
 //
-// Auth: requireUiSession() — same gate as the other paid routes (Q7
+// Auth: requireUiSession() - same gate as the other paid routes (Q7
 // resolution in docs/filter-design.md §12).
 //
 // Per-row authorization (e.g. only the workspace owner can view) is
-// explicitly out of scope for v1 — Dugout is single-tenant per HANDOFF.md
+// explicitly out of scope for v1 - Dugout is single-tenant per HANDOFF.md
 // §12. When multi-tenant lands, add a workspace_id check here.
 
 export const runtime = "nodejs";

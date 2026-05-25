@@ -5,17 +5,17 @@ import type { MeetingBrief } from "@/lib/meeting-prep";
 // short prescription so the AE knows what to ask about in the meeting.
 
 const GAP_PRESCRIPTIONS: Record<string, string> = {
-  Champion: "Identify a champion this week — without one the deal won't progress.",
+  Champion: "Identify a champion this week - without one the deal won't progress.",
   "Executive Sponsor":
-    "Ask the champion for an EB intro before the next milestone — exec sign-off can't be last-minute.",
+    "Ask the champion for an EB intro before the next milestone - exec sign-off can't be last-minute.",
   Finance:
-    "Map a Finance contact before the next buyer meeting — budget approval is the canonical kill point.",
+    "Map a Finance contact before the next buyer meeting - budget approval is the canonical kill point.",
   "IT/Security":
-    "Get IT involved now — security reviews average 2-4 weeks and gate Contracting.",
+    "Get IT involved now - security reviews average 2-4 weeks and gate Contracting.",
   Legal:
     "Loop in Legal early to head off MSA red-line surprises.",
   Procurement:
-    "Get Procurement scoped before paperwork lands — saves weeks of triage.",
+    "Get Procurement scoped before paperwork lands - saves weeks of triage.",
 };
 
 export function BuyingCommittee({

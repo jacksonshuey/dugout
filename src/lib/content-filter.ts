@@ -6,7 +6,7 @@
 // about the source.
 //
 // Design constraints:
-//   1. Type-only module — no runtime imports beyond WorkspaceRelevance.
+//   1. Type-only module - no runtime imports beyond WorkspaceRelevance.
 //      Keeps the dependency graph shallow so adapters can import without
 //      pulling in supabase, anthropic, etc.
 //   2. Generic over the content payload `T` so newsletter adapters can
@@ -17,7 +17,7 @@
 //
 // Alignment with news-filter-v3: that branch defines its own
 // `FilterContext` and `Stage2Result` shapes in `news-filter-types.ts`.
-// Both shapes are compatible with this contract — news-filter-v3's
+// Both shapes are compatible with this contract - news-filter-v3's
 // `FilterContext` is a superset of ours; its `Stage2Result` is a
 // `FilterResult` plus a `model` field. When v3 merges, that file should
 // re-export `WorkspaceRelevance` from here and converge on this
@@ -34,7 +34,7 @@ export interface FilterContext {
   account_industry?: string | null;
   account_id?: string;
   workspace_name: string;
-  // Primary vertical of the workspace — e.g. "tech_ai". The
+  // Primary vertical of the workspace - e.g. "tech_ai". The
   // WORKSPACE_RELEVANCE_DEFINITION prose uses this to anchor the rubric.
   primary_vertical: string;
 }

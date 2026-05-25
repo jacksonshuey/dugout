@@ -14,18 +14,18 @@ import {
 } from "@/lib/ask-rate-limit";
 import type { Citation } from "@/lib/ask-tools";
 
-// POST /api/ask — natural-language query layer (U4 + D1).
+// POST /api/ask - natural-language query layer (U4 + D1).
 //
 // Pipeline:
-//   1. requireUiSession() — cookie gate (matches every other /api/* route)
+//   1. requireUiSession() - cookie gate (matches every other /api/* route)
 //   2. Parse body { question, accountSlug?, provider?, model? }
 //   3. Resolve session id from `dugout-ask-session` cookie (set on first
 //      hit; client-generated UUID), used as the rate-limit identity
-//   4. checkAndRecordAskRequest() — 20/hr session, 100/day session,
+//   4. checkAndRecordAskRequest() - 20/hr session, 100/day session,
 //      500/day global. At cap: 429 with retry_after_seconds. HARD STOP.
 //      No stub fallback at cap (per directive #3).
-//   5. runAskAgent() — provider-agnostic loop. Provider-side failure
-//      falls back to stub WITH stubReason set (per directive — provider
+//   5. runAskAgent() - provider-agnostic loop. Provider-side failure
+//      falls back to stub WITH stubReason set (per directive - provider
 //      failures are different from cap-breaches).
 //
 // Defaults: provider=stub, model=stub-deterministic. The dropdown ensures
@@ -83,12 +83,12 @@ export async function POST(req: Request) {
     );
   }
 
-  // Default to stub when the caller doesn't pick a provider — keeps the
+  // Default to stub when the caller doesn't pick a provider - keeps the
   // pre-D1 demo working for any old client that POSTs just { question }.
   const provider: AskProvider = body.provider ?? "stub";
   const model: AskModel = body.model ?? "stub-deterministic";
 
-  // Defense in depth — the dropdown should never emit a bad combo, but
+  // Defense in depth - the dropdown should never emit a bad combo, but
   // refuse it server-side if it ever does.
   if (!isValidProviderModel(provider, model)) {
     return NextResponse.json(
@@ -108,7 +108,7 @@ export async function POST(req: Request) {
     mintedSession = true;
   }
 
-  // Rate-limit check. Hard stop at cap — no stub fallback.
+  // Rate-limit check. Hard stop at cap - no stub fallback.
   const gate = await checkAndRecordAskRequest({
     sessionId,
     provider,

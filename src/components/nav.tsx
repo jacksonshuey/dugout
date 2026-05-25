@@ -7,8 +7,8 @@ import { cn } from "@/lib/utils";
 // Top bar. On the landing page (`/`) the link strip is suppressed per the
 // session 5 decision to keep the marketing experience uncluttered (only the
 // logo + "Jump to demo" CTA remain). On every other route we render a
-// discrete row of links to the operator surfaces — Console, Manager, Ask,
-// Market Intel, Spec, Settings — so the demo audience can click between
+// discrete row of links to the operator surfaces - Console, Manager, Ask,
+// Market Intel, Spec, Settings - so the demo audience can click between
 // surfaces without typing URLs. The current route is highlighted in the
 // brand color.
 
@@ -29,14 +29,14 @@ export function Nav() {
     <header className="border-b border-border bg-background sticky top-0 z-30">
       <div className="px-4 h-12 flex items-center justify-between gap-4">
         <Link href="/" className="flex items-center gap-2 shrink-0">
-          {/* Logo mark — a baseball base seen in 3/4 forward perspective.
+          {/* Logo mark - a baseball base seen in 3/4 forward perspective.
               Trapezoidal foreshortening (wider top edge than bottom) reads
               as a flat tile tilted toward the viewer. Thin inner outline
               gives subtle dimension without selling it as 3D. */}
           <span
             aria-hidden
             className="w-5 h-5 rounded-[5px] bg-brand flex items-center justify-center"
-            title="Dugout — the intelligence layer for sales teams"
+            title="Dugout - the intelligence layer for sales teams"
           >
             <svg
               viewBox="0 0 24 18"

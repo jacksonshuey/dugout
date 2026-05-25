@@ -11,7 +11,7 @@ import { TrialIntakeDetailView } from "../_components/trial-intake-detail-view";
 // workspace scope key to the client. The client component merges seed +
 // localStorage, looks up the intake by id, and renders the SLA timer +
 // action buttons. If the id isn't in the seed it must be a locally-created
-// intake — the client handles the lookup, so this route stays valid at
+// intake - the client handles the lookup, so this route stays valid at
 // build time without a generateStaticParams call.
 
 export default async function TrialIntakeDetailPage({

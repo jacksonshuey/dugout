@@ -15,7 +15,7 @@ import { BrandLogo, getBrandName } from "./logos";
 // ("here's exactly how, and where the data lives").
 //
 // Optional `health` map (from server-side checkAllHealth()) adds a runtime
-// "Configured" column. Without it, the column is omitted — the component
+// "Configured" column. Without it, the column is omitted - the component
 // still renders as a static reference table.
 
 export function IntegrationsMatrix({
@@ -148,7 +148,7 @@ function MobileRow({
 
 function HealthCell({ health }: { health?: IntegrationHealth }) {
   if (!health) {
-    return <span className="text-[11px] text-muted">—</span>;
+    return <span className="text-[11px] text-muted">-</span>;
   }
   const cls =
     health.mode === "live"
@@ -157,7 +157,7 @@ function HealthCell({ health }: { health?: IntegrationHealth }) {
         ? "text-severity-blocking"
         : "text-muted";
   const glyph =
-    health.mode === "live" ? "✓" : health.mode === "missing" ? "!" : "—";
+    health.mode === "live" ? "✓" : health.mode === "missing" ? "!" : "-";
   return (
     <span
       className={`inline-flex items-center gap-1.5 ${cls}`}

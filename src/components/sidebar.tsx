@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import type { Stage } from "@/lib/types";
 import type { DealHealth } from "@/lib/types";
 
-// Console sidebar — primary navigation. Three views + four filter facets.
+// Console sidebar - primary navigation. Three views + four filter facets.
 // Each filter is multi-select via toggle pills.
 
 export type ConsoleView = "pipeline" | "today" | "digest";

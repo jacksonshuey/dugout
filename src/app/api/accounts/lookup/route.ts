@@ -17,8 +17,8 @@ import type { Account } from "@/lib/types";
 // muddy the route's contract. This route is a pure read.
 //
 // Data sources:
-//   - DB: listTrackableAccounts() — production-added accounts (Phase 4)
-//   - Seed: src/data/seed.ts accounts — the 11 demo accounts that
+//   - DB: listTrackableAccounts() - production-added accounts (Phase 4)
+//   - Seed: src/data/seed.ts accounts - the 11 demo accounts that
 //     buildMeetingBrief also falls back to (see meeting-prep.ts:resolveAccount).
 //
 // Match heuristic:
@@ -26,7 +26,7 @@ import type { Account } from "@/lib/types";
 //   - case-insensitive prefix on name
 //   - domain ends-with on website / domain
 //
-// Auth: dual-path (UI session cookie OR DUGOUT_SKILL_TOKEN bearer) — same
+// Auth: dual-path (UI session cookie OR DUGOUT_SKILL_TOKEN bearer) - same
 // pattern as /api/firecrawl/company-scope so the skill can call both with
 // a single header.
 
@@ -120,7 +120,7 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // Pull DB accounts (failsoft — empty list on Supabase trouble so the
+  // Pull DB accounts (failsoft - empty list on Supabase trouble so the
   // skill still resolves seed-only matches in local dev).
   let dbAccounts: Account[] = [];
   try {
@@ -129,7 +129,7 @@ export async function GET(req: NextRequest) {
     dbAccounts = [];
   }
 
-  // Combine seed + DB, dedup by id (seed wins on collision — the demo
+  // Combine seed + DB, dedup by id (seed wins on collision - the demo
   // accounts use stable `acc_<name>` ids that DB uuid inserts can't
   // collide with, but defensive dedup is cheap).
   const byId = new Map<string, Account>();

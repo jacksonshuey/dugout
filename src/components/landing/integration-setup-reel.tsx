@@ -46,7 +46,7 @@ const ORDER: Phase[] = [
   "constellation",
 ];
 
-// matchMedia subscription via useSyncExternalStore — avoids a setState-in-
+// matchMedia subscription via useSyncExternalStore - avoids a setState-in-
 // effect cascade and gives correct SSR behavior (treat as "no preference"
 // on the server, then re-render after hydration if reduce is on).
 function subscribeReducedMotion(callback: () => void) {
@@ -66,7 +66,7 @@ export function IntegrationSetupReel({
   health,
 }: {
   integrations: IntegrationSlot[];
-  // Per-brand configuration health from `checkAllHealth()`. Optional —
+  // Per-brand configuration health from `checkAllHealth()`. Optional -
   // when omitted, chips fall back to the static status color and skip the
   // missing-credential treatment.
   health?: Record<string, IntegrationHealth>;
@@ -123,7 +123,7 @@ export function IntegrationSetupReel({
 }
 
 // ---------------------------------------------------------------------------
-// Setup card — simulated Granola connector form.
+// Setup card - simulated Granola connector form.
 // ---------------------------------------------------------------------------
 
 function SetupCard({ phase }: { phase: Phase }) {
@@ -131,7 +131,7 @@ function SetupCard({ phase }: { phase: Phase }) {
     phase === "filling-fields" ||
     phase === "verifying" ||
     phase === "success";
-  // The key is visually "complete" once we leave typing-key — every later
+  // The key is visually "complete" once we leave typing-key - every later
   // phase keeps the full string visible while the user moves on to other
   // fields.
   const keyComplete = phase !== "empty" && phase !== "typing-key";
@@ -222,7 +222,7 @@ function FillingValue({ value, filled }: { value: string; filled: boolean }) {
 }
 
 // Owns its own typing counter so it can reset cleanly when the parent
-// remounts it (via key) at the start of each loop cycle — no need for the
+// remounts it (via key) at the start of each loop cycle - no need for the
 // parent to fight react-hooks/set-state-in-effect.
 function TypedKey({ fullKey, phase }: { fullKey: string; phase: Phase }) {
   const [len, setLen] = useState(0);
@@ -332,7 +332,7 @@ function CheckIcon() {
 }
 
 // ---------------------------------------------------------------------------
-// Constellation grid — the "after" view. Chips fade in staggered; Granola
+// Constellation grid - the "after" view. Chips fade in staggered; Granola
 // gets a green pulse halo to read as just-connected.
 // ---------------------------------------------------------------------------
 
@@ -382,7 +382,7 @@ function IntegrationChip({
 }) {
   const missing = health?.mode === "missing";
   // Dot color = static status (live/beta/config). Missing-credential state
-  // is surfaced through the border tint + tooltip below, not the dot —
+  // is surfaced through the border tint + tooltip below, not the dot -
   // overloading one indicator with two axes (status + health) reads as
   // confusion in practice.
   const dot =

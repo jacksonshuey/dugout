@@ -1,12 +1,12 @@
 "use client";
 
-// Selected Vendor Procurement Tracker — the per-opp surface that makes the
+// Selected Vendor Procurement Tracker - the per-opp surface that makes the
 // buying-committee gap visible at a glance. This is Hero Surface #2 per
 // `orgs/_default/discovery/information-requirements.md`, drill-down view of
 // the `committeeCoverage` component scored in `src/lib/sv-health.ts`.
 //
 // Design rules (per BUILD_ALIGNMENT.md):
-//   - Pure presentation. No fetch, no Supabase — parent passes data.
+//   - Pure presentation. No fetch, no Supabase - parent passes data.
 //   - Evidence chain mandatory (#6): every cell + claim cites the signal(s)
 //     or asset-state that justify it. The footer surfaces the
 //     `committee_gap` signals + their `sourceTool` / `sourceEventId` so an AE
@@ -60,7 +60,7 @@ const ASSET_COLS: { id: AssetCol; label: string }[] = [
 ];
 
 // Which roles actually need to view each asset. Roles outside the relevance
-// set render as `—` (N/A) rather than `not sent` — Finance not viewing the
+// set render as `-` (N/A) rather than `not sent` - Finance not viewing the
 // IT Zero Lift isn't a gap; it's not their asset.
 const ROLE_ASSET_RELEVANCE: Record<AssetCol, RoleSlot[]> = {
   cfoLeaveBehind: ["champion", "economic_buyer", "finance"],
@@ -91,14 +91,14 @@ function pickContact(
 // ─── Cell state ────────────────────────────────────────────────────────
 //
 // Four states per cell, per spec:
-//   - `viewed`        — asset shared AND viewed (green check)
-//   - `sent_unviewed` — asset shared but not viewed (amber)
-//   - `not_sent`      — asset not shared (red ✗)
-//   - `na`            — role doesn't need to view this asset (em-dash)
+//   - `viewed`        - asset shared AND viewed (green check)
+//   - `sent_unviewed` - asset shared but not viewed (amber)
+//   - `not_sent`      - asset not shared (red ✗)
+//   - `na`            - role doesn't need to view this asset (em-dash)
 //
 // The shared/viewed booleans live on opportunity.assetsShared (per
 // OpportunityAssetsShared in types.ts). View-state is per-asset today, not
-// per-contact — when Dock is wired the contact-level view ledger becomes
+// per-contact - when Dock is wired the contact-level view ledger becomes
 // available and we'll color cells per (role, asset) rather than per-asset.
 
 type CellState = "viewed" | "sent_unviewed" | "not_sent" | "na";
@@ -152,7 +152,7 @@ export function ProcurementTracker({
   );
   const missingRoleCount = ROLE_ROWS.length - presentRoles.length;
 
-  // Asset gaps — assets relevant to at least one role on the deal that are
+  // Asset gaps - assets relevant to at least one role on the deal that are
   // either not sent or sent-unviewed. This is the "2 critical assets
   // unviewed by buyer" claim in the footer.
   const assetGaps = ASSET_COLS.filter((a) => {
@@ -164,7 +164,7 @@ export function ProcurementTracker({
     return !shared || !viewed;
   });
 
-  // Contributing signals — committee_gap is the canonical type per
+  // Contributing signals - committee_gap is the canonical type per
   // synthesis.md §1 for "buying-committee member absent from deal." We also
   // accept committee_expansion as the positive corroboration (a new member
   // surfaced) so the footer reflects both observations.
@@ -175,7 +175,7 @@ export function ProcurementTracker({
   );
 
   // Distinct source tools that observed a committee_gap (the negative case
-  // — that's what the footer claim text "N contributing signals" refers to).
+  // - that's what the footer claim text "N contributing signals" refers to).
   const gapSignals = contributingSignals.filter(
     (s) => s.signalType === "committee_gap",
   );
@@ -189,7 +189,7 @@ export function ProcurementTracker({
       <div className="px-5 py-4 border-b border-border">
         <div className="flex items-baseline justify-between gap-3 flex-wrap">
           <h3 className="text-sm font-semibold tracking-tight">
-            Selected Vendor — Procurement Tracker
+            Selected Vendor - Procurement Tracker
           </h3>
           <span
             className={cn(
@@ -267,9 +267,9 @@ export function ProcurementTracker({
                     {/* Last-touch column. v1 has no per-contact touch ledger
                         (Dock visit + Gong attendance + Outreach reply when
                         wired), so we show a placeholder em-dash for missing
-                        contacts and "—" for present ones too. When the
+                        contacts and "-" for present ones too. When the
                         ledger is wired this column reads from there. */}
-                    —
+                    -
                   </td>
                   {ASSET_COLS.map((a) => {
                     const state = cellStateFor(
@@ -297,7 +297,7 @@ export function ProcurementTracker({
         </table>
       </div>
 
-      {/* Contracting milestones (additive — only renders when opp is in the
+      {/* Contracting milestones (additive - only renders when opp is in the
           Contracting stage). The Selected Vendor matrix above stays
           unchanged; this strip surfaces the back-half-of-funnel checkpoints
           that the new Contracting-stage signal rules also key off (legal
@@ -306,7 +306,7 @@ export function ProcurementTracker({
         <ContractingMilestones activities={activities} />
       )}
 
-      {/* Footer — summary claim + contributing signals (the evidence chain
+      {/* Footer - summary claim + contributing signals (the evidence chain
           load-bearing piece per BUILD_ALIGNMENT principle #6) */}
       <div className="px-5 py-4 border-t border-border space-y-3">
         <div className="text-sm text-foreground">
@@ -348,7 +348,7 @@ function CellBadge({
         title={`${asset} not required for ${role}`}
         aria-label={`${asset} not applicable for ${role}`}
       >
-        —
+        -
       </span>
     );
   }
@@ -388,9 +388,9 @@ function CellBadge({
 // ─── Contributing signals (evidence chain) ─────────────────────────────
 //
 // Lists `committee_gap` signals grouped by sourceTool. Each tool name is a
-// button that expands an inline panel showing the per-signal evidence —
+// button that expands an inline panel showing the per-signal evidence -
 // sourceEventId + occurredAt + summary. This is how an AE answers "the
-// system says Finance hasn't engaged — what's the proof?"
+// system says Finance hasn't engaged - what's the proof?"
 
 function ContributingSignals({
   gapSignals,

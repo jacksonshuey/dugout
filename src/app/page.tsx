@@ -47,7 +47,7 @@ const MARKET_INTEL_PREVIEW_LIMIT = 5;
 // Landing page. Single scroll: vision → integration constellation →
 // onboarding walkthrough → live demo embedded.
 //
-// The demo at the bottom is the real Console — same component as /console,
+// The demo at the bottom is the real Console - same component as /console,
 // same seed data, same interactivity. basePath="/" keeps its URL state
 // writes from bouncing the user out of the page.
 
@@ -103,7 +103,7 @@ export default async function LandingPage() {
 }
 
 // ---------------------------------------------------------------------------
-// Footer — quiet admin links to the other surfaces. The top nav was
+// Footer - quiet admin links to the other surfaces. The top nav was
 // stripped to just the demo button to keep the marketing experience
 // uncluttered; this footer makes the operator surfaces (manager view,
 // spec, etc.) reachable without typing URLs.
@@ -179,7 +179,7 @@ function Footer() {
 }
 
 // ---------------------------------------------------------------------------
-// 1. Hero — concise. One thesis, one CTA, one stat strip.
+// 1. Hero - concise. One thesis, one CTA, one stat strip.
 // ---------------------------------------------------------------------------
 
 function Hero() {
@@ -234,7 +234,7 @@ function Hero() {
 }
 
 // ---------------------------------------------------------------------------
-// 2. Integration constellation — visual: Dugout in the center, integration
+// 2. Integration constellation - visual: Dugout in the center, integration
 // logos arranged around it. Each chip is a real brand-colored logo.
 // The integration list is owned by `src/data/integrations.ts` so the matrix
 // below and the constellation here can't drift.
@@ -286,7 +286,7 @@ function StatusKey({ color, label }: { color: string; label: string }) {
 }
 
 // ---------------------------------------------------------------------------
-// 2b. Integrations matrix — productized view of the same list the
+// 2b. Integrations matrix - productized view of the same list the
 // constellation visualizes. Status · Auth · Where it runs · Direction.
 // ---------------------------------------------------------------------------
 
@@ -305,7 +305,7 @@ function IntegrationsMatrixSection({
         <p className="mt-4 text-base text-foreground/70 leading-relaxed">
           The constellation is the hook. This is the answer. Every
           integration with how it authenticates, where the adapter runs,
-          and which direction data moves. Nothing here is aspirational —
+          and which direction data moves. Nothing here is aspirational -
           if it&apos;s Live, the cron is running and the rows are in
           Supabase. The <span className="font-mono text-xs">Configured</span>{" "}
           column reads <span className="font-mono text-xs">process.env</span>{" "}
@@ -322,7 +322,7 @@ function IntegrationsMatrixSection({
 
 
 // ---------------------------------------------------------------------------
-// 3. Onboarding walkthrough — 4 steps, each with a visualization that
+// 3. Onboarding walkthrough - 4 steps, each with a visualization that
 // integrates the real product UI elements (priorities, stack chips,
 // integration logos, signal cards).
 // ---------------------------------------------------------------------------
@@ -373,7 +373,7 @@ function StepShell({
 }
 
 function StepTwo() {
-  // Priorities + ICP — show real CHECKBOX_PRESET data.
+  // Priorities + ICP - show real CHECKBOX_PRESET data.
   return (
     <StepShell
       num={1}
@@ -414,7 +414,7 @@ function StepTwo() {
 }
 
 function StepThree() {
-  // Stack mapping — horizontal marquee of recognizable sales-stack brands.
+  // Stack mapping - horizontal marquee of recognizable sales-stack brands.
   // The CSS class .marquee-track animates infinitely; we duplicate the list
   // so the loop is seamless. Container is overflow-hidden so the wider
   // logo strip doesn't break page layout. Order is intentionally mixed
@@ -474,7 +474,7 @@ function StepThree() {
           }}
         />
         <div className="marquee-track flex gap-4 w-max py-2">
-          {/* Two copies of the list — required for a seamless loop */}
+          {/* Two copies of the list - required for a seamless loop */}
           {[...stackBrands, ...stackBrands].map((b, i) => (
             <div
               key={`${b}-${i}`}
@@ -498,7 +498,7 @@ function StepThree() {
 
 
 function StepFive() {
-  // Signals flow in — show stylized signal cards landing in a feed.
+  // Signals flow in - show stylized signal cards landing in a feed.
   const signalSamples: {
     severity: "blocking" | "action" | "awareness";
     title: string;
@@ -557,7 +557,7 @@ function SignalSampleCard({
         : "bg-severity-awareness-bg text-severity-awareness border-severity-awareness/20";
   return (
     <div className="rounded-lg border border-border bg-background p-3 flex items-start gap-3">
-      {/* Mono uppercase tracked label — matches the "STEP 0X / 05" eyebrow
+      {/* Mono uppercase tracked label - matches the "STEP 0X / 05" eyebrow
           treatment used elsewhere on this card so the typography reads as
           one coherent system, not two. */}
       <span
@@ -576,7 +576,7 @@ function SignalSampleCard({
 }
 
 // ---------------------------------------------------------------------------
-// Security / trust — surfaces real posture (Vault, HMAC, RLS, no-write)
+// Security / trust - surfaces real posture (Vault, HMAC, RLS, no-write)
 // that's already in the code but invisible to the marketing reader.
 // ---------------------------------------------------------------------------
 
@@ -599,7 +599,7 @@ function SecurityTrustSection() {
 }
 
 // ---------------------------------------------------------------------------
-// Market intel live preview — surfaces the workspace-wide newsletter inbox
+// Market intel live preview - surfaces the workspace-wide newsletter inbox
 // at the bottom of the landing page so visitors see real intelligence flowing
 // (not just the seed-driven Console above). Pulls the freshest five
 // workspace-scoped signals from Supabase via the same query /market-intel
@@ -608,7 +608,7 @@ function SecurityTrustSection() {
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// Pipeline funnel — live counts straight from Supabase showing how many
+// Pipeline funnel - live counts straight from Supabase showing how many
 // emails make it through each stage of the AgentMail → Stage 1 → Stage 2
 // → surfaced pipeline. Numbers refresh every 5 minutes via the page's
 // `revalidate = 300` ISR window. Fails soft to zeros so a Supabase outage
@@ -755,7 +755,7 @@ const HAIKU_SHOWCASE: HaikuShowcaseItem[] = [
     rawExcerpt:
       "EU AI Office published draft enforcement guidance for general-purpose AI providers under Article 56 of the AI Act, with first compliance reviews scheduled for Q3.",
     haikuSummary:
-      "EU AI Office released GPAI enforcement guidance. SAP's BTP AI services likely scoped under Article 56 obligations — compliance review window opens Q3.",
+      "EU AI Office released GPAI enforcement guidance. SAP's BTP AI services likely scoped under Article 56 obligations - compliance review window opens Q3.",
     account: "SAP",
     topicTag: "Regulatory · EU AI Act",
   },
@@ -950,7 +950,7 @@ function LandingSignalRow({
 }
 
 // ---------------------------------------------------------------------------
-// Demo divider — sets context that the live console is below.
+// Demo divider - sets context that the live console is below.
 // ---------------------------------------------------------------------------
 
 function DemoDivider() {

@@ -34,13 +34,13 @@ import {
   type UnifiedSignal,
 } from "@/lib/unify-signals";
 
-// /api/account-context — the unified per-account read endpoint that powers
+// /api/account-context - the unified per-account read endpoint that powers
 // the drawer timeline (U1), Hero #0 SV Health card (U2), and `/ask` agent
 // (U4). Mirrors the `get_account_context` tool defined in synthesis.md
 // "The AI query layer".
 //
 // Responsibilities:
-//   1. Resolve the account from the seed — fail 404 if unknown.
+//   1. Resolve the account from the seed - fail 404 if unknown.
 //   2. Collect open opportunities + contacts grouped by canonical role slot.
 //   3. Unify 3 signal sources (signal-engine, external_signals, meeting_signals)
 //      into one chronological timeline with canonical signal_type values.
@@ -58,7 +58,7 @@ import {
 //   - Every correlation carries signalIds[] (#6).
 //   - No `confidence` column anywhere (#5).
 //   - Failure of any optional source (external_signals, meeting_signals) is
-//     non-fatal — the endpoint still returns whatever it could collect and
+//     non-fatal - the endpoint still returns whatever it could collect and
 //     surfaces the error in `warnings[]`.
 
 export const runtime = "nodejs";
@@ -83,7 +83,7 @@ const MAX_DAYS = 365;
 const SIGNAL_CAP = 200;
 
 // SV+ stages get an SV Health Score per metrics.md. Earlier stages return
-// null — B1's contract leaves the gating decision to the caller.
+// null - B1's contract leaves the gating decision to the caller.
 const SV_HEALTH_STAGES: Stage[] = ["Selected Vendor", "Contracting"];
 
 const STAGE_RANK: Record<Stage, number> = {
@@ -164,8 +164,8 @@ export async function GET(req: Request) {
 
   // Hand-crafted demo signals (orgs/_default/discovery/information-requirements.md
   // demo scenarios) merge into the engine stream so the cross-source
-  // correlations B2 authored — e.g., the 3-source champion_disengagement on
-  // the critical scenario — actually surface in the API response. Each
+  // correlations B2 authored - e.g., the 3-source champion_disengagement on
+  // the critical scenario - actually surface in the API response. Each
   // demoSignal already carries a real sourceTool + sourceEventId for the
   // citation chain; treating them as engine-tier signals keeps the unified
   // payload shape consistent. Remove this merge when real adapter pipelines
@@ -221,7 +221,7 @@ export async function GET(req: Request) {
   unified.sort((a, b) => (a.occurredAt < b.occurredAt ? 1 : -1));
   const cappedSignals = unified.slice(0, SIGNAL_CAP);
 
-  // Correlations run on the full windowed (uncapped) set — multi-source
+  // Correlations run on the full windowed (uncapped) set - multi-source
   // agreements might live in the long tail.
   const correlations = computeCorrelations(unified);
 

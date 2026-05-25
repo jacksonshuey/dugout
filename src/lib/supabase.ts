@@ -2,7 +2,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 // Server-only Supabase client.
 //
-// Uses the `service_role` key, which bypasses Row Level Security — appropriate
+// Uses the `service_role` key, which bypasses Row Level Security - appropriate
 // for a single-tenant trusted server-side context (our cron + API routes).
 // NEVER import this from a client component. Production multi-tenant would
 // use the anon key + RLS policies per workspace.

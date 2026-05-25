@@ -1,6 +1,6 @@
 // Types for the email content filter (Stage 1 deterministic + Stage 2 Haiku).
 //
-// Pure type module — no imports beyond InboundEmail. Keeps the filter
+// Pure type module - no imports beyond InboundEmail. Keeps the filter
 // dependency graph shallow: stage1, stage2 prompt, audit CRUD, and main
 // entry all import from here and nowhere else for shared shapes.
 //
@@ -15,9 +15,9 @@ import type { InboundEmail } from "./inbound-email";
 // optional hint for extractLeadArticleUrl() when a publisher has a known
 // article-URL pattern (e.g. all Substack lead URLs share an origin).
 export interface PublisherInfo {
-  publisher_canonical_name: string; // "endpoints_news" — slug, lowercase
+  publisher_canonical_name: string; // "endpoints_news" - slug, lowercase
   display_name: string; // "Endpoints News"
-  source_url_origin?: string; // "https://endpts.com" — optional hint
+  source_url_origin?: string; // "https://endpts.com" - optional hint
   is_known: boolean; // false when we fell back to sender_domain
 }
 
@@ -27,11 +27,11 @@ export interface PublisherInfo {
 export interface FilterInput {
   email: InboundEmail; // full row, including text_body + html_body
   publisherInfo: PublisherInfo; // already resolved (may be a degenerate
-  //                              "unknown" entry — see PublisherInfo)
+  //                              "unknown" entry - see PublisherInfo)
   headers?: Record<string, string>; // raw email headers (lowercased keys);
   //                                  used by Stage 1 for auto-reply/bounce/
   //                                  list-id/content-type checks
-  now: Date; // pass-in for testability — no Date.now in core
+  now: Date; // pass-in for testability - no Date.now in core
 }
 
 // The 5 deterministic rejection families. Each maps to a Stage 1 rule
@@ -71,7 +71,7 @@ export type Stage2Verdict =
 // exactly this object. The implementer post-validates length + range
 // defensively (matches ranker pattern).
 //
-// `workspace_relevance` was added in the Phase 3 unification — previously
+// `workspace_relevance` was added in the Phase 3 unification - previously
 // the email filter only emitted a verdict, leaving the ranker without a
 // relevance hint for newsletter-derived signals. Now every email decision
 // carries one of the four workspace-relevance tiers per
@@ -85,7 +85,7 @@ export interface Stage2Output {
 
 // Why Stage 2 didn't return a usable verdict. All of these route to
 // needs_review (fail-CLOSED) including `no_api_key` (the operator's
-// deployment choice — see design §8 for the rationale).
+// deployment choice - see design §8 for the rationale).
 export type Stage2FailureReason =
   | "no_api_key" // ANTHROPIC_API_KEY missing
   | "haiku_5xx" // any 5xx from Anthropic (after SDK retries)
@@ -94,7 +94,7 @@ export type Stage2FailureReason =
   | "haiku_schema_violation" // valid JSON, failed our schema
   | "low_confidence"; // verdict ok but confidence < 0.7
 
-// A single audit row. Written at every gate decision branch — including
+// A single audit row. Written at every gate decision branch - including
 // rejects (stage=1) and low-confidence routing (stage=2,
 // manually_overridden stays false until a human flips it via the
 // feedback API).

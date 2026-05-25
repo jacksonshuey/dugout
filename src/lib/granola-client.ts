@@ -1,4 +1,4 @@
-// Granola public API client — typed wrapper around
+// Granola public API client - typed wrapper around
 // https://public-api.granola.ai. Spec source: /v1/notes/{id} OpenAPI doc
 // shared in session 5.
 //
@@ -9,7 +9,7 @@
 //
 // We model this as a simple in-flight throttler: at most 5 calls dispatched
 // per rolling second. The list endpoint already paginates so back-pressure
-// kicks in naturally. We DON'T retry 429 automatically — the adapter
+// kicks in naturally. We DON'T retry 429 automatically - the adapter
 // surfaces a partial failure instead, because chasing 429s under cron load
 // could pile up unbounded.
 
@@ -18,7 +18,7 @@ const MAX_RPS = 5;
 const REQUEST_TIMEOUT_MS = 20_000;
 
 // ---------------------------------------------------------------------------
-// Spec types — names mirror the OpenAPI schema. Optional fields use `null`
+// Spec types - names mirror the OpenAPI schema. Optional fields use `null`
 // to match the spec (which is explicit about nullable strings).
 // ---------------------------------------------------------------------------
 
@@ -83,7 +83,7 @@ export interface ListNotesResponse {
 // ---------------------------------------------------------------------------
 // Rate-limit throttle. Keeps a sliding window of timestamps for the last
 // MAX_RPS dispatches. If we'd exceed it, sleep until the oldest is > 1s ago.
-// Single-process scope — fine for our cron + on-demand sync.
+// Single-process scope - fine for our cron + on-demand sync.
 // ---------------------------------------------------------------------------
 
 class RateLimiter {

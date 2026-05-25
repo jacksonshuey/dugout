@@ -3,7 +3,7 @@ import { requireUiSession } from "@/lib/ui-auth-server";
 import { HAS_OPENAI_KEY } from "@/lib/openai";
 import { HAS_ANTHROPIC_KEY } from "@/lib/anthropic-ask";
 
-// GET /api/ask/providers — boolean availability of each provider's API key
+// GET /api/ask/providers - boolean availability of each provider's API key
 // in this environment. The /ask UI reads this on mount to grey out
 // provider options whose key isn't configured (no need to attempt a
 // request just to discover the env var is missing).
@@ -11,7 +11,7 @@ import { HAS_ANTHROPIC_KEY } from "@/lib/anthropic-ask";
 // Returns:
 //   { openai: boolean, anthropic: boolean }
 //
-// Gated by requireUiSession() to match the rest of /api/* — the public
+// Gated by requireUiSession() to match the rest of /api/* - the public
 // shouldn't be able to enumerate which providers we have keys for.
 
 export const runtime = "nodejs";

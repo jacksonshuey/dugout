@@ -2,12 +2,12 @@ import { mapUrl, scrapeUrl, type FirecrawlMapResult } from "./firecrawl-client";
 import { insertWebScrape, type WebScrape } from "./web-scrapes";
 import type { Account } from "./types";
 
-// Firecrawl adapter — per-account orchestrator. For each tracked account,
+// Firecrawl adapter - per-account orchestrator. For each tracked account,
 // scrapes a fixed set of content paths off the account's website and
 // stores each result as a row in `web_scrapes`. The classify-pending
 // sweeper picks up the new rows and runs Haiku on them out-of-band.
 //
-// We don't classify inline — that's the explicit architectural choice
+// We don't classify inline - that's the explicit architectural choice
 // (mirrors the AgentMail webhook → sweeper pattern). The cron's only job
 // is to fill the queue.
 //
@@ -16,7 +16,7 @@ import type { Account } from "./types";
 // at the upper bound, well under maxDuration=300.
 
 // Content paths most likely to surface material signals. Order matters
-// only for log readability — execution is parallel.
+// only for log readability - execution is parallel.
 //
 // We deliberately keep this list small + generic so it works across the
 // 11 seeded accounts (which span pharma, infra, fintech, energy,
@@ -33,14 +33,14 @@ export const ACCOUNT_PAGES: readonly string[] = [
 
 // Cap on dynamic-scope paths per account. Tuned for cost: 11 accounts × 6
 // paths × 30 days ≈ 1980 scrape credits/mo + ~330 /map credits/mo (one map
-// call per account per day). Up from 1320/mo on the old 4-path hardcode —
+// call per account per day). Up from 1320/mo on the old 4-path hardcode -
 // roughly 1.75x for coverage that actually finds /blog on Stripe,
 // /newsroom on Boeing, etc. See route.ts §"Scope" comment for the live
 // number.
 export const MAX_PATHS_PER_ACCOUNT = 6;
 
 // Path patterns we want to keep when filtering /map output. Substring +
-// case-insensitive match against the URL path. Order doesn't matter —
+// case-insensitive match against the URL path. Order doesn't matter -
 // dedup + cap happen after.
 //
 // Bias: surface news/PR/leadership pages (where material signals live)
@@ -103,7 +103,7 @@ function buildUrl(website: string, path: string): string {
 // dedups, returns absolute URLs.
 //
 // Exported for unit testing. Bail-out (< 2 useful URLs) is handled by the
-// caller — this just returns what it found.
+// caller - this just returns what it found.
 export function selectPathsFromMap(
   website: string,
   mapUrls: readonly string[],
@@ -164,14 +164,14 @@ async function scrapeAndStore(
 ): Promise<AccountScrapeResult["pages"][number]> {
   // scrapeUrl throws ONLY on hard rate-limit (Firecrawl 429). That throw
   // is what tells the cron handler to break out of the per-account loop
-  // and stop burning credits. Don't catch it here — let it propagate up
+  // and stop burning credits. Don't catch it here - let it propagate up
   // through Promise.all → scrapeAccount → cron handler's catch → continue.
   // Network/transport errors come back as `{ ok: false }` already.
   const result = await deps.scrapeUrl(url);
 
   if (!result.ok) {
     // Soft failure (404, target 5xx, parse error). Insert an error row so
-    // we have a paper trail — useful for spotting which paths are wrong
+    // we have a paper trail - useful for spotting which paths are wrong
     // for a given account. dedup hit (same-day re-scrape) returns null;
     // any other DB error rethrows so the run halts loudly rather than
     // showing up as a fake "dedup" in the logs.
@@ -208,13 +208,13 @@ async function scrapeAndStore(
 
 // Resolve which URLs to scrape for an account. Order of precedence:
 //   1. account.paths override (production opt-out for sites that don't
-//      play nice with /map — e.g. JS-only landing pages with no sitemap).
+//      play nice with /map - e.g. JS-only landing pages with no sitemap).
 //   2. dynamic /map result, filtered through selectPathsFromMap.
 //   3. fallback to ACCOUNT_PAGES hardcoded list (when /map returns < 2
 //      useful URLs, errors, or 429s).
 //
 // `scope` is returned alongside `urls` so the caller (cron) can log which
-// path was taken — useful for spotting when /map is consistently failing
+// path was taken - useful for spotting when /map is consistently failing
 // for a given site.
 export async function resolveAccountUrls(
   account: Account,
@@ -235,7 +235,7 @@ export async function resolveAccountUrls(
 
   // /map call is cheap (1 credit, fast). On 429 it throws; on other
   // errors it returns `{ ok: false }`. We always fall back to the
-  // hardcoded set rather than skipping the account entirely — losing
+  // hardcoded set rather than skipping the account entirely - losing
   // scope per-account would create silent coverage gaps.
   let mapResult: FirecrawlMapResult;
   try {
@@ -244,7 +244,7 @@ export async function resolveAccountUrls(
     // 429 on /map → fall back to hardcoded paths for this account.
     // The 429 reaching scrapeUrl below would still throw and bubble; the
     // cron's per-account try/catch handles that. We don't rethrow here
-    // because dynamic scope failing is recoverable — full scrape failing
+    // because dynamic scope failing is recoverable - full scrape failing
     // is the case that needs to halt this account.
     return {
       urls: ACCOUNT_PAGES.map((p) => buildUrl(website, p)),
@@ -294,7 +294,7 @@ export async function scrapeAccount(
   const { urls } = await resolveAccountUrls(account, deps);
 
   // Parallelize per account. allSettled (not all) so a hard 429 on one
-  // page doesn't leave the other rejections unhandled — we await every
+  // page doesn't leave the other rejections unhandled - we await every
   // page, then re-throw the first 429 if any so the cron handler's
   // per-account try/catch records it and continues with the next account.
   const settled = await Promise.allSettled(
