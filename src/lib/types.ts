@@ -53,8 +53,24 @@ export type Industry =
   | "Logistics"
   | "Retail";
 
+// Platform-wide primary key for an account. Two formats coexist:
+//   - Seed accounts use `acc_<slug>` (e.g. `acc_sap`, `acc_apex`). Hand-coded
+//     in src/data/seed.ts so demo scenarios stay deterministic.
+//   - Production-onboarded accounts use UUIDs from the Supabase `accounts`
+//     table (see supabase/migrations/20260524_accounts_table.sql, which
+//     enforces `id uuid primary key default gen_random_uuid()`).
+//
+// `AccountId` is a plain type alias rather than a brand so seed literals
+// don't need casts. Functions accepting account references should declare
+// the parameter as `AccountId` for documentation; runtime they're strings.
+//
+// For seed-side generation use `generateAccountId(companyName)` in
+// src/lib/account-id.ts. For production look-up use `accountsById` from
+// src/data/seed.ts (O(1) Map).
+export type AccountId = string;
+
 export interface Account {
-  id: string;
+  id: AccountId;
   name: string;
   industry: Industry;
   segment: AccountSegment;
@@ -121,7 +137,7 @@ export type ContactStatus = "active" | "departed";
 
 export interface Contact {
   id: string;
-  accountId: string;
+  accountId: AccountId;
   name: string;
   title: string;
   role: ContactRole;
@@ -153,7 +169,7 @@ export interface OpportunityAssetsShared {
 
 export interface Opportunity {
   id: string;
-  accountId: string;
+  accountId: AccountId;
   name: string;
   ownerId: string; // Rep.id
   stage: Stage;
