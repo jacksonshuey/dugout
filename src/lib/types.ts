@@ -356,5 +356,8 @@ export interface EvaluationContext {
     companyName: string;
     assets: { id: string; name: string }[];
     stack: { dealRooms: string; conversationIntelligence: string };
+    // Optional ACV floor read by the CONTRACT_IDLE rule — see
+    // workspace.ts §CONTRACT_IDLE_AMOUNT_FLOOR_DEFAULT.
+    contractIdleAmountFloor?: number;
   };
 }
