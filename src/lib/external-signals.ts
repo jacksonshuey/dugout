@@ -57,6 +57,19 @@ export interface ExternalSignal {
   // suppressed rows don't render on /market-intel (Q0 resolution — see
   // docs/filter-design.md §12).
   suppressed_at?: string | null;
+  // Universal source-content persistence (20260524_signal_source_content):
+  // the exact body the analyzer used to derive the signal, normalized to
+  // markdown (or plain text for SEC filings). Drives the non-email render
+  // path in SourcePreviewModal. Newsletter signals also populate this so
+  // every signal carries its derivation source in one canonical column.
+  source_content_md?: string | null;
+  source_content_kind?:
+    | "email_html"
+    | "email_text"
+    | "news_article_md"
+    | "firecrawl_md"
+    | "sec_filing_md"
+    | null;
   // Workspace relevance tier set by the news content filter (Stage 2 Haiku).
   // Optional + nullable so existing rows (NULL) type-check correctly. The AE
   // Brief query at /market-intel filters on this; see migration
@@ -78,6 +91,8 @@ export interface NewExternalSignal {
   source_url?: string | null;
   inbound_email_id?: string | null;
   email_subject?: string | null;
+  source_content_md?: string | null;
+  source_content_kind?: ExternalSignal["source_content_kind"];
 }
 
 // ---------------------------------------------------------------------------
@@ -134,11 +149,17 @@ export async function getWorkspaceSignals(
   // manually flagged via /api/admin/signal-feedback disappear from
   // /market-intel. Older rows that pre-date the column also satisfy this
   // (NULL is null), so the filter is backward-compatible.
+  // Universal-source filter: only return signals that carry a verifiable
+  // source — either an inbound_email_id (newsletter body in inbound_emails)
+  // or persisted source_content_md (NewsAPI / Firecrawl / SEC). Signals
+  // without either are hidden until backfill catches them up. Honors the
+  // principle "every signal must verify against the exact derivation source".
   const { data, error } = await sb
     .from("external_signals")
     .select("*")
     .eq("account_id", WORKSPACE_ACCOUNT_ID)
     .is("suppressed_at", null)
+    .or("inbound_email_id.not.is.null,source_content_md.not.is.null")
     .gte("occurred_at", sinceIso)
     .order("occurred_at", { ascending: false })
     .limit(limit);
@@ -165,6 +186,7 @@ export async function getHighRelevanceSignals(
     .neq("account_id", WORKSPACE_ACCOUNT_ID)
     .in("workspace_relevance", ["high", "medium"])
     .is("suppressed_at", null)
+    .or("inbound_email_id.not.is.null,source_content_md.not.is.null")
     .gte("occurred_at", since)
     .order("occurred_at", { ascending: false })
     .limit(100);

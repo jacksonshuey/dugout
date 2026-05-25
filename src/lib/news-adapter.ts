@@ -10,6 +10,7 @@ import { writeNewsFilterDecisions } from "./news-filter-decisions";
 import type { ArticleInput, FilterContext, NewsFilterDecision } from "./news-filter-types";
 import { supabaseAdmin } from "./supabase";
 import { DEFAULT_CONFIG } from "./workspace";
+import { scrapeUrl } from "./firecrawl-client";
 
 // News adapter — fetches recent articles per company from NewsAPI, runs the
 // Stage 1 + Stage 2 content filter (src/lib/news-filter.ts), generates a
@@ -248,6 +249,41 @@ export async function fetchSignalsForCompany(
       continue;
     }
 
+    // Universal source-content persistence — Firecrawl-scrape the article
+    // body before building the signal so the SourcePreviewModal can render
+    // the exact text the AE Brief surfaced. Skip the signal entirely on
+    // scrape failure: principle is "every signal verifiable against its
+    // exact source"; we'd rather drop a signal than ship one we can't
+    // verify against. The audit row is still written below so news_filter_
+    // decisions reflects the intent.
+    let scrapedMd: string | null = null;
+    try {
+      const scrape = await scrapeUrl(article.url);
+      if (scrape.ok && scrape.markdown && scrape.markdown.trim().length > 0) {
+        scrapedMd = scrape.markdown;
+      } else {
+        console.warn(
+          `[news-adapter] scrape failed url=${article.url} status=${scrape.ok ? "empty_body" : scrape.statusCode ?? "err"} — skipping signal`,
+        );
+      }
+    } catch (e) {
+      // scrapeUrl throws ONLY on 429 (Firecrawl rate limit). Propagate so
+      // the cron handler sees it and breaks the loop rather than burning
+      // through Firecrawl credits silently.
+      throw e;
+    }
+    if (!scrapedMd) {
+      if (sb) {
+        decisions.push({
+          article_url: articleInput.url,
+          external_signal_id: null,
+          account_id: accountId,
+          decision,
+        });
+      }
+      continue;
+    }
+
     // Kept: build the signal row.
     const signal: NewExternalSignal = {
       account_id: accountId,
@@ -260,9 +296,7 @@ export async function fetchSignalsForCompany(
       url: article.url,
       // Origin of the article URL — matches newsletter-adapter convention so
       // SignalSourceChip can render a "View source" link.
-      source_url: (() => {
-        try { return new URL(article.url).origin; } catch { return null; }
-      })(),
+      source_url: article.url,
       meta: {
         source_name: article.source?.name ?? null,
         author: article.author,
@@ -273,6 +307,8 @@ export async function fetchSignalsForCompany(
         workspace_relevance: decision.workspace_relevance,
       },
       is_demo: false,
+      source_content_md: scrapedMd,
+      source_content_kind: "news_article_md",
     };
 
     // Direct insert + select id so we can populate `external_signal_id` on

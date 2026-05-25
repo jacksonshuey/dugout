@@ -317,6 +317,13 @@ export async function classifyNewsletter(
       source_url: signalUrl ?? fallbackSourceUrl ?? null,
       inbound_email_id: email.id,
       email_subject: email.subject ?? null,
+      // Universal source-content persistence. Newsletters keep their
+      // inbound_emails row as the canonical render path (HTML iframe), but
+      // we also persist a normalized snapshot on the signal so the page
+      // query "verifiable source present" filter is uniform across source
+      // types. Prefer html_body for fidelity; fall back to text_body.
+      source_content_md: email.html_body ?? email.text_body ?? null,
+      source_content_kind: email.html_body ? "email_html" : "email_text",
     };
   });
 

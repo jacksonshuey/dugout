@@ -1,15 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { MarkdownBody } from "./markdown-body";
 
-// Centered modal that lazy-fetches /api/admin/inbound-email/<id> and renders
-// the stored email as a newsletter reader, not an admin dump. Triggered by
-// SignalSourceChip's "View source" link as the primary verification path for
-// AEs ("show me the message Dugout derived this signal from").
+// Centered modal that lazy-fetches the source content for a signal and renders
+// it as a newsletter reader, not an admin dump. Triggered by SignalSourceChip's
+// "View source" link as the primary verification path for AEs ("show me the
+// exact message Dugout derived this signal from").
 //
-// HTML bodies render inside a sandboxed <iframe srcdoc> so publisher styles
-// and remote-loading assets can't escape the modal. Text-only bodies render
-// as readable prose (whitespace-pre-wrap, not monospace).
+// Two render paths driven by `inboundEmailId`:
+//   - Email-backed: fetch /api/admin/inbound-email/<id>, render html_body in
+//     a sandboxed <iframe srcdoc>. Most faithful for publisher-styled emails.
+//   - Non-email: fetch /api/admin/signal-source/<signalId>, render
+//     source_content_md via MarkdownBody. Used for NewsAPI articles, Firecrawl
+//     scrapes, SEC filings — the principle is universal source verification.
 
 interface RawEmail {
   id: string;
@@ -23,20 +27,37 @@ interface RawEmail {
   publisher_canonical_name?: string | null;
 }
 
+interface SignalSource {
+  id: string;
+  source_content_md: string;
+  source_content_kind: string | null;
+  source_url: string | null;
+  publisher_canonical_name: string | null;
+  email_subject: string | null;
+  occurred_at: string;
+  summary: string;
+}
+
+type LoadedSource =
+  | { kind: "email"; email: RawEmail }
+  | { kind: "signal"; signal: SignalSource };
+
 export function SourcePreviewModal({
+  signalId,
   inboundEmailId,
   publisherDisplayName,
   sourceUrl,
   open,
   onClose,
 }: {
-  inboundEmailId: string;
+  signalId: string;
+  inboundEmailId: string | null;
   publisherDisplayName: string | null;
   sourceUrl: string | null;
   open: boolean;
   onClose: () => void;
 }) {
-  const [email, setEmail] = useState<RawEmail | null>(null);
+  const [source, setSource] = useState<LoadedSource | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,19 +67,34 @@ export function SourcePreviewModal({
     const load = async () => {
       setLoading(true);
       setError(null);
-      setEmail(null);
+      setSource(null);
       try {
-        const r = await fetch(`/api/admin/inbound-email/${inboundEmailId}`, {
-          credentials: "include",
-        });
-        const json = (await r.json()) as
-          | { email: RawEmail }
-          | { error: string };
-        if (cancelled) return;
-        if (!r.ok || "error" in json) {
-          setError("error" in json ? json.error : `HTTP ${r.status}`);
+        if (inboundEmailId) {
+          const r = await fetch(`/api/admin/inbound-email/${inboundEmailId}`, {
+            credentials: "include",
+          });
+          const json = (await r.json()) as
+            | { email: RawEmail }
+            | { error: string };
+          if (cancelled) return;
+          if (!r.ok || "error" in json) {
+            setError("error" in json ? json.error : `HTTP ${r.status}`);
+          } else {
+            setSource({ kind: "email", email: json.email });
+          }
         } else {
-          setEmail(json.email);
+          const r = await fetch(`/api/admin/signal-source/${signalId}`, {
+            credentials: "include",
+          });
+          const json = (await r.json()) as
+            | { signal: SignalSource }
+            | { error: string };
+          if (cancelled) return;
+          if (!r.ok || "error" in json) {
+            setError("error" in json ? json.error : `HTTP ${r.status}`);
+          } else {
+            setSource({ kind: "signal", signal: json.signal });
+          }
         }
       } catch (e) {
         if (cancelled) return;
@@ -71,7 +107,7 @@ export function SourcePreviewModal({
     return () => {
       cancelled = true;
     };
-  }, [open, inboundEmailId]);
+  }, [open, inboundEmailId, signalId]);
 
   useEffect(() => {
     if (!open) return;
@@ -85,7 +121,13 @@ export function SourcePreviewModal({
   if (!open) return null;
 
   const headerLabel =
-    publisherDisplayName ?? email?.publisher_canonical_name ?? "Source";
+    publisherDisplayName ??
+    (source?.kind === "email"
+      ? source.email.publisher_canonical_name
+      : source?.kind === "signal"
+        ? source.signal.publisher_canonical_name
+        : null) ??
+    "Source";
 
   return (
     <div
@@ -123,65 +165,106 @@ export function SourcePreviewModal({
               Failed to load source: {error}
             </div>
           )}
-          {email && (
-            <>
-              <div className="space-y-2 pb-5 border-b border-border">
-                <h1 className="text-2xl font-semibold tracking-tight leading-snug">
-                  {email.subject ?? "(no subject)"}
-                </h1>
-                <div className="text-xs text-muted flex items-center gap-2 flex-wrap">
-                  <span>
-                    Received{" "}
-                    {new Date(email.received_at).toLocaleString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                      hour: "numeric",
-                      minute: "2-digit",
-                    })}
-                  </span>
-                  <span>·</span>
-                  <span className="font-mono text-[11px] break-all">
-                    {email.from_address}
-                  </span>
-                </div>
-              </div>
-
-              <div className="pt-5">
-                {email.html_body && email.html_body.trim().length > 0 ? (
-                  <iframe
-                    sandbox=""
-                    srcDoc={email.html_body}
-                    className="w-full h-[720px] border border-border rounded bg-white"
-                    title="Source content"
-                  />
-                ) : email.text_body && email.text_body.trim().length > 0 ? (
-                  <div className="text-[15px] leading-7 whitespace-pre-wrap text-foreground/90 font-sans">
-                    {email.text_body}
-                  </div>
-                ) : (
-                  <div className="text-muted text-sm italic">
-                    (No body stored for this source.)
-                  </div>
-                )}
-              </div>
-
-              {sourceUrl && (
-                <div className="pt-5 mt-5 border-t border-border text-xs">
-                  <a
-                    href={sourceUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-brand hover:underline"
-                  >
-                    Open at publisher ↗
-                  </a>
-                </div>
-              )}
-            </>
+          {source?.kind === "email" && <EmailBody email={source.email} />}
+          {source?.kind === "signal" && (
+            <SignalBody signal={source.signal} />
+          )}
+          {(source || error) && sourceUrl && (
+            <div className="pt-5 mt-5 border-t border-border text-xs">
+              <a
+                href={sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-brand hover:underline"
+              >
+                Open at publisher ↗
+              </a>
+            </div>
           )}
         </div>
       </div>
     </div>
+  );
+}
+
+function EmailBody({ email }: { email: RawEmail }) {
+  return (
+    <>
+      <div className="space-y-2 pb-5 border-b border-border">
+        <h1 className="text-2xl font-semibold tracking-tight leading-snug">
+          {email.subject ?? "(no subject)"}
+        </h1>
+        <div className="text-xs text-muted flex items-center gap-2 flex-wrap">
+          <span>
+            Received{" "}
+            {new Date(email.received_at).toLocaleString(undefined, {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+              hour: "numeric",
+              minute: "2-digit",
+            })}
+          </span>
+          <span>·</span>
+          <span className="font-mono text-[11px] break-all">
+            {email.from_address}
+          </span>
+        </div>
+      </div>
+      <div className="pt-5">
+        {email.html_body && email.html_body.trim().length > 0 ? (
+          <iframe
+            sandbox=""
+            srcDoc={email.html_body}
+            className="w-full h-[720px] border border-border rounded bg-white"
+            title="Source content"
+          />
+        ) : email.text_body && email.text_body.trim().length > 0 ? (
+          <div className="text-[15px] leading-7 whitespace-pre-wrap text-foreground/90 font-sans">
+            {email.text_body}
+          </div>
+        ) : (
+          <div className="text-muted text-sm italic">
+            (No body stored for this source.)
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+function SignalBody({ signal }: { signal: SignalSource }) {
+  const title = signal.email_subject ?? signal.summary;
+  return (
+    <>
+      <div className="space-y-2 pb-5 border-b border-border">
+        <h1 className="text-2xl font-semibold tracking-tight leading-snug">
+          {title}
+        </h1>
+        <div className="text-xs text-muted flex items-center gap-2 flex-wrap">
+          <span>
+            Captured{" "}
+            {new Date(signal.occurred_at).toLocaleString(undefined, {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+              hour: "numeric",
+              minute: "2-digit",
+            })}
+          </span>
+          {signal.source_content_kind && (
+            <>
+              <span>·</span>
+              <span className="font-mono text-[10px] uppercase tracking-wider">
+                {signal.source_content_kind.replace(/_/g, " ")}
+              </span>
+            </>
+          )}
+        </div>
+      </div>
+      <div className="pt-5">
+        <MarkdownBody content={signal.source_content_md} />
+      </div>
+    </>
   );
 }

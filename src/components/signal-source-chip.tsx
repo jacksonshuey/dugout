@@ -6,14 +6,13 @@ import { SourcePreviewModal } from "./source-preview-modal";
 // Source-attribution chip for a single market-intel signal.
 //
 // Renders, in order: publisher chip + subject line + view-source link.
-// "View source" is the primary verification path: when an inbound email
-// is on file it opens the newsletter-style SourcePreviewModal so the AE
-// can read the actual message Dugout derived the signal from. When the
-// signal has no stored email (e.g. NewsAPI / SEC / Firecrawl rows that
-// only carry a publisher URL), it falls back to a plain external link to
-// `sourceUrl`. Publisher attribution falls back to `sender_domain` when
-// `publisher_canonical_name` is missing (older pre-attribution rows —
-// Q8 resolution, docs/filter-design.md §12).
+// "View source" always opens the SourcePreviewModal — the universal
+// verification path. The modal picks its render strategy by source kind:
+// emails get a sandboxed HTML iframe via /api/admin/inbound-email/<id>;
+// non-email signals (NewsAPI, Firecrawl, SEC) render persisted markdown
+// via /api/admin/signal-source/<signalId>. Publisher attribution falls
+// back to `sender_domain` when `publisher_canonical_name` is missing
+// (older pre-attribution rows — Q8 resolution, docs/filter-design.md §12).
 //
 // Stateless except for the modal/feedback open booleans. The parent passes
 // the resolved display + URL fields; the chip does not query Supabase
@@ -86,23 +85,12 @@ export function SignalSourceChip(props: SignalSourceChipProps) {
         )}
       </div>
       <div className="flex items-center gap-3 text-[11px]">
-        {inboundEmailId ? (
-          <button
-            onClick={() => setModalOpen(true)}
-            className="text-brand hover:underline"
-          >
-            View source
-          </button>
-        ) : sourceUrl ? (
-          <a
-            href={sourceUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-brand hover:underline"
-          >
-            View source ↗
-          </a>
-        ) : null}
+        <button
+          onClick={() => setModalOpen(true)}
+          className="text-brand hover:underline"
+        >
+          View source
+        </button>
         <button
           onClick={() => setFeedbackOpen((v) => !v)}
           className="text-muted hover:text-severity-red underline"
@@ -144,15 +132,14 @@ export function SignalSourceChip(props: SignalSourceChipProps) {
           </div>
         </div>
       )}
-      {inboundEmailId && (
-        <SourcePreviewModal
-          inboundEmailId={inboundEmailId}
-          publisherDisplayName={publisherDisplayName ?? senderDomainFallback}
-          sourceUrl={sourceUrl}
-          open={modalOpen}
-          onClose={() => setModalOpen(false)}
-        />
-      )}
+      <SourcePreviewModal
+        signalId={signalId}
+        inboundEmailId={inboundEmailId}
+        publisherDisplayName={publisherDisplayName ?? senderDomainFallback}
+        sourceUrl={sourceUrl}
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+      />
     </div>
   );
 }

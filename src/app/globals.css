@@ -99,3 +99,69 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .flow-path { animation: none; }
 }
+
+/* Markdown rendering for SourcePreviewModal (non-email signals). Reading-
+   width typography — newsletter-style, not docs-style. Kept tight so the
+   modal feels like an article, not a Confluence page. */
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3 {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  margin-top: 1.25em;
+  margin-bottom: 0.5em;
+}
+.markdown-body h1 { font-size: 1.5rem; }
+.markdown-body h2 { font-size: 1.25rem; }
+.markdown-body h3 { font-size: 1.05rem; }
+.markdown-body p {
+  margin-bottom: 0.9em;
+}
+.markdown-body a {
+  color: var(--color-brand);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.markdown-body ul,
+.markdown-body ol {
+  margin-bottom: 0.9em;
+  padding-left: 1.25em;
+}
+.markdown-body ul { list-style: disc; }
+.markdown-body ol { list-style: decimal; }
+.markdown-body li { margin-bottom: 0.3em; }
+.markdown-body blockquote {
+  border-left: 3px solid var(--color-border);
+  padding-left: 0.9em;
+  margin: 1em 0;
+  color: rgba(0,0,0,0.65);
+}
+.markdown-body code {
+  background: rgba(0,0,0,0.05);
+  padding: 0.1em 0.35em;
+  border-radius: 3px;
+  font-size: 0.92em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.markdown-body pre {
+  background: rgba(0,0,0,0.04);
+  padding: 0.9em;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin-bottom: 0.9em;
+}
+.markdown-body pre code {
+  background: transparent;
+  padding: 0;
+}
+.markdown-body hr {
+  border: 0;
+  border-top: 1px solid var(--color-border);
+  margin: 1.5em 0;
+}
+.markdown-body img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
