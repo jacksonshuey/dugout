@@ -25,13 +25,8 @@ import { INTEGRATIONS } from "@/data/integrations";
 import { checkAllHealth, type IntegrationHealth } from "@/lib/integration-health";
 import {
   getWorkspaceSignals,
-  getExternalSignalsCounts,
   type ExternalSignal,
 } from "@/lib/external-signals";
-import {
-  getInboundStats,
-  getInboundQueueSummary,
-} from "@/lib/inbound-email";
 
 // 5-minute ISR window keeps the live newsfeed section fresh without
 // hitting Supabase on every visitor request. Static seed-driven sections
@@ -608,210 +603,124 @@ function SecurityTrustSection() {
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// Pipeline funnel - live counts straight from Supabase showing how many
-// emails make it through each stage of the AgentMail → Stage 1 → Stage 2
-// → surfaced pipeline. Numbers refresh every 5 minutes via the page's
-// `revalidate = 300` ISR window. Fails soft to zeros so a Supabase outage
-// doesn't break the landing page.
+// Newsletter transform visual - one big three-panel demo showing a real
+// newsletter flowing through Haiku into a dashboard card. Visual + minimal
+// text; replaces the prior pipeline funnel (numbers were not telling a
+// story) and the dense Haiku-showcase grid (too text-heavy). Everything is
+// static markup with one CSS-pulse animation on the Haiku panel dots, no
+// JS required.
 // ---------------------------------------------------------------------------
 
-interface PipelineMetrics {
-  inbound: number;
-  passedStage1: number;
-  classifiedTotal: number;
-  surfaced: number;
-}
-
-async function fetchPipelineMetrics(): Promise<PipelineMetrics> {
-  try {
-    const [inboundStats, queueSummary, signalCounts] = await Promise.all([
-      getInboundStats(),
-      getInboundQueueSummary(0),
-      getExternalSignalsCounts(),
-    ]);
-    return {
-      inbound: inboundStats.receivedTotal,
-      passedStage1: Math.max(
-        0,
-        queueSummary.totalCount - queueSummary.pendingCount,
-      ),
-      classifiedTotal: signalCounts.total,
-      surfaced: signalCounts.highOrMedium,
-    };
-  } catch {
-    return { inbound: 0, passedStage1: 0, classifiedTotal: 0, surfaced: 0 };
-  }
-}
-
-interface PipelineStageSpec {
-  step: number;
-  label: string;
-  sub: string;
-  count: number;
-  detail: string;
-}
-
-async function PipelineFunnel() {
-  const m = await fetchPipelineMetrics();
-  const stages: PipelineStageSpec[] = [
-    {
-      step: 1,
-      label: "Inbound",
-      sub: "AgentMail webhook",
-      count: m.inbound,
-      detail: "newsletters received",
-    },
-    {
-      step: 2,
-      label: "Stage 1",
-      sub: "Deterministic filter",
-      count: m.passedStage1,
-      detail: "passed allowlist + size + link-ratio",
-    },
-    {
-      step: 3,
-      label: "Stage 2 · Haiku",
-      sub: "LLM classifier",
-      count: m.classifiedTotal,
-      detail: "summarized + workspace-tagged",
-    },
-    {
-      step: 4,
-      label: "Surfaced",
-      sub: "Worth your team's time",
-      count: m.surfaced,
-      detail: "high or medium relevance",
-    },
-  ];
-
+function NewsletterTransformVisual() {
   return (
-    <div className="mt-10 grid grid-cols-2 md:grid-cols-4 gap-3">
-      {stages.map((s, i) => (
-        <PipelineStageCard
-          key={s.step}
-          stage={s}
-          isLast={i === stages.length - 1}
-        />
-      ))}
+    <div className="mt-10 flex flex-col md:flex-row gap-3 items-stretch">
+      <NewsletterPanel />
+      <FlowChevron />
+      <HaikuProcessPanel />
+      <FlowChevron />
+      <DashboardSignalPanel />
     </div>
   );
 }
 
-function PipelineStageCard({
-  stage,
-  isLast,
-}: {
-  stage: PipelineStageSpec;
-  isLast: boolean;
-}) {
+function FlowChevron() {
   return (
-    <div className="relative rounded-lg border border-border bg-background p-4">
-      <div className="flex items-center gap-2">
-        <span
-          aria-hidden
-          className="w-5 h-5 rounded-full bg-brand/10 text-brand text-[10px] font-mono font-semibold flex items-center justify-center"
-        >
-          {stage.step}
-        </span>
-        <span className="text-[10px] font-mono uppercase tracking-[0.1em] text-foreground/80">
-          {stage.label}
-        </span>
-      </div>
-      <div className="text-[10px] text-muted mt-0.5">{stage.sub}</div>
-      <div className="mt-3 text-3xl font-semibold tracking-tight tabular-nums">
-        {stage.count.toLocaleString()}
-      </div>
-      <div className="text-[10px] font-mono uppercase tracking-[0.08em] text-muted mt-1 leading-snug">
-        {stage.detail}
-      </div>
-      {!isLast && (
-        <span
-          aria-hidden
-          className="hidden md:flex absolute -right-2 top-1/2 -translate-y-1/2 w-4 h-4 items-center justify-center bg-background border border-border rounded-full text-muted text-[10px]"
-        >
-          →
-        </span>
-      )}
+    <div
+      aria-hidden
+      className="flex md:items-center justify-center text-muted text-xl shrink-0 rotate-90 md:rotate-0 py-1 md:py-0"
+    >
+      →
     </div>
   );
 }
 
-// Hand-curated examples that visibly demonstrate the Haiku summarization
-// step. The live feed below is real production data; this block is a
-// teaching aid so a first-time visitor understands "what am I looking at
-// in those signal rows?" Uses real Checkbox customer names so the demo
-// reads honestly to a Checkbox audience.
-interface HaikuShowcaseItem {
-  publication: string;
-  rawExcerpt: string;
-  haikuSummary: string;
-  account: string;
-  topicTag: string;
-}
-
-const HAIKU_SHOWCASE: HaikuShowcaseItem[] = [
-  {
-    publication: "EU AI Office daily brief",
-    rawExcerpt:
-      "EU AI Office published draft enforcement guidance for general-purpose AI providers under Article 56 of the AI Act, with first compliance reviews scheduled for Q3.",
-    haikuSummary:
-      "EU AI Office released GPAI enforcement guidance. SAP's BTP AI services likely scoped under Article 56 obligations - compliance review window opens Q3.",
-    account: "SAP",
-    topicTag: "Regulatory · EU AI Act",
-  },
-  {
-    publication: "Stratechery weekly",
-    rawExcerpt:
-      "Commerce expanded the Entity List to include three additional Chinese chip designers; export-license requirements now apply to 7nm-and-below process nodes used in radar and automotive applications.",
-    haikuSummary:
-      "US tightened semi export rules. ADI's automotive radar SKUs sold into China now require new licensing review under the expanded Entity List.",
-    account: "Analog Devices",
-    topicTag: "Trade · Export controls",
-  },
-  {
-    publication: "Politico EU Daily Brief",
-    rawExcerpt:
-      "European Commission moved PFAS restriction proposal to formal adoption; food-contact materials now in scope for 2027 implementation, with derogations limited to specified industrial applications.",
-    haikuSummary:
-      "EU PFAS restriction reaches formal proposal. CCEP's beverage-can interior liners face 2027 compliance deadline; reformulation lead time begins now.",
-    account: "Coca-Cola Europacific Partners",
-    topicTag: "Regulatory · EU PFAS",
-  },
-];
-
-function HaikuShowcaseFlow() {
+function NewsletterPanel() {
   return (
-    <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-4">
-      {HAIKU_SHOWCASE.map((item, i) => (
-        <HaikuShowcaseCard key={i} item={item} />
-      ))}
-    </div>
-  );
-}
-
-function HaikuShowcaseCard({ item }: { item: HaikuShowcaseItem }) {
-  return (
-    <div className="rounded-lg border border-border bg-foreground/[0.02] p-4 flex flex-col">
+    <div className="flex-1 rounded-lg border border-border bg-background p-4 flex flex-col min-w-0">
       <div className="text-[10px] font-mono uppercase tracking-[0.1em] text-muted">
-        {item.publication}
+        Newsletter
       </div>
-      <div className="mt-3 text-xs italic text-foreground/60 leading-snug line-clamp-3">
-        {item.rawExcerpt}
+      <div className="mt-3 flex items-center gap-2 min-w-0">
+        <div
+          aria-hidden
+          className="w-8 h-8 rounded bg-foreground/[0.05] flex items-center justify-center text-muted shrink-0"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            className="w-4 h-4"
+          >
+            <rect x="3" y="5" width="18" height="14" rx="2" />
+            <path d="M3 7l9 6 9-6" />
+          </svg>
+        </div>
+        <div className="min-w-0">
+          <div className="text-[11px] text-muted truncate font-mono">
+            digest@eu-ai-office.io
+          </div>
+          <div className="text-xs font-semibold tracking-tight truncate">
+            EU AI Office daily brief
+          </div>
+        </div>
       </div>
-      <div className="mt-3 text-[10px] text-brand font-mono uppercase tracking-[0.1em] flex items-center gap-1">
-        <span aria-hidden>↓</span>
-        <span>Haiku summary</span>
+      <div className="mt-3 text-xs italic text-foreground/60 leading-snug line-clamp-4">
+        EU AI Office published draft enforcement guidance for general-purpose
+        AI providers under Article 56 of the AI Act, with first compliance
+        reviews scheduled for Q3...
       </div>
-      <div className="mt-2 text-sm font-medium tracking-tight leading-snug">
-        {item.haikuSummary}
+    </div>
+  );
+}
+
+function HaikuProcessPanel() {
+  return (
+    <div className="md:w-44 shrink-0 rounded-lg border border-brand/30 bg-brand/[0.04] p-4 flex flex-col items-center justify-center text-center gap-2">
+      <div className="text-[10px] font-mono uppercase tracking-[0.1em] text-brand">
+        Haiku
       </div>
-      <div className="mt-auto pt-4 flex items-center gap-2 flex-wrap">
+      <div className="text-[11px] text-foreground/70 leading-snug">
+        reads + summarizes + tags
+      </div>
+      <div aria-hidden className="flex items-center gap-1.5 mt-1">
+        <span
+          className="w-1.5 h-1.5 rounded-full bg-brand animate-pulse"
+          style={{ animationDelay: "0ms" }}
+        />
+        <span
+          className="w-1.5 h-1.5 rounded-full bg-brand animate-pulse"
+          style={{ animationDelay: "200ms" }}
+        />
+        <span
+          className="w-1.5 h-1.5 rounded-full bg-brand animate-pulse"
+          style={{ animationDelay: "400ms" }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function DashboardSignalPanel() {
+  return (
+    <div className="flex-1 rounded-lg border border-border bg-foreground/[0.02] p-4 flex flex-col min-w-0">
+      <div className="text-[10px] font-mono uppercase tracking-[0.1em] text-muted">
+        Your dashboard
+      </div>
+      <div className="mt-3 flex items-center gap-2 flex-wrap">
         <span className="text-[10px] font-mono uppercase tracking-[0.1em] py-0.5 px-2 rounded border border-brand/40 bg-brand/10 text-brand">
-          {item.account}
+          SAP
         </span>
         <span className="text-[10px] font-mono uppercase tracking-[0.08em] text-muted">
-          {item.topicTag}
+          Regulatory · EU AI Act
         </span>
+      </div>
+      <div className="mt-3 text-sm font-medium tracking-tight leading-snug">
+        EU AI Office released GPAI enforcement guidance. SAP&apos;s BTP AI
+        services likely scoped under Article 56 obligations.
+      </div>
+      <div className="mt-auto pt-3 text-[10px] font-mono uppercase tracking-[0.1em] text-muted">
+        High relevance · just now
       </div>
     </div>
   );
@@ -863,18 +772,10 @@ async function MarketIntelLiveSection() {
         Workspace-wide intel, ranked by relevance.
       </h2>
       <p className="mt-4 text-base text-foreground/70 leading-relaxed max-w-3xl">
-        AgentMail + NewsAPI + SEC EDGAR + Firecrawl feed the workspace inbox.
-        A two-stage Haiku classifier (deterministic regex first, LLM second)
-        reads each item, summarizes what matters, and matches it to the
-        accounts you track. The funnel below shows live counts at each
-        stage; the curated examples after it walk through the synthesis on
-        real customer scenarios; the live feed at the bottom is production
-        data, ranked, and refreshed every few minutes.
+        Newsletter in. Haiku reads it. Tagged signal on the dashboard.
       </p>
 
-      <PipelineFunnel />
-
-      <HaikuShowcaseFlow />
+      <NewsletterTransformVisual />
 
       <h3 className="mt-12 text-sm font-semibold tracking-tight text-foreground/80">
         Live from the workspace inbox

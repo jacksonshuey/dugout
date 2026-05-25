@@ -200,39 +200,6 @@ export async function getHighRelevanceSignals(
   return (data ?? []) as ExternalSignal[];
 }
 
-// Cheap aggregate counts used by the landing-page pipeline visualization.
-// Counts only non-suppressed rows so the "surfaced" number on the landing
-// matches what /market-intel actually renders.
-export interface ExternalSignalsCounts {
-  total: number;
-  highOrMedium: number;
-}
-
-export async function getExternalSignalsCounts(): Promise<ExternalSignalsCounts> {
-  const sb = supabaseAdmin();
-  const [total, hi] = await Promise.all([
-    sb
-      .from("external_signals")
-      .select("id", { count: "exact", head: true })
-      .is("suppressed_at", null),
-    sb
-      .from("external_signals")
-      .select("id", { count: "exact", head: true })
-      .in("workspace_relevance", ["high", "medium"])
-      .is("suppressed_at", null),
-  ]);
-  if (total.error) {
-    throw new Error(`external_signals count failed: ${total.error.message}`);
-  }
-  if (hi.error) {
-    throw new Error(`external_signals count failed: ${hi.error.message}`);
-  }
-  return {
-    total: total.count ?? 0,
-    highOrMedium: hi.count ?? 0,
-  };
-}
-
 // Suppress a single signal from the workspace feed. Sets `suppressed_at`
 // to now(). Idempotent (multiple suppress calls just refresh the
 // timestamp). Returns the count of rows updated (0 or 1).
