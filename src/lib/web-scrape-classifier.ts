@@ -220,6 +220,13 @@ export async function classifyWebScrape(
         scraped_url: scrape.url,
       },
       is_demo: false,
+      source_url: scrape.url,
+      // Universal source-content persistence: copy the Firecrawl markdown
+      // onto the signal so the popup renders the exact scraped page the
+      // analyzer used. scrape.markdown is guaranteed non-null here because
+      // getUnclassifiedWebScrapes filters `.not("markdown", "is", null)`.
+      source_content_md: scrape.markdown,
+      source_content_kind: "firecrawl_md",
     };
   });
 

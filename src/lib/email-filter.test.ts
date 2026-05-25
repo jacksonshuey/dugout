@@ -619,21 +619,29 @@ describe("Q0 · signal feedback suppression + audit dual-write", () => {
                       // The .is(suppressed_at, null) filter is what makes
                       // suppressed signals disappear — assert it gets
                       // called by simulating the chain returning [].
+                      // The .or() step is the universal-source filter
+                      // added with source_content_md persistence (PR after
+                      // demo seed removal).
                       return {
-                        gte(_c3: string, _v3: string) {
-                          void _c3;
-                          void _v3;
+                        or(_c2a: string) {
+                          void _c2a;
                           return {
-                            order(_c4: string, _o: unknown) {
-                              void _c4;
-                              void _o;
+                            gte(_c3: string, _v3: string) {
+                              void _c3;
+                              void _v3;
                               return {
-                                limit(_n: number) {
-                                  void _n;
-                                  return Promise.resolve({
-                                    data: [],
-                                    error: null,
-                                  });
+                                order(_c4: string, _o: unknown) {
+                                  void _c4;
+                                  void _o;
+                                  return {
+                                    limit(_n: number) {
+                                      void _n;
+                                      return Promise.resolve({
+                                        data: [],
+                                        error: null,
+                                      });
+                                    },
+                                  };
                                 },
                               };
                             },

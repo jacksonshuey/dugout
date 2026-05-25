@@ -1,4 +1,5 @@
 import type { ExternalSignalType, NewExternalSignal } from "./external-signals";
+import { scrapeUrl } from "./firecrawl-client";
 
 // SEC EDGAR adapter — fetches recent 8-K filings for public-company accounts
 // and maps the filing's Item codes into ExternalSignal rows.
@@ -216,6 +217,29 @@ export async function fetchSignalsForTicker(
     const itemCodes = parseItemCodes(itemsField);
     const { type } = classifyFiling(itemCodes);
     const summary = buildSummary(companyName, itemCodes);
+    const filingUrl = accession ? buildFilingUrl(cik, accession, primaryDoc) : null;
+
+    // Universal source-content persistence — Firecrawl the 8-K primary
+    // document so SourcePreviewModal can render the actual filing the AE
+    // Brief is summarizing. Skip the signal on scrape failure (principle:
+    // every signal must verify against the exact source). Firecrawl handles
+    // EDGAR HTML reports cleanly with onlyMainContent.
+    if (!filingUrl) continue;
+    let scrapedMd: string | null = null;
+    try {
+      const scrape = await scrapeUrl(filingUrl);
+      if (scrape.ok && scrape.markdown && scrape.markdown.trim().length > 0) {
+        scrapedMd = scrape.markdown;
+      } else {
+        console.warn(
+          `[sec-adapter] scrape failed accession=${accession} status=${scrape.ok ? "empty_body" : scrape.statusCode ?? "err"} — skipping signal`,
+        );
+      }
+    } catch (e) {
+      // 429 from Firecrawl — propagate so the cron handler can break.
+      throw e;
+    }
+    if (!scrapedMd) continue;
 
     signals.push({
       account_id: accountId,
@@ -223,7 +247,8 @@ export async function fetchSignalsForTicker(
       type,
       summary,
       occurred_at: `${filingDate}T00:00:00Z`,
-      url: accession ? buildFilingUrl(cik, accession, primaryDoc) : null,
+      url: filingUrl,
+      source_url: filingUrl,
       meta: {
         source_name: "SEC EDGAR",
         accession,
@@ -231,6 +256,8 @@ export async function fetchSignalsForTicker(
         form: "8-K",
       },
       is_demo: false,
+      source_content_md: scrapedMd,
+      source_content_kind: "sec_filing_md",
     });
   }
 
