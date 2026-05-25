@@ -73,13 +73,14 @@ collapsed and dissimilar columns visible side by side.
         └──────────────┬─────────────────────┘
                        │
                        ▼
-        ┌────────────────────────────────────┐
-        │  Supabase                          │
-        │   • zippering_decisions (truth)    │
-        │   • zippered_signals (wide rows)   │
-        │   • zippering_conflicts (audit)    │
-        │   • zippering_schema (view)        │
-        └──────────────┬─────────────────────┘
+        ┌────────────────────────────────────────────┐
+        │  Supabase                                  │
+        │   • global_canonical_columns (cross-pkey)  │
+        │   • zippering_schema  (per-pkey current)   │
+        │   • zippering_decisions (append-only audit)│
+        │   • zippered_signals  (wide rows)          │
+        │   • zippering_conflicts (value audit)      │
+        └──────────────┬─────────────────────────────┘
                        │
                        ▼
         ┌────────────────────────────────────┐
@@ -89,12 +90,17 @@ collapsed and dissimilar columns visible side by side.
         └────────────────────────────────────┘
 ```
 
-Two abstractions that matter:
-- **Decision cache** (`zippering_decisions`) — the cached brain. Knows that
-  `meeting_date` from Granola maps to `occurred_at` for `acc_stripe` so we
-  don't re-Haiku. Acts as the single source of truth for both the per-source
-  routing AND the per-pkey canonical schema (the latter is derived via the
-  `zippering_schema` view, not a separate table).
+Three abstractions that matter:
+- **Canonical inventory** (`zippering_schema` + `global_canonical_columns`)
+  — mutable "what fields exist right now" view of the world. The hot path
+  reads this to know which canonical columns are candidates when a new
+  source column lands. The global table holds cross-pkey shared columns
+  (company_name, employee_count, etc.); the per-pkey schema holds local
+  extensions and per-pkey overrides of global routings.
+- **Decision audit** (`zippering_decisions`) — append-only history of every
+  Haiku verdict and every operator override. Never mutated; each new decision
+  is a new row. Lets us answer "why was this column routed here?" months
+  later, even after the schema has been edited.
 - **Zippered store** (`zippered_signals`) — the wide rows themselves, JSONB-
   backed so the schema can grow without migrations.
 
@@ -102,58 +108,92 @@ Two abstractions that matter:
 
 ## 3. Data model
 
-Three new Supabase tables + one derived view. All RLS deny-all +
-service-role only (matches existing posture per `reference_dugout_tooling`).
+Five new Supabase objects (4 tables + the existing pattern). All RLS
+deny-all + service-role only (matches existing posture per
+`reference_dugout_tooling`).
 
-### `zippering_decisions` — single source of truth
-Cache of Haiku verdicts AND the implicit canonical-column registry. One row
-per `(pkey, source, source_column)` triple. The hot path is
-`SELECT WHERE pkey = ? AND source = ? AND source_column = ?`.
+The schema is split into two layers — a **global canonical layer** so
+cross-account queries like "show me every company with >500 employees"
+work without joining six diverging schemas, and a **per-pkey extension
+layer** for fields that genuinely only matter to one account. Haiku
+considers both when routing.
+
+### `global_canonical_columns` — cross-pkey shared fields
+Seeded with the columns that ALL accounts will reasonably have
+(company_name, domain, employee_count, account_owner, latest_signal_at,
+etc.) plus any field that appears across enough pkeys to graduate from
+per-pkey to global. The graduation rule is a future enhancement — for
+Phase 0 we hand-seed.
+
+```sql
+create table global_canonical_columns (
+  id              uuid primary key default gen_random_uuid(),
+  name            text not null unique,           -- "company_name" | "employee_count" | ...
+  data_type       text not null,                  -- "text" | "integer" | "timestamp" | "jsonb"
+  description     text,                           -- human doc string Haiku reads when matching
+  semantic_tags   text[],                         -- ["identity", "size", "people", "deal_state"]
+  created_at      timestamptz not null default now()
+);
+```
+
+### `zippering_schema` — per-pkey current canonical inventory
+The mutable "current state" table. One row per `(pkey, canonical_name)`.
+For globally-shared fields, `is_global = true` and `canonical_name`
+matches a row in `global_canonical_columns`. For pkey-local extensions,
+`is_global = false` and `canonical_name` is whatever Haiku/operator chose.
+
+```sql
+create table zippering_schema (
+  id              uuid primary key default gen_random_uuid(),
+  pkey            text not null,                  -- AccountId
+  canonical_name  text not null,                  -- mirrors global name OR is pkey-local
+  data_type       text not null,
+  description     text,                           -- optional; either copied from global or local note
+  is_global       boolean not null default false, -- true when this row mirrors a global canonical
+  source_origin   text,                           -- integration that first introduced this column ON THIS PKEY
+  first_seen_at   timestamptz not null default now(),
+  updated_at      timestamptz not null default now(),
+  unique (pkey, canonical_name)
+);
+create index zippering_schema_pkey on zippering_schema (pkey);
+```
+
+This table is mutable. When an operator overrides a Haiku decision (e.g.
+promotes an `unclear` to a `join`, or renames a canonical column), the
+relevant `zippering_schema` row updates; the decision history stays
+intact in `zippering_decisions`.
+
+### `zippering_decisions` — append-only Haiku/operator audit
+Every Haiku verdict and every operator override appends a new row.
+Never updated. This is what makes "why was this column routed here?"
+answerable months later.
 
 ```sql
 create table zippering_decisions (
   id                       uuid primary key default gen_random_uuid(),
   pkey                     text not null,
-  source                   text not null,                -- "granola" | "sec_edgar" | "newsapi" | ...
+  source                   text not null,                -- "granola" | "sec_edgar" | ...
   source_column            text not null,                -- "meeting_date"
+  source_data_type         text,                          -- type as the source reported it
+  source_description       text,                          -- column description from the source, if any
+  source_samples           jsonb,                         -- 3-5 sample values Haiku saw (audit; reproducible)
   verdict                  text not null check (verdict in ('join','append','unclear')),
-  canonical_name           text not null,                -- always set; echoes existing on 'join', new name on 'append' | 'unclear'
-  data_type                text not null,                -- "timestamp" | "text" | "jsonb" | "string[]"
+  canonical_name           text not null,                -- routing target (echoes global, per-pkey, or new)
+  is_global_target         boolean not null default false, -- true when routed to a global canonical
   similarity_score         numeric,                       -- Haiku-reported 0..1
-  reason                   text,                          -- one-line Haiku justification
-  needs_review             boolean not null default false, -- true when verdict='unclear'; cleared on operator promotion
-  decision_override_by     text,                          -- rep_id; set when an operator manually re-classifies
-  decision_override_at     timestamptz,
-  decided_at               timestamptz not null default now(),
-  unique (pkey, source, source_column)
+  reason                   text,                          -- one-line justification
+  needs_review             boolean not null default false, -- true when verdict='unclear'
+  decided_by               text not null default 'haiku', -- 'haiku' | rep_id for operator override
+  decided_at               timestamptz not null default now()
 );
-create index zippering_decisions_pkey_canonical on zippering_decisions (pkey, canonical_name);
+create index zippering_decisions_pkey_source_col on zippering_decisions (pkey, source, source_column);
 create index zippering_decisions_needs_review on zippering_decisions (needs_review) where needs_review;
 ```
 
-### `zippering_schema` — derived view (NOT a table)
-Per-pkey list of canonical column names. Computed from `zippering_decisions`
-so it cannot drift. Callers can `SELECT * FROM zippering_schema WHERE pkey = ?`
-without thinking about the underlying table.
-
-```sql
-create view zippering_schema as
-select distinct on (pkey, canonical_name)
-  pkey,
-  canonical_name,
-  data_type,
-  source as first_source,
-  decided_at as first_seen_at
-from zippering_decisions
-where verdict in ('join', 'append', 'unclear')
-order by pkey, canonical_name, decided_at asc;
-```
-
-If two decision rows for the same `(pkey, canonical_name)` disagree on
-`data_type` (rare but possible — e.g., source A wrote `timestamp` and
-source B's column got mistakenly typed as `text`), the view returns the
-earliest writer's type by `decided_at asc`. The zipperer should refuse to
-write inconsistent types in the first place (see §11.2 type changes).
+The latest decision per `(pkey, source, source_column)` triple (by
+`decided_at desc`) is the active routing. Earlier rows are history. The
+ingest path queries the latest; the audit surface queries the full
+history.
 
 ### `zippered_signals`
 Wide rows. JSONB for the dynamic-schema columns.
@@ -208,36 +248,65 @@ The load-bearing call. One prompt, one output schema, called per
 
 ### Prompt template
 
+Haiku evaluates **five inputs** about the incoming column: name, data type,
+integration source, description (if the source provides one), and 3-5
+sample values. Name alone is a weak signal; values are what make the
+match land.
+
+It also gets the **candidate canonical columns** to match against, in
+two tiers:
+1. **Global canonicals** (cross-pkey shared fields) — preferred when a
+   reasonable match exists, because routing to globals enables
+   cross-account queries.
+2. **Per-pkey canonicals** (this account's local extensions) — fallback
+   when no global fits.
+
 ```
-You are deciding whether two columns from different data sources are the same
-field semantically. Return a JOIN verdict if they're the same kind of data;
-APPEND if they're different; UNCLEAR if you can't tell from the samples.
+You are deciding whether an incoming column from a data integration is
+semantically the same field as an existing canonical column we already
+track for an account.
+
+Prefer routing to a GLOBAL canonical when the match is reasonable so we
+can query across accounts later. Only route to a per-pkey canonical when
+no global is a good fit. Only APPEND a new column if neither tier matches.
+Return UNCLEAR when sample values are inconsistent or ambiguous — do not
+guess; we'll surface for human review.
 
 INCOMING COLUMN
-  source:        {{source}}
-  column_name:   {{source_column}}
-  sample_values: {{3-5 sample values from recent rows}}
+  source:              {{source}}
+  column_name:         {{source_column}}
+  source_data_type:    {{source_data_type}}
+  source_description:  {{source_description or "(none provided)"}}
+  sample_values:       {{3-5 sample values from recent rows}}
 
-EXISTING CANONICAL COLUMNS FOR THIS ACCOUNT
-{{for each: name, data_type, source_examples, sample_values}}
+GLOBAL CANONICAL COLUMNS (preferred match targets)
+{{for each row in global_canonical_columns:
+    - name, data_type, description, semantic_tags}}
+
+PER-PKEY CANONICAL COLUMNS (fallback match targets — pkey: {{pkey}})
+{{for each row in zippering_schema WHERE pkey=? AND is_global=false:
+    - canonical_name, data_type, description, sample_values from recent
+      zippered_signals rows}}
 
 Return JSON only:
 {
   "verdict": "join" | "append" | "unclear",
   "canonical_name": string | null,
+  "is_global_target": boolean,
   "similarity_score": number between 0 and 1,
   "reason": string (one sentence, no preamble)
 }
 
 Rules:
-- "join" only when the columns clearly carry the same kind of data
-  (timestamp vs timestamp; identifier vs identifier; free text vs free text).
-- "append" when the column is new in kind.
-- "unclear" when sample values are inconsistent or ambiguous; do not guess.
-- canonical_name is always set: echoes existing column on "join", suggests
-  a new column name on "append", and on "unclear" suggests a new column
-  name (the unclear case is appended into its own canonical column AND
-  flagged for human review — see Ingest Flow §5).
+- "join" when the columns carry the same kind of data (timestamp vs
+  timestamp; identifier vs identifier; free text vs free text) — set
+  canonical_name to the matching global or per-pkey name.
+- "append" when no candidate fits — invent a snake_case name.
+- "unclear" when sample values are inconsistent or ambiguous; do not
+  guess. Still set a canonical_name suggestion (we'll append it AND
+  flag for review per §5).
+- is_global_target is true only when canonical_name matches an entry
+  in the GLOBAL candidate list.
 ```
 
 ### Output shape
@@ -271,12 +340,25 @@ adapter.ingest(rawRow)
 resolvePkey(rawRow)                       // sender_domain → AccountId
   ↓
 for each column in rawRow:
-  decision = zippering_decisions.lookup(pkey, source, column)
+  # Latest decision (append-only audit; latest is active routing)
+  decision = zippering_decisions.latest(pkey, source, column)
   if not decision:
-    decision = haiku.assess(pkey, source, column, samples)
+    candidates_global = global_canonical_columns.all()
+    candidates_pkey   = zippering_schema.where(pkey, is_global=false)
+    decision = haiku.assess(
+      pkey, source, column,
+      source_data_type, source_description, samples,
+      candidates_global, candidates_pkey
+    )
+    # Audit append (never updated)
     zippering_decisions.insert(decision)
-    # No second-table write — the zippering_schema view derives from this
-    # row automatically. data_type is captured on the decision itself.
+    # Current-state mutation (only if this introduces a new canonical for this pkey)
+    if decision.verdict in ('append', 'unclear'):
+      zippering_schema.upsert(pkey, decision.canonical_name, data_type, is_global=false)
+    elif decision.verdict == 'join' and decision.is_global_target:
+      # Ensure the per-pkey schema mirrors the global routing so
+      # zippered_signals lookups don't have to special-case is_global.
+      zippering_schema.upsert(pkey, decision.canonical_name, data_type, is_global=true)
   ↓
 build wide row:
   canonical_columns = {}
@@ -436,7 +518,7 @@ Three-phase migration so we never have a flag day.
 
 | Phase | Scope | Days | Ships |
 | --- | --- | --- | --- |
-| 0 | Schema (3 tables + 1 view) + migration + RLS posture | 1 | Supabase migration only |
+| 0 | Schema (5 tables) + migration + RLS posture + seed global_canonical_columns | 1-2 | Supabase migration + Postgres seed |
 | 1 | Zipperer lib + Haiku prompt + tests | 2 | `src/lib/zippering.ts` + fixtures + unit tests |
 | 2 | Wrap ONE adapter (newsletter) in dual-write | 2 | Behind feature flag; shadow reads validate |
 | 3 | Migrate remaining 5 adapters (sec, newsapi, firecrawl, granola, web-scrape) | 3 | All sources zippered |
@@ -452,12 +534,12 @@ becomes visible to operators. Phase 5 is the long tail of operator tooling.
 
 Worth resolving before Phase 1 starts:
 
-1. **Schema scope.** Is the canonical schema **per pkey** (every account gets
-   its own column universe) or **global** (one workspace-wide column universe,
-   pkey just owns the values)? Per-pkey is more flexible; global is cheaper
-   to query across accounts. Default in this plan: **per pkey**, on the bet
-   that small accounts won't have many integrations and large accounts will
-   want their own shape. Worth pushback.
+1. ✅ **Schema scope.** RESOLVED via operator pushback (PR #98): **hybrid
+   model**. Global canonical columns (`global_canonical_columns`) hold
+   cross-pkey shared fields so questions like "show me every company with
+   >500 employees" stay queryable. Per-pkey schema (`zippering_schema`)
+   holds local extensions. Haiku prefers global routing when a reasonable
+   match exists; falls back to per-pkey; only appends when neither fits.
 2. **Type changes mid-stream.** What happens when source A writes
    `occurred_at` as a date string and source B writes it as an epoch ms?
    Option A: zipperer normalizes at write time using `data_type` from
@@ -467,14 +549,12 @@ Worth resolving before Phase 1 starts:
    to `content`?" A `/zippering/decisions/<pkey>/<column>` debug endpoint
    surfaces the original Haiku verdict + reason. Cheap to add; worth it for
    trust.
-4. **Operator override.** If Haiku gets a verdict wrong, can a human re-map?
-   Add `decision_override_by` + `decision_override_at` columns to
-   `zippering_decisions` + an admin UI. The most common case is promoting
-   `unclear` verdicts to `join` (see §6 "Operator review of unclear
-   decisions"); the same surface also handles correcting wrong `join`
-   verdicts to `append` and vice versa. Backfill on promotion uses
-   `jsonb_set` to rename keys inside `zippered_signals.columns`. Deferred
-   to Phase 5 (UI); the columns + behavior are baked in from Phase 0.
+4. **Operator override.** Resolved in the data model: overrides append a
+   new `zippering_decisions` row with `decided_by = <rep_id>`; the
+   `zippering_schema` row updates in place; the audit log preserves the
+   prior Haiku verdict forever. The UI surface (`/zippering/review`) ships
+   in Phase 5. Backfill on canonical rename uses `jsonb_set` to walk
+   `zippered_signals.columns`.
 5. **Multi-tenancy.** If we ever serve multiple Checkbox-style workspaces,
    all four tables need a `workspace_key` column. Cheap to add now (one
    migration); painful to retrofit later. Plan recommends adding it from
