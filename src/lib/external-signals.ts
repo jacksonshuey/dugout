@@ -93,6 +93,12 @@ export interface NewExternalSignal {
   email_subject?: string | null;
   source_content_md?: string | null;
   source_content_kind?: ExternalSignal["source_content_kind"];
+  // Workspace-relevance tier set by the upstream Haiku content filter
+  // (newsletter-adapter, web-scrape-classifier, news-filter). Optional so
+  // legacy demo/manual writers keep type-checking; the AE Brief filter
+  // hides NULL rows (treated as 'none'). See migration
+  // 20260524_news_filter.sql for the column + check constraint.
+  workspace_relevance?: ExternalSignal["workspace_relevance"];
 }
 
 // ---------------------------------------------------------------------------

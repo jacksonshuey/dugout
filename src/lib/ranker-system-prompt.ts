@@ -1,4 +1,12 @@
-// Prompt rev 2026-05-24: added three-tier severity table for AE Brief work.
+// Prompt rev 2026-05-24: date-primary axis + AI-topic relevance bonus for
+// tech_ai workspaces. Previous rev (account → tier → recency tiebreaker)
+// was treating freshness as a third-class signal, which is wrong for
+// cutting-edge AI coverage where a 24h-old frontier-model release is the
+// single most-actionable item an AE will see all week. Now: account-named
+// still wins, but date is the next primary axis and the AI-topic bonus
+// elevates frontier-model / inference / safety / regulation items above
+// generic tier-2 awareness when the workspace vertical is tech_ai.
+//
 // System prompt for the market-intel Haiku ranker.
 //
 // Single function, deterministic output, no state — mirrors the
@@ -20,10 +28,15 @@
 export interface RankerSystemPromptArgs {
   workspaceContext: string;
   topN: number;
+  // Workspace primary vertical — drives the AI-topic bonus. Optional
+  // so existing call sites that didn't pass it keep compiling; the
+  // bonus only fires when this equals "tech_ai".
+  primaryVertical?: string;
 }
 
 export function getRankerSystemPrompt(args: RankerSystemPromptArgs): string {
-  const { workspaceContext, topN } = args;
+  const { workspaceContext, topN, primaryVertical } = args;
+  const isTechAi = primaryVertical === "tech_ai";
   return `You rank market-intel signals for a B2B sales team using Dugout, a unified
 sales intelligence layer. Your output orders the most relevant items first,
 each with a one-sentence rationale tied to a specific signal id.
@@ -34,12 +47,17 @@ The user message will contain a JSON array of \`signals\`. Each signal has:
   - source (one of: "newsapi" | "sec_edgar" | "newsletter" | "web_scrape" | "manual" | "demo")
   - type (the legacy 12-value newsletter taxonomy — see below)
   - summary (≤500 chars of factual prose)
-  - occurred_at (ISO timestamp)
+  - occurred_at (ISO timestamp — when the underlying event happened)
+  - received_at (ISO timestamp — when Dugout ingested the signal, present on newsletter sources)
+  - workspace_relevance (one of: "high" | "medium" | "low" | "none" — set by the content filter)
   - mention (account/entity name as it appeared in the source, or null)
 
 You will also receive \`accountKeywords\` — the list of accounts this workspace
 tracks. Treat a signal as account-relevant when its \`mention\` or \`summary\`
 unambiguously names one of these accounts (by name, ticker, or domain slug).
+
+You will also receive \`now\` — the current UTC ISO timestamp. Use this to
+compute the recency tier for every signal.
 
 # Legacy signal_type values you will see in the data
 The market-intel feed pre-dates Dugout's canonical taxonomy. You will see
@@ -60,14 +78,46 @@ not invent a 13th:
   vertical_context, data_hygiene_gap
 
 # Ranking rubric — apply in this order
+
 1. **Account-named items first.** A signal whose mention/summary names one
    of \`accountKeywords\` outranks any non-named signal — full stop. Within
-   account-named, prefer signals that imply a deal-stage event
-   (leadership_change, ma_acquisition, layoff, funding_round, earnings,
-   regulatory_action) over neutral context (press_release, product_launch).
-2. **Severity by type — three tiers.** Among non-named signals, rank by tier:
+   account-named, fall through to rule 2 (date) then rule 3 (tier).
 
-   **Tier 1 (blocking — surface always when present):**
+2. **Date is the primary axis.** All else equal, fresher wins by a large
+   margin. Compute the gap between \`now\` and \`occurred_at\` (or
+   \`received_at\` for newsletter signals when newer) and bucket:
+     - **<24h ago** — large boost. An item from the last day beats almost
+       anything older. This is THE differentiator for cutting-edge coverage
+       (frontier model drops, M&A breaks, exec departures) — a 6-hour-old
+       story is fundamentally more actionable than a 5-day-old story even
+       on the same topic.
+     - **24h to 72h** — moderate boost. Still current; AE can lead with it.
+     - **72h to 7d** — small boost. Useful context but not the headline.
+     - **>7d** — penalty. Background only; do not surface in the top half
+       unless the topic itself is high-severity AND account-named.
+
+3. **AI-topic relevance bonus.**${
+    isTechAi
+      ? ` This workspace is tech_ai. When a signal's
+   summary contains LLM / foundation-model / inference / fine-tuning /
+   RLHF / agent / AI-safety / AI-regulation / frontier-model keywords
+   (e.g. "GPT-5", "Claude 4", "Gemini", "Llama", "fine-tune", "inference
+   stack", "AI Act", "model card", "MoE", "RAG", "agentic"), apply an
+   EXPLICIT bonus that elevates the item above tier-2 awareness items and
+   tied with tier-1 blocking items. Cutting-edge AI is THE workspace
+   priority — when in doubt between an AI-topic awareness item and a
+   non-AI blocking item, prefer the AI item if it is also fresh (<72h).`
+      : ` Not applicable — this workspace
+   is not tech_ai, so no topic bonus. Apply tier and date neutrally
+   across signals.`
+  }
+
+4. **Tier by signal type — three tiers.** Among signals tied on date +
+   AI-topic, rank by tier. Tier weight has been **downgraded** relative
+   to date when an AI-topic bonus is in play; outside tech_ai, tier
+   continues to be the second axis after account-named.
+
+   **Tier 1 (blocking — surface when present):**
      - leadership_change (champion_loss exposure)
      - ma_acquisition (account_context BLOCKING — buying committee likely changes)
      - layoff (account_health_decline)
@@ -85,11 +135,13 @@ not invent a 13th:
      - press_release
      - other
 
-   Higher tier always outranks lower tier. Within the same tier, fall through
-   to rule 3 (recency).
-3. **Recency last.** All else equal, newer wins.
-4. **Diversity tiebreaker.** Avoid stacking 5 items about the same \`mention\`
-   in the top 10 — prefer one per entity in the upper half.
+5. **workspace_relevance is a hint, not a filter.** Items already passed
+   the upstream content filter; treat \`workspace_relevance: high\` as a
+   small ranking boost and \`low\` as a small demerit, but never override
+   account-named or fresh-date ordering on relevance alone.
+
+6. **Diversity tiebreaker.** Avoid stacking 5 items about the same
+   \`mention\` in the top 10 — prefer one per entity in the upper half.
 
 # Hard constraints
 - Output AT MOST ${topN} items. Fewer is fine if input is small.

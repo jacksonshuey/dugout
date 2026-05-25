@@ -70,25 +70,109 @@ function evaluateRule(id: string, ctx: EvaluationContext): Signal[] {
 
 // ── Rules ───────────────────────────────────────────────────────────────
 
-describe("SELECTED_VENDOR_NO_FINANCE", () => {
-  test("fires for Selected Vendor without Finance contact", () => {
+describe("BUDGET_APPROVAL_RISK", () => {
+  // Builds a context where ALL 4 conditions are satisfied. Each
+  // negative test below knocks out exactly one condition and asserts
+  // the rule no longer fires.
+  function buildAllFourConditions(): {
+    opp: Opportunity;
+    champion: Contact;
+    ctx: EvaluationContext;
+  } {
     const champion = makeContact({ id: "c_ch", role: "Champion" });
-    const opp = makeOpp({ stage: "Selected Vendor", contactRoleIds: [champion.id] });
-    const signals = evaluateRule(
-      "SELECTED_VENDOR_NO_FINANCE",
-      makeCtx({ opportunities: [opp], contacts: [champion] }),
-    );
+    const opp = makeOpp({
+      stage: "Selected Vendor",
+      contactRoleIds: [champion.id],
+      assetsShared: {
+        cfoLeaveBehind: true,
+        cfoLeaveBehindViewed: false, // delivered but unviewed
+      },
+    });
+    const call: CallTranscript = {
+      id: "call_1",
+      oppId: opp.id,
+      callDate: "2026-05-18",
+      durationMin: 30,
+      attendees: ["rep_1", champion.id],
+      summary:
+        "Champion walked us through procurement — budget approval is required from the CFO before contracts move.",
+      riskFlags: [],
+      excerpts: [],
+    };
+    const ctx = makeCtx({
+      opportunities: [opp],
+      contacts: [champion],
+      calls: [call],
+      deliveries: [
+        {
+          oppId: opp.id,
+          asset: "cfo_leave_behind",
+          deliveredAt: "2026-05-14T00:00:00Z",
+        },
+      ],
+    });
+    return { opp, champion, ctx };
+  }
+
+  test("fires when all 4 conditions are met (stage + transcript + no Finance + unviewed asset)", () => {
+    const { opp, ctx } = buildAllFourConditions();
+    const signals = evaluateRule("BUDGET_APPROVAL_RISK", ctx);
     expect(signals.map((s) => s.oppId)).toEqual([opp.id]);
     expect(signals[0].signalType).toBe("committee_gap");
+    expect(signals[0].severity).toBe("blocking");
+    expect(signals[0].title).toBe("Budget approval risk");
+    expect(signals[0].body).toContain("budget approval was mentioned");
+    expect(signals[0].suggestedAction).toContain("Map Finance");
   });
 
-  test("does not fire when Finance contact is present", () => {
+  test("does NOT fire when stage is not Selected Vendor", () => {
+    const { opp, ctx } = buildAllFourConditions();
+    opp.stage = "Evaluating";
+    const signals = evaluateRule("BUDGET_APPROVAL_RISK", ctx);
+    expect(signals).toHaveLength(0);
+  });
+
+  test("does NOT fire when a Finance contact is on the OCR", () => {
+    const { opp, ctx } = buildAllFourConditions();
     const finance = makeContact({ id: "c_f", role: "Finance/CFO" });
-    const opp = makeOpp({ stage: "Selected Vendor", contactRoleIds: [finance.id] });
-    const signals = evaluateRule(
-      "SELECTED_VENDOR_NO_FINANCE",
-      makeCtx({ opportunities: [opp], contacts: [finance] }),
-    );
+    opp.contactRoleIds.push(finance.id);
+    ctx.contacts.push(finance);
+    const signals = evaluateRule("BUDGET_APPROVAL_RISK", ctx);
+    expect(signals).toHaveLength(0);
+  });
+
+  test("does NOT fire when no transcript mentions budget approval", () => {
+    const { opp, ctx } = buildAllFourConditions();
+    ctx.calls = [
+      {
+        id: "call_1",
+        oppId: opp.id,
+        callDate: "2026-05-18",
+        durationMin: 30,
+        attendees: ["rep_1"],
+        summary: "Champion walked us through procurement timeline — no mention of finance.",
+        riskFlags: [],
+        excerpts: [],
+      },
+    ];
+    const signals = evaluateRule("BUDGET_APPROVAL_RISK", ctx);
+    expect(signals).toHaveLength(0);
+  });
+
+  test("does NOT fire when CFO leave-behind has been viewed by the buyer", () => {
+    const { opp, ctx } = buildAllFourConditions();
+    opp.assetsShared = {
+      cfoLeaveBehind: true,
+      cfoLeaveBehindViewed: true,
+    };
+    const signals = evaluateRule("BUDGET_APPROVAL_RISK", ctx);
+    expect(signals).toHaveLength(0);
+  });
+
+  test("does NOT fire when CFO leave-behind was never delivered", () => {
+    const { ctx } = buildAllFourConditions();
+    ctx.deliveries = []; // never sent
+    const signals = evaluateRule("BUDGET_APPROVAL_RISK", ctx);
     expect(signals).toHaveLength(0);
   });
 });

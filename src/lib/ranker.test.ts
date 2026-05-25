@@ -359,6 +359,64 @@ describe("getRankerSystemPrompt", () => {
     const prompt = getRankerSystemPrompt({ workspaceContext: "x", topN: 7 });
     expect(prompt).toContain("AT MOST 7 items");
   });
+
+  // ─── Phase 3 ranker prompt: date-primary + AI-topic bonus ─────────────
+
+  test("treats date as the primary axis after account-named (not a tiebreaker)", () => {
+    const prompt = getRankerSystemPrompt({ workspaceContext: "x", topN: 20 });
+    expect(prompt).toContain("Date is the primary axis");
+    expect(prompt).toContain("<24h ago");
+    expect(prompt).toContain("24h to 72h");
+    expect(prompt).toContain("72h to 7d");
+    expect(prompt).toContain(">7d");
+    // The previous version listed recency as rule 3 with "all else equal,
+    // newer wins" — make sure that downgraded phrasing is gone so the
+    // model isn't given two competing recency rubrics.
+    expect(prompt).not.toContain("Recency last");
+  });
+
+  test("AI-topic bonus is explicit when primaryVertical=tech_ai", () => {
+    const prompt = getRankerSystemPrompt({
+      workspaceContext: "x",
+      topN: 20,
+      primaryVertical: "tech_ai",
+    });
+    expect(prompt).toContain("AI-topic relevance bonus");
+    expect(prompt).toContain("tech_ai");
+    expect(prompt).toContain("frontier-model");
+    expect(prompt).toContain("EXPLICIT bonus");
+  });
+
+  test("AI-topic bonus is suppressed when primaryVertical != tech_ai", () => {
+    const prompt = getRankerSystemPrompt({
+      workspaceContext: "x",
+      topN: 20,
+      primaryVertical: "biotech",
+    });
+    // Header still appears — but the body says "Not applicable".
+    expect(prompt).toContain("AI-topic relevance bonus");
+    expect(prompt).toContain("Not applicable");
+    expect(prompt).not.toContain("EXPLICIT bonus");
+  });
+
+  test("workspace_relevance is described as a hint, not a hard filter", () => {
+    const prompt = getRankerSystemPrompt({ workspaceContext: "x", topN: 20 });
+    expect(prompt).toContain("workspace_relevance");
+    expect(prompt).toContain("hint, not a filter");
+  });
+
+  test("input contract advertises received_at + workspace_relevance + signal_type", () => {
+    const prompt = getRankerSystemPrompt({ workspaceContext: "x", topN: 20 });
+    // The user-message contract must list every field ranker.ts now
+    // includes in the minified signal payload — otherwise the model
+    // doesn't know to use them.
+    expect(prompt).toContain("received_at");
+    expect(prompt).toContain("workspace_relevance");
+    // signal_type appears in the user-message JSON; the prompt also lists
+    // the 12-value taxonomy under "Legacy signal_type values" so this
+    // assertion is loose on case but exact on substring.
+    expect(prompt.toLowerCase()).toContain("signal_type");
+  });
 });
 
 // ─── 12. cache_hit_skips_haiku ──────────────────────────────────────────

@@ -62,6 +62,33 @@ Open [http://localhost:3000](http://localhost:3000).
 
 Connect this repo to Vercel. Add `ANTHROPIC_API_KEY` (and optionally `SLACK_WEBHOOK_URL`) in Vercel's Environment Variables. Push to `main` to deploy.
 
+## AE pre-meeting skill (Claude Code)
+
+The `firecrawl-company-scope` skill at [`.claude/skills/firecrawl-company-scope/SKILL.md`](.claude/skills/firecrawl-company-scope/SKILL.md) lets an AE pull a pre-meeting brief for any Dugout-tracked account from the Claude Code CLI. It calls the same endpoint as the in-product `/account/[slug]/prep` page, so the brief is identical whether you look at the UI or invoke from your terminal.
+
+### One-time setup
+
+1. Generate a skill token: `openssl rand -hex 32`
+2. Add it to your Vercel env as `DUGOUT_SKILL_TOKEN` (Project Settings → Environment Variables).
+3. In your local shell:
+   ```bash
+   export DUGOUT_SKILL_TOKEN=<hex>
+   export DUGOUT_BASE_URL=https://your-deployment.vercel.app
+   ```
+4. Open Claude Code in this repo; the skill is auto-discovered from `.claude/skills/`.
+
+If `DUGOUT_SKILL_TOKEN` is unset on the server, the endpoint falls back to requiring a UI session cookie and the skill won't work — this is intentional fail-closed.
+
+### Usage
+
+```
+/firecrawl-company-scope Stripe
+/firecrawl-company-scope acc_cobalt
+/firecrawl-company-scope stripe.com
+```
+
+Returns the same `MeetingBrief` (`src/lib/meeting-prep.ts`) that `/account/[slug]/prep` renders in the product, formatted as a scannable Markdown brief with status banner, SV Health, recent moves, exec changes, buying-committee gaps, and any blocking signals with prescribed actions.
+
 ## Newsletter inbox
 
 Dugout's account-scoped market intelligence (NewsAPI + SEC EDGAR) is complemented by a workspace-wide newsletter inbox. Inbound emails arrive via Mailgun, land in `inbound_emails`, get classified by Haiku, and produce signals into `external_signals` — either tagged to a tracked account (when a known company is named) or as workspace-scoped market intel. The morning digest reads the workspace-scoped items and adds a "Market intel" section when relevant.

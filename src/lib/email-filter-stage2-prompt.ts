@@ -9,11 +9,19 @@
 // prompt's semantics change. No re-classify on prompt change in v1 —
 // forward-apply only.
 //
+// 2026-05-24 (Phase 3 unification): added workspace_relevance to the
+// required tool-use output. Same four-tier rubric as the news-filter and
+// newsletter-adapter — defined verbatim in workspace-relevance.ts and
+// embedded here so the model sees the exact same wording across every
+// call site. Version bumped to stage2-v2 to mark the schema change in
+// audit row history.
+//
 // Design doc: /docs/filter-design.md §4.
 
 import type { PublisherInfo } from "./email-filter-types";
+import { WORKSPACE_RELEVANCE_DEFINITION } from "./workspace-relevance";
 
-export const STAGE2_PROMPT_VERSION = "stage2-v1";
+export const STAGE2_PROMPT_VERSION = "stage2-v2";
 
 export interface Stage2SystemPromptArgs {
   publisherInfo: PublisherInfo;
@@ -30,7 +38,8 @@ export function getStage2SystemPrompt(args: Stage2SystemPromptArgs): string {
   return `You are the content gate for Dugout's market-intel inbox. Your one job is
 to decide whether this email contains real newsletter content worth
 classifying into signals, or whether it is subscription admin, billing,
-promotional marketing, or some other non-signal artifact.
+promotional marketing, or some other non-signal artifact — AND to tag the
+workspace-relevance tier the downstream ranker should treat it as.
 
 You are NOT the classifier. You do not extract entities, identify events,
 or label signal types. A downstream Haiku classifier handles that — but
@@ -74,6 +83,19 @@ messages, RSS aggregators that arrived as email, multi-language emails
 where the editorial substance is below the language barrier. Use sparingly
 — if a piece of editorial content is in English and on-topic, prefer
 \`newsworthy\`.
+
+# Workspace relevance tier (REQUIRED on every verdict)
+
+${WORKSPACE_RELEVANCE_DEFINITION}
+
+Coupling between verdict and workspace_relevance:
+- When \`verdict === "newsworthy"\`, pick \`high\` / \`medium\` / \`low\` based
+  on the lead article's importance — a Fortune-500 reorg or a frontier
+  model release is \`high\`; a routine product launch from a mid-tier
+  vendor is \`medium\`; a general industry-recap blog post is \`low\`.
+- When \`verdict\` is \`logistics\`, \`promotional\`, or \`other\`, set
+  \`workspace_relevance: "none"\` always — non-newsworthy content has no
+  workspace-relevance signal.
 
 # Hard constraints (BUILD_ALIGNMENT principles enforced)
 

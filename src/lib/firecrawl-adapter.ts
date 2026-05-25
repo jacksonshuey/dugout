@@ -1,5 +1,5 @@
-import { scrapeUrl } from "./firecrawl-client";
-import { insertWebScrape } from "./web-scrapes";
+import { mapUrl, scrapeUrl, type FirecrawlMapResult } from "./firecrawl-client";
+import { insertWebScrape, type WebScrape } from "./web-scrapes";
 import type { Account } from "./types";
 
 // Firecrawl adapter — per-account orchestrator. For each tracked account,
@@ -31,6 +31,52 @@ export const ACCOUNT_PAGES: readonly string[] = [
   "/leadership",
 ];
 
+// Cap on dynamic-scope paths per account. Tuned for cost: 11 accounts × 6
+// paths × 30 days ≈ 1980 scrape credits/mo + ~330 /map credits/mo (one map
+// call per account per day). Up from 1320/mo on the old 4-path hardcode —
+// roughly 1.75x for coverage that actually finds /blog on Stripe,
+// /newsroom on Boeing, etc. See route.ts §"Scope" comment for the live
+// number.
+export const MAX_PATHS_PER_ACCOUNT = 6;
+
+// Path patterns we want to keep when filtering /map output. Substring +
+// case-insensitive match against the URL path. Order doesn't matter —
+// dedup + cap happen after.
+//
+// Bias: surface news/PR/leadership pages (where material signals live)
+// over deep product/marketing trees. Homepage gets included unconditionally
+// by selectPathsFromMap (always first path).
+const PREFERRED_PATH_PATTERNS: readonly string[] = [
+  "/about",
+  "/news",
+  "/blog",
+  "/newsroom",
+  "/press",
+  "/investors",
+  "/investor-relations",
+  "/leadership",
+  "/team",
+  "/company",
+  "/products",
+];
+
+// Deps injection seam for testing. Production wiring uses the real
+// firecrawl-client + web-scrapes functions; tests pass fakes.
+export interface FirecrawlAdapterDeps {
+  mapUrl: typeof mapUrl;
+  scrapeUrl: typeof scrapeUrl;
+  insertWebScrape: typeof insertWebScrape;
+}
+
+const DEFAULT_DEPS: FirecrawlAdapterDeps = {
+  mapUrl,
+  scrapeUrl,
+  insertWebScrape,
+};
+
+// Re-exported for tests that want a typed reference to the persisted row.
+export type { WebScrape };
+
 export interface AccountScrapeResult {
   account_id: string;
   account_name: string;
@@ -52,16 +98,76 @@ function buildUrl(website: string, path: string): string {
   return path === "/" ? trimmed : `${trimmed}${path}`;
 }
 
+// Heuristic filter over /map output. Keeps the homepage + URLs whose path
+// matches one of PREFERRED_PATH_PATTERNS, caps to MAX_PATHS_PER_ACCOUNT,
+// dedups, returns absolute URLs.
+//
+// Exported for unit testing. Bail-out (< 2 useful URLs) is handled by the
+// caller — this just returns what it found.
+export function selectPathsFromMap(
+  website: string,
+  mapUrls: readonly string[],
+  cap: number = MAX_PATHS_PER_ACCOUNT,
+): string[] {
+  const homepage = buildUrl(website, "/");
+  const seen = new Set<string>([homepage]);
+  const picked: string[] = [homepage];
+
+  // Normalize host of `website` so we can drop foreign-host URLs that
+  // sometimes appear in /map output (CDN buckets, subdomain redirects).
+  let targetHost: string | null = null;
+  try {
+    targetHost = new URL(homepage).host.replace(/^www\./, "");
+  } catch {
+    targetHost = null;
+  }
+
+  for (const raw of mapUrls) {
+    if (picked.length >= cap) break;
+
+    let parsed: URL;
+    try {
+      parsed = new URL(raw);
+    } catch {
+      continue;
+    }
+
+    if (targetHost) {
+      const host = parsed.host.replace(/^www\./, "");
+      // Allow exact + subdomain matches of the apex (e.g. investors.<apex>),
+      // skip anything else (CDN, doc subdomain on a foreign host, etc).
+      if (host !== targetHost && !host.endsWith(`.${targetHost}`)) continue;
+    }
+
+    const pathLower = parsed.pathname.toLowerCase();
+    const matches = PREFERRED_PATH_PATTERNS.some((pat) =>
+      pathLower.includes(pat),
+    );
+    if (!matches) continue;
+
+    // Use the normalized URL (no trailing slash, no fragment) for dedup so
+    // `/news` and `/news/` collapse to one entry.
+    const normalized = `${parsed.origin}${parsed.pathname.replace(/\/$/, "")}`;
+    if (seen.has(normalized)) continue;
+
+    seen.add(normalized);
+    picked.push(normalized);
+  }
+
+  return picked;
+}
+
 async function scrapeAndStore(
   account: Account,
   url: string,
+  deps: FirecrawlAdapterDeps,
 ): Promise<AccountScrapeResult["pages"][number]> {
   // scrapeUrl throws ONLY on hard rate-limit (Firecrawl 429). That throw
   // is what tells the cron handler to break out of the per-account loop
   // and stop burning credits. Don't catch it here — let it propagate up
-  // through Promise.all → scrapeAccount → cron handler's catch → break.
+  // through Promise.all → scrapeAccount → cron handler's catch → continue.
   // Network/transport errors come back as `{ ok: false }` already.
-  const result = await scrapeUrl(url);
+  const result = await deps.scrapeUrl(url);
 
   if (!result.ok) {
     // Soft failure (404, target 5xx, parse error). Insert an error row so
@@ -69,7 +175,7 @@ async function scrapeAndStore(
     // for a given account. dedup hit (same-day re-scrape) returns null;
     // any other DB error rethrows so the run halts loudly rather than
     // showing up as a fake "dedup" in the logs.
-    const row = await insertWebScrape({
+    const row = await deps.insertWebScrape({
       account_id: account.id,
       url,
       status_code: result.statusCode,
@@ -85,7 +191,7 @@ async function scrapeAndStore(
     };
   }
 
-  const row = await insertWebScrape({
+  const row = await deps.insertWebScrape({
     account_id: account.id,
     url,
     status_code: result.statusCode,
@@ -100,8 +206,78 @@ async function scrapeAndStore(
   };
 }
 
+// Resolve which URLs to scrape for an account. Order of precedence:
+//   1. account.paths override (production opt-out for sites that don't
+//      play nice with /map — e.g. JS-only landing pages with no sitemap).
+//   2. dynamic /map result, filtered through selectPathsFromMap.
+//   3. fallback to ACCOUNT_PAGES hardcoded list (when /map returns < 2
+//      useful URLs, errors, or 429s).
+//
+// `scope` is returned alongside `urls` so the caller (cron) can log which
+// path was taken — useful for spotting when /map is consistently failing
+// for a given site.
+export async function resolveAccountUrls(
+  account: Account,
+  deps: FirecrawlAdapterDeps = DEFAULT_DEPS,
+): Promise<{
+  urls: string[];
+  scope: "override" | "map" | "fallback";
+  mapErrorReason?: string;
+}> {
+  const website = account.website!;
+
+  if (account.paths && account.paths.length > 0) {
+    return {
+      urls: account.paths.map((p) => buildUrl(website, p)),
+      scope: "override",
+    };
+  }
+
+  // /map call is cheap (1 credit, fast). On 429 it throws; on other
+  // errors it returns `{ ok: false }`. We always fall back to the
+  // hardcoded set rather than skipping the account entirely — losing
+  // scope per-account would create silent coverage gaps.
+  let mapResult: FirecrawlMapResult;
+  try {
+    mapResult = await deps.mapUrl(website, { limit: 20 });
+  } catch (e) {
+    // 429 on /map → fall back to hardcoded paths for this account.
+    // The 429 reaching scrapeUrl below would still throw and bubble; the
+    // cron's per-account try/catch handles that. We don't rethrow here
+    // because dynamic scope failing is recoverable — full scrape failing
+    // is the case that needs to halt this account.
+    return {
+      urls: ACCOUNT_PAGES.map((p) => buildUrl(website, p)),
+      scope: "fallback",
+      mapErrorReason: e instanceof Error ? e.message : String(e),
+    };
+  }
+
+  if (!mapResult.ok) {
+    return {
+      urls: ACCOUNT_PAGES.map((p) => buildUrl(website, p)),
+      scope: "fallback",
+      mapErrorReason: mapResult.error,
+    };
+  }
+
+  const picked = selectPathsFromMap(website, mapResult.urls);
+  // /map returned but we got nothing useful (only the homepage matched).
+  // Hardcoded fallback is strictly better than scraping just `/`.
+  if (picked.length < 2) {
+    return {
+      urls: ACCOUNT_PAGES.map((p) => buildUrl(website, p)),
+      scope: "fallback",
+      mapErrorReason: `only ${picked.length} URL(s) matched preferred patterns`,
+    };
+  }
+
+  return { urls: picked, scope: "map" };
+}
+
 export async function scrapeAccount(
   account: Account,
+  deps: FirecrawlAdapterDeps = DEFAULT_DEPS,
 ): Promise<AccountScrapeResult> {
   if (!account.website) {
     return {
@@ -115,13 +291,14 @@ export async function scrapeAccount(
     };
   }
 
-  const urls = ACCOUNT_PAGES.map((p) => buildUrl(account.website!, p));
+  const { urls } = await resolveAccountUrls(account, deps);
+
   // Parallelize per account. allSettled (not all) so a hard 429 on one
-  // page doesn't leave the other three rejections unhandled — we await
-  // every page, then re-throw the first 429 if any so the cron handler
-  // breaks the per-account loop and stops burning credits.
+  // page doesn't leave the other rejections unhandled — we await every
+  // page, then re-throw the first 429 if any so the cron handler's
+  // per-account try/catch records it and continues with the next account.
   const settled = await Promise.allSettled(
-    urls.map((u) => scrapeAndStore(account, u)),
+    urls.map((u) => scrapeAndStore(account, u, deps)),
   );
   const rateLimited = settled.find(
     (s): s is PromiseRejectedResult =>

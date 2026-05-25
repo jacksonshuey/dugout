@@ -82,6 +82,13 @@ export interface Account {
   // purposes. The drawer surfaces a chip + tooltip so the audience sees
   // clearly which parts are real signal and which are illustrative.
   isDemoScenario?: boolean;
+  // Firecrawl scrape-path override. When set, the firecrawl adapter scrapes
+  // EXACTLY these paths (relative to `website`) and skips the /map sitemap
+  // lookup entirely. Useful for sites whose /map output is unreliable
+  // (JS-only landing pages, missing sitemap.xml) or for ops to force scope
+  // on a specific account. Leave undefined → adapter uses dynamic discovery
+  // (Firecrawl /map → preferred-pattern filter → fallback to ACCOUNT_PAGES).
+  paths?: string[];
 }
 
 // Contact roles map to Salesforce OpportunityContactRole. The presence/absence

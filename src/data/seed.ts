@@ -703,6 +703,43 @@ export const calls: CallTranscript[] = [
     ],
   },
   {
+    // CNA Financial (DEMO_SCENARIO_ACCOUNTS.critical). Call that
+    // explicitly mentions "budget approval" — this is the third leg of
+    // the new BUDGET_APPROVAL_RISK multi-signal rule (along with
+    // Selected Vendor stage, no Finance contact on OCR, and the
+    // CFO Leave-Behind being delivered but unviewed). Aligned to the
+    // 5/12 dock visit Amelia had — same week she went quiet.
+    id: "call_sen_1",
+    oppId: "opp_sentinel",
+    callDate: "2026-05-12",
+    durationMin: 42,
+    attendees: ["Sara Chen", "c_sen_1"],
+    summary:
+      "Mid-stage check-in with Amelia Hart. She walked through the procurement timeline and flagged that budget approval is required from the CFO before any contract can move. No Finance contact has been added to the deal; CFO Leave-Behind was sent via Dock but Amelia confirmed it hasn't been opened by anyone on her side yet.",
+    riskFlags: [
+      "Budget approval gate uncovered",
+      "Finance not on OCR",
+      "CFO leave-behind never opened",
+    ],
+    excerpts: [
+      {
+        speaker: "Amelia Hart (Champion)",
+        timestamp: "18:22",
+        text: "Right, so the way this works at CNA — once we land in Selected Vendor, the CFO needs to sign off as budget approval before procurement can touch the contract. I haven't pulled my Finance lead into our thread yet but I will.",
+      },
+      {
+        speaker: "Sara Chen",
+        timestamp: "19:10",
+        text: "Got it — I sent over the CFO Leave-Behind through the deal room last week, did you get a chance to forward it?",
+      },
+      {
+        speaker: "Amelia Hart (Champion)",
+        timestamp: "19:24",
+        text: "Honestly no — I never opened it. Send it over again and I'll route it.",
+      },
+    ],
+  },
+  {
     id: "call_hel_1",
     oppId: "opp_helios",
     callDate: "2026-05-15",

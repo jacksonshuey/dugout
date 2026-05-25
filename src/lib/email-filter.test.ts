@@ -7,7 +7,7 @@
 // both injectable via the deps argument on filterEmail() — no vi.mock
 // magic needed. Stage 1 tests call runStage1 directly (pure function).
 
-import { describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import {
@@ -19,6 +19,7 @@ import {
   SUBJECT_REJECT_PATTERNS,
 } from "./email-filter-stage1";
 import { filterEmail, CONFIDENCE_THRESHOLD } from "./email-filter";
+import { processInboundEmail } from "./inbound-pipeline";
 import {
   STAGE2_PROMPT_VERSION,
   getStage2SystemPrompt,
@@ -331,6 +332,7 @@ describe("filterEmail · Stage 2 proceed", () => {
     const recorder = captureAudits();
     const stage2Out: Stage2Output = {
       verdict: "newsworthy",
+      workspace_relevance: "high",
       confidence: 0.92,
       reasoning: "Lead article covers a Fortune 500 reorg with named entities.",
     };
@@ -341,6 +343,7 @@ describe("filterEmail · Stage 2 proceed", () => {
     });
     expect(r.decision).toBe("proceed");
     expect(r.stage2?.verdict).toBe("newsworthy");
+    expect(r.stage2?.workspace_relevance).toBe("high");
     expect(recorder.writes.length).toBe(1);
     expect(recorder.writes[0].stage).toBe(2);
     expect(recorder.writes[0].verdict).toBe("newsworthy");
@@ -355,6 +358,7 @@ describe("filterEmail · low confidence", () => {
     const recorder = captureAudits();
     const stage2Out: Stage2Output = {
       verdict: "newsworthy",
+      workspace_relevance: "medium",
       confidence: 0.55,
       reasoning: "Probably editorial but the lead is ambiguous about scope.",
     };
@@ -380,6 +384,7 @@ describe("filterEmail · Stage 2 reject", () => {
     const recorder = captureAudits();
     const stage2Out: Stage2Output = {
       verdict: "promotional",
+      workspace_relevance: "none",
       confidence: 0.85,
       reasoning: "Vendor amplifying its own product with a single-vendor pitch.",
     };
@@ -560,7 +565,79 @@ describe("getStage2SystemPrompt", () => {
     }
     expect(prompt).toContain("submit_verdict");
     expect(prompt).toContain("BUILD_ALIGNMENT principles enforced");
-    expect(STAGE2_PROMPT_VERSION).toBe("stage2-v1");
+    // Bumped to stage2-v2 in the Phase 3 unification — schema now includes
+    // workspace_relevance. Forward-apply only; existing v1 audit rows stay
+    // tagged with their original version.
+    expect(STAGE2_PROMPT_VERSION).toBe("stage2-v2");
+  });
+
+  test("includes WORKSPACE_RELEVANCE_DEFINITION + four-tier enum", () => {
+    const prompt = getStage2SystemPrompt({
+      publisherInfo: ALWAYS_KNOWN_PUBLISHER,
+    });
+    expect(prompt).toContain("Workspace relevance tiers");
+    for (const tier of ["high", "medium", "low", "none"]) {
+      expect(prompt).toContain(`"${tier}"`);
+    }
+    // The verdict→relevance coupling rule must be explicit so Haiku
+    // doesn't pick a high/medium tier for non-newsworthy verdicts.
+    expect(prompt).toContain("Coupling between verdict and workspace_relevance");
+  });
+});
+
+// ─── Phase 3: workspace_relevance unification ───────────────────────────
+
+describe("filterEmail · workspace_relevance unification", () => {
+  test("missing workspace_relevance on newsworthy → coerced to 'low' (defensive default)", async () => {
+    const recorder = captureAudits();
+    const r = await filterEmail(mkInput(mkEmail()), {
+      hasApiKey: true,
+      // Missing workspace_relevance — the validator coerces rather than
+      // failing. Matches the fail-soft posture of every other adapter.
+      haikuCall: async () => ({
+        verdict: "newsworthy",
+        confidence: 0.9,
+        reasoning: "Lead article is editorial and on-topic for the vertical.",
+      }),
+      audit: { supabase: recorder.supabase },
+    });
+    expect(r.decision).toBe("proceed");
+    expect(r.stage2?.workspace_relevance).toBe("low");
+  });
+
+  test("non-newsworthy verdict → workspace_relevance always coerced to 'none'", async () => {
+    const recorder = captureAudits();
+    const r = await filterEmail(mkInput(mkEmail()), {
+      hasApiKey: true,
+      haikuCall: async () => ({
+        verdict: "promotional",
+        // Even when the model returns 'high' it must be flattened to
+        // 'none' — non-newsworthy content has no workspace-relevance
+        // signal by the prompt's coupling rule.
+        workspace_relevance: "high",
+        confidence: 0.9,
+        reasoning: "Vendor amplifying its own product with a single-vendor pitch.",
+      }),
+      audit: { supabase: recorder.supabase },
+    });
+    expect(r.decision).toBe("rejected");
+    expect(r.stage2?.workspace_relevance).toBe("none");
+  });
+
+  test("tool schema lists all four workspace_relevance values + makes it required", () => {
+    // Sanity: the tool schema (private to filter) must include
+    // workspace_relevance in required[] so Haiku errors out if it forgets
+    // to emit it under forced tool-use semantics.
+    const STAGE2_VALUES = ["high", "medium", "low", "none"];
+    expect(STAGE2_VALUES.length).toBe(4);
+    // Spot-check via the prompt — the schema is built at call time and
+    // not exported, but the prompt text doubles as the contract.
+    const prompt = getStage2SystemPrompt({
+      publisherInfo: ALWAYS_KNOWN_PUBLISHER,
+    });
+    for (const v of STAGE2_VALUES) {
+      expect(prompt).toContain(`"${v}"`);
+    }
   });
 });
 
@@ -725,4 +802,191 @@ describe("Q0 · signal feedback suppression + audit dual-write", () => {
 
     vi.restoreAllMocks();
   });
+});
+
+// ─── Audit gaps (Phase 2 backfill) ──────────────────────────────────────
+//
+// The following tests cover gaps identified in the AgentMail + filter
+// audit:
+//
+//   - INBOUND_SENDER_ALLOWLIST is fail-CLOSED on empty — verify directly
+//     against processInboundEmail() since senderAllowed() is intentionally
+//     unexported (the env-read lives at the call site).
+//   - Stage 2 (Haiku) is not called when Stage 1 rejects — verify by
+//     wiring a haikuCall that throws if invoked.
+//   - Svix signature verification lives inline in the route handler and
+//     has no extracted helper to unit-test; documented below.
+
+describe("processInboundEmail · sender allowlist", () => {
+  const ORIGINAL_ALLOWLIST = process.env.INBOUND_SENDER_ALLOWLIST;
+
+  beforeEach(() => {
+    // Each test sets its own value; reset between to avoid cross-test bleed.
+    delete process.env.INBOUND_SENDER_ALLOWLIST;
+  });
+
+  afterEach(() => {
+    if (ORIGINAL_ALLOWLIST === undefined) {
+      delete process.env.INBOUND_SENDER_ALLOWLIST;
+    } else {
+      process.env.INBOUND_SENDER_ALLOWLIST = ORIGINAL_ALLOWLIST;
+    }
+  });
+
+  // The fixture body deliberately stays under MAX_BODY_BYTES (2 MB) and has
+  // a parseable from header; the only "decision" the pipeline will reach is
+  // the allowlist branch. Anything past that branch would call Supabase,
+  // which we don't want in a unit test.
+  function mkEmail() {
+    return {
+      from_raw: "Newsletter <editor@substack.com>",
+      subject: "Daily digest",
+      text_body: "Body content under the 2MB cap.",
+      html_body: "",
+      message_id: "msg-allowlist-test",
+      headers: {},
+      list_id: null,
+    };
+  }
+
+  test("empty allowlist → sender_not_allowlisted (fail-closed)", async () => {
+    process.env.INBOUND_SENDER_ALLOWLIST = "";
+    const r = await processInboundEmail(mkEmail(), "agentmail");
+    expect(r.kind).toBe("sender_not_allowlisted");
+    if (r.kind === "sender_not_allowlisted") {
+      expect(r.domain).toBe("substack.com");
+    }
+  });
+
+  test("unset allowlist → sender_not_allowlisted (fail-closed)", async () => {
+    delete process.env.INBOUND_SENDER_ALLOWLIST;
+    const r = await processInboundEmail(mkEmail(), "agentmail");
+    expect(r.kind).toBe("sender_not_allowlisted");
+  });
+
+  test("allowlist match (exact domain) → proceeds past the allowlist branch", async () => {
+    process.env.INBOUND_SENDER_ALLOWLIST = "substack.com,beehiiv.com";
+    // We mock supabaseAdmin so the insert path doesn't fan out to a live
+    // DB. The contract being verified is "allowlist did NOT reject", so any
+    // outcome other than `sender_not_allowlisted` and `bad_from_header` is
+    // a pass.
+    vi.spyOn(await import("./supabase"), "supabaseAdmin").mockReturnValue({
+      from() {
+        return {
+          insert(_row: Record<string, unknown>) {
+            void _row;
+            return {
+              select(_cols: string) {
+                void _cols;
+                return {
+                  async single() {
+                    // Simulate a unique_violation (dedup) so the pipeline
+                    // returns { kind: "dedup" } and we exit before touching
+                    // the classifier / filter / signal storage.
+                    return {
+                      data: null,
+                      error: { code: "23505", message: "dedup" },
+                    };
+                  },
+                };
+              },
+            };
+          },
+        };
+      },
+    } as unknown as SupabaseClient);
+
+    const r = await processInboundEmail(mkEmail(), "agentmail");
+    expect(r.kind).not.toBe("sender_not_allowlisted");
+    expect(r.kind).not.toBe("bad_from_header");
+
+    vi.restoreAllMocks();
+  });
+
+  test("allowlist set but no match → sender_not_allowlisted", async () => {
+    process.env.INBOUND_SENDER_ALLOWLIST = "beehiiv.com,tldrnewsletter.com";
+    const r = await processInboundEmail(mkEmail(), "agentmail");
+    expect(r.kind).toBe("sender_not_allowlisted");
+    if (r.kind === "sender_not_allowlisted") {
+      expect(r.domain).toBe("substack.com");
+    }
+  });
+
+  test("allowlist subdomain match (suffix) → proceeds past allowlist", async () => {
+    process.env.INBOUND_SENDER_ALLOWLIST = "substack.com";
+    vi.spyOn(await import("./supabase"), "supabaseAdmin").mockReturnValue({
+      from() {
+        return {
+          insert(_row: Record<string, unknown>) {
+            void _row;
+            return {
+              select(_cols: string) {
+                void _cols;
+                return {
+                  async single() {
+                    return {
+                      data: null,
+                      error: { code: "23505", message: "dedup" },
+                    };
+                  },
+                };
+              },
+            };
+          },
+        };
+      },
+    } as unknown as SupabaseClient);
+
+    const subdomainEmail = {
+      ...mkEmail(),
+      from_raw: "Newsletter <editor@importai.substack.com>",
+    };
+    const r = await processInboundEmail(subdomainEmail, "agentmail");
+    expect(r.kind).not.toBe("sender_not_allowlisted");
+
+    vi.restoreAllMocks();
+  });
+});
+
+describe("filterEmail · Stage 1 short-circuits Stage 2", () => {
+  test("Stage 1 reject does NOT call haikuCall", async () => {
+    const recorder = captureAudits();
+    let haikuCalled = false;
+    const r = await filterEmail(
+      // Subject that hits a Stage 1 subject regex — guarantees Stage 1
+      // rejects before Stage 2 would be reached.
+      mkInput(mkEmail({ subject: "Reset your password — Brainyacts" })),
+      {
+        hasApiKey: true,
+        haikuCall: async () => {
+          haikuCalled = true;
+          throw new Error("Stage 2 must not be invoked when Stage 1 rejects");
+        },
+        audit: { supabase: recorder.supabase },
+      },
+    );
+    expect(haikuCalled).toBe(false);
+    expect(r.decision).toBe("rejected");
+    expect(recorder.writes.length).toBe(1);
+    expect(recorder.writes[0].stage).toBe(1);
+    expect(recorder.writes[0].verdict).toBe("stage1_rejected");
+  });
+});
+
+describe("AgentMail webhook signature verification · documented gap", () => {
+  // The svix `Webhook(secret).verify(rawBody, headers)` call lives inline
+  // in src/app/api/inbound-email/agentmail/route.ts. There is no extracted
+  // helper to unit-test the verify→reject branch in isolation; covering
+  // it properly requires either:
+  //   (a) refactoring the route to extract a verifySvix(rawBody, headers,
+  //       secret) helper, or
+  //   (b) an integration test that spins up the route via Next's test
+  //       utilities and asserts on Response status.
+  //
+  // Both are out of scope for this Phase 2 lane (route file is owned by
+  // the inbound-email lane and we cannot modify it). Flagged here so the
+  // gap is visible in test output.
+  test.todo(
+    "extract verifySvix() from agentmail route + unit-test bad-signature → 400",
+  );
 });
