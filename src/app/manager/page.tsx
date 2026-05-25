@@ -2,6 +2,7 @@ import Link from "next/link";
 import {
   DEMO_SCENARIO_ACCOUNTS,
   accounts,
+  accountsById,
   activities,
   assetDeliveries,
   calls,
@@ -70,7 +71,7 @@ export default async function ManagerPage() {
     ][]
   )
     .map(([label, accountId]) => {
-      const account = accounts.find((a) => a.id === accountId);
+      const account = accountsById.get(accountId);
       if (!account) return null;
       // First Selected Vendor / Contracting opp on the account - matches the
       // SV+ gating used by /api/account-context.
@@ -111,7 +112,7 @@ export default async function ManagerPage() {
   // so the panel grades the full open book. Same composition as the hero card.
   const svHealthByOpp: Record<string, SVHealthScore | undefined> = {};
   for (const opp of opportunities) {
-    const account = accounts.find((a) => a.id === opp.accountId);
+    const account = accountsById.get(opp.accountId);
     if (!account) continue;
     const oppContacts = contacts.filter((c) =>
       opp.contactRoleIds.includes(c.id),

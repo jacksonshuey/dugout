@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   accounts,
+  accountsById,
   activities,
   assetDeliveries,
   calls,
@@ -124,7 +125,7 @@ export async function GET(req: Request) {
       ? Math.min(MAX_DAYS, Math.floor(parsedDays))
       : DEFAULT_DAYS;
 
-  const account = accounts.find((a) => a.id === accountId);
+  const account = accountsById.get(accountId);
   if (!account) {
     return NextResponse.json({ error: "Unknown account" }, { status: 404 });
   }
