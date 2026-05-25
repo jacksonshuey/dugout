@@ -55,7 +55,7 @@ export function BrandImage({
       height={size}
       loading="lazy"
       onError={() => setFailed(true)}
-      className={cn("rounded-[8px] shrink-0 object-contain p-1", className)}
+      className={cn("rounded-[8px] shrink-0 object-contain", className)}
       style={{ width: dim, height: dim, backgroundColor: bg }}
       title={title}
     />
