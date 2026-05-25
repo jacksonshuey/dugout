@@ -21,7 +21,6 @@ import { IntegrationSetupReel } from "@/components/landing/integration-setup-ree
 import { IntegrationsMatrix } from "@/components/landing/integrations-matrix";
 import { MetricsCheckboxDemo } from "@/components/landing/metrics-checkbox-demo";
 import { SecurityTrust } from "@/components/landing/security-trust";
-import { VerifiableProof } from "@/components/landing/verifiable-proof";
 import { INTEGRATIONS } from "@/data/integrations";
 import { checkAllHealth, type IntegrationHealth } from "@/lib/integration-health";
 
@@ -63,7 +62,6 @@ export default async function LandingPage() {
       <IntegrationConstellation health={integrationHealth} />
       <IntegrationsMatrixSection health={integrationHealth} />
       <OnboardingWalkthrough />
-      <VerifiableProofSection />
       <SecurityTrustSection />
       <DemoDivider />
       <section id="demo" className="border-t border-border bg-foreground/[0.02]">
@@ -279,27 +277,23 @@ function IntegrationsMatrixSection({
 }) {
   return (
     <section className="max-w-6xl mx-auto px-6 py-20 sm:py-24 border-b border-border">
-      <div className="grid md:grid-cols-12 gap-10 items-start">
-        <div className="md:col-span-4">
-          <SectionEyebrow>Matrix</SectionEyebrow>
-          <h2 className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight">
-            Status, auth,
-            <br />
-            and where the data lives.
-          </h2>
-          <p className="mt-4 text-base text-foreground/70 leading-relaxed">
-            The constellation is the hook. This is the answer. Every
-            integration with how it authenticates, where the adapter runs,
-            and which direction data moves. Nothing here is aspirational —
-            if it&apos;s Live, the cron is running and the rows are in
-            Supabase. The <span className="font-mono text-xs">Configured</span>{" "}
-            column reads <span className="font-mono text-xs">process.env</span>{" "}
-            on this server right now.
-          </p>
-        </div>
-        <div className="md:col-span-8">
-          <IntegrationsMatrix health={health} />
-        </div>
+      <div className="max-w-3xl">
+        <SectionEyebrow>Matrix</SectionEyebrow>
+        <h2 className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight">
+          Status, auth, and where the data lives.
+        </h2>
+        <p className="mt-4 text-base text-foreground/70 leading-relaxed">
+          The constellation is the hook. This is the answer. Every
+          integration with how it authenticates, where the adapter runs,
+          and which direction data moves. Nothing here is aspirational —
+          if it&apos;s Live, the cron is running and the rows are in
+          Supabase. The <span className="font-mono text-xs">Configured</span>{" "}
+          column reads <span className="font-mono text-xs">process.env</span>{" "}
+          on this server right now.
+        </p>
+      </div>
+      <div className="mt-10">
+        <IntegrationsMatrix health={health} />
       </div>
     </section>
   );
@@ -746,30 +740,6 @@ function SignalSampleCard({
         <div className="text-xs text-muted leading-relaxed mt-0.5">{sub}</div>
       </div>
     </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Verifiable proof — counts + evidence in lieu of testimonials.
-// Every number links to the code that proves it.
-// ---------------------------------------------------------------------------
-
-function VerifiableProofSection() {
-  return (
-    <section className="max-w-6xl mx-auto px-6 py-20 sm:py-24 border-b border-border">
-      <SectionEyebrow>What&apos;s real</SectionEyebrow>
-      <h2 className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight max-w-3xl">
-        Counts you can verify by clicking through.
-      </h2>
-      <p className="mt-4 text-base text-foreground/70 leading-relaxed max-w-3xl">
-        No customer logos yet, so no fake social proof. Just the numbers
-        that describe what&apos;s actually built and a link to the file
-        that proves each one.
-      </p>
-      <div className="mt-10">
-        <VerifiableProof />
-      </div>
-    </section>
   );
 }
 
