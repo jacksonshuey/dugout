@@ -112,6 +112,14 @@ describe("computeConfidenceGrade", () => {
       ),
     ).toBe("C");
   });
+
+  test("undefined blockingCount → safe-default C (guard fires)", () => {
+    // If a real-world row has a missing blockingCount field, runtime value is
+    // undefined despite the TypeScript type saying `number`. The guard must
+    // return "C" rather than silently mis-grading via coerced comparisons.
+    const badInputs = inputs({ blockingCount: undefined as unknown as number });
+    expect(computeConfidenceGrade(badInputs)).toBe("C");
+  });
 });
 
 describe("deriveForecastCategory", () => {
