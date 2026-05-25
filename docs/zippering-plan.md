@@ -607,7 +607,7 @@ Three-phase migration so we never have a flag day.
 
 | Phase | Scope | Days | Ships |
 | --- | --- | --- | --- |
-| 0 | Schema (4 tables) + workspace_key on all + migration + RLS posture + seed global_canonical_columns | 1-2 | Supabase migration + Postgres seed |
+| 0 ✅ | Schema (4 tables) + workspace_key on all + migration + RLS posture + seed global_canonical_columns | 1-2 | **Shipped:** PR #100. **Live in Supabase: 2026-05-25** — 5 tables created, RLS enabled on all, 17 seed rows in `global_canonical_columns`. |
 | 1 | Zipperer lib + Haiku prompt + coercion registry + **explainability endpoint + page** + tests | 3 | `src/lib/zippering.ts`, `src/lib/zippering-coercions.ts`, `/api/zippering/explain`, `/zippering/explain` page, fixtures + unit tests |
 | 2 | Wrap ONE adapter (newsletter) in dual-write | 2 | Behind feature flag; shadow reads validate; explainability already live for the new path |
 | 3 | Migrate remaining 5 adapters (sec, newsapi, firecrawl, granola, web-scrape) | 3 | All sources zippered |
@@ -688,19 +688,18 @@ Zippering is the next thing those pkeys carry weight for.
 
 ---
 
-## 14. Status: ready for Phase 0
+## 14. Status: Phase 0 ✅ live · Phase 1 ready to ship
 
-All five load-bearing decisions are locked (§11). Plan is ready for
-implementation. Phase 0 is a single PR:
+Phase 0 (Supabase migration) is **executed and verified in production**:
+- 5 tables: `global_canonical_columns`, `zippering_schema`, `zippering_decisions`, `zippered_signals`, `zippering_conflicts`
+- RLS deny-all confirmed via `pg_class.relrowsecurity` on every table
+- 17 seed rows present in `global_canonical_columns`
+- All indexes per §3 created
 
-- 4 Supabase tables (+ 1 if you count the hand-seeded
-  `global_canonical_columns` payload as a separate step)
-- All carry `workspace_key text not null default 'dugout-default'`
-- RLS deny-all + service-role policies on each
-- Indexes per §3
-- Migration named `<YYYYMMDD>_zippering_tables.sql`
+Phase 1 is fully specified and ready for swarm dispatch:
+- Plan: this doc (§3-§6 + §11)
+- File scaffolds: [`docs/zippering-phase-1-handoff.md`](./zippering-phase-1-handoff.md)
+- Per-worker swarm contracts: [`docs/zippering-phase-1-swarm-spec.md`](./zippering-phase-1-swarm-spec.md)
 
-Phase 1 follows immediately: zipperer lib + Haiku prompt + coercion
-registry + explainability endpoint + page + tests.
-
-Say "ship Phase 0" to start the migration PR.
+5 workers across 4 layers. ~3.5h with L2 parallelism. Dispatch via
+`/swarm-task`, `/goodnight` (overnight), or inline.
