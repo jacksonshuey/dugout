@@ -21,6 +21,8 @@ import { IntegrationSetupReel } from "@/components/landing/integration-setup-ree
 import { IntegrationsMatrix } from "@/components/landing/integrations-matrix";
 import { MetricsCheckboxDemo } from "@/components/landing/metrics-checkbox-demo";
 import { SecurityTrust } from "@/components/landing/security-trust";
+import { ClientNewsTicker } from "@/components/landing/client-news-ticker";
+import { SortableWorkspaceFeed } from "@/components/landing/sortable-workspace-feed";
 import { INTEGRATIONS } from "@/data/integrations";
 import { checkAllHealth, type IntegrationHealth } from "@/lib/integration-health";
 import {
@@ -725,44 +727,23 @@ function DashboardSignalPanel() {
   );
 }
 
-// Pulled out of the component so the time math doesn't trip the
-// react-hooks/purity lint rule. Server components technically run once
-// per request (or once per ISR cycle), but the rule lints conservatively;
-// keeping side-effecting calls in a plain async helper sidesteps it.
-interface MarketIntelPreviewItem {
-  signal: ExternalSignal;
-  ageLabel: string;
-}
-
-async function fetchMarketIntelPreview(): Promise<MarketIntelPreviewItem[]> {
+// Fetches workspace-scoped signals for the SortableWorkspaceFeed below.
+// The sort itself happens client-side (workspace_relevance, occurred_at,
+// signal type magnitude); the server just hands the rows down. Fails soft
+// to an empty array so a Supabase outage doesn't take down the landing.
+async function fetchWorkspaceFeed(): Promise<ExternalSignal[]> {
   try {
-    const nowMs = Date.now();
     const sinceIso = new Date(
-      nowMs - MARKET_INTEL_LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
+      Date.now() - MARKET_INTEL_LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
     ).toISOString();
-    const signals = await getWorkspaceSignals(
-      sinceIso,
-      MARKET_INTEL_PREVIEW_LIMIT,
-    );
-    return signals.map((s) => ({
-      signal: s,
-      ageLabel: relativeAgeLabel(nowMs, s.occurred_at),
-    }));
+    return await getWorkspaceSignals(sinceIso, MARKET_INTEL_PREVIEW_LIMIT);
   } catch {
     return [];
   }
 }
 
-function relativeAgeLabel(nowMs: number, isoTimestamp: string): string {
-  const ageH = Math.max(
-    1,
-    Math.floor((nowMs - new Date(isoTimestamp).getTime()) / (60 * 60 * 1000)),
-  );
-  return ageH < 24 ? `${ageH}h ago` : `${Math.floor(ageH / 24)}d ago`;
-}
-
 async function MarketIntelLiveSection() {
-  const items = await fetchMarketIntelPreview();
+  const workspaceSignals = await fetchWorkspaceFeed();
 
   return (
     <section className="max-w-6xl mx-auto px-6 py-20 sm:py-24 border-t border-border">
@@ -777,31 +758,14 @@ async function MarketIntelLiveSection() {
       <NewsletterTransformVisual />
 
       <h3 className="mt-12 text-sm font-semibold tracking-tight text-foreground/80">
-        Live from the workspace inbox
+        Tracked accounts &middot; live ticker
       </h3>
+      <ClientNewsTicker />
 
-      {items.length === 0 ? (
-        <div className="mt-4 rounded-lg border border-border bg-foreground/[0.02] p-6 text-sm text-muted">
-          Pipeline is running; no items in the current window. See{" "}
-          <Link
-            href="/market-intel"
-            className="text-brand hover:underline font-medium"
-          >
-            /market-intel
-          </Link>{" "}
-          for the full chronological view.
-        </div>
-      ) : (
-        <div className="mt-4 space-y-2">
-          {items.map(({ signal, ageLabel }) => (
-            <LandingSignalRow
-              key={signal.id}
-              signal={signal}
-              ageLabel={ageLabel}
-            />
-          ))}
-        </div>
-      )}
+      <h3 className="mt-12 text-sm font-semibold tracking-tight text-foreground/80">
+        Workspace inbox
+      </h3>
+      <SortableWorkspaceFeed signals={workspaceSignals} />
 
       <div className="mt-8">
         <Link
@@ -813,39 +777,6 @@ async function MarketIntelLiveSection() {
         </Link>
       </div>
     </section>
-  );
-}
-
-function LandingSignalRow({
-  signal,
-  ageLabel,
-}: {
-  signal: ExternalSignal;
-  ageLabel: string;
-}) {
-  const publisher =
-    signal.publisher_canonical_name ??
-    signal.email_subject?.split(" - ")[0] ??
-    signal.source.replace(/_/g, " ");
-  const typeLabel = signal.type.replace(/_/g, " ");
-  return (
-    <div className="rounded-lg border border-border bg-background p-3 flex items-start gap-3">
-      <span className="text-[10px] font-mono uppercase tracking-[0.1em] py-0.5 rounded border border-border bg-foreground/[0.04] text-muted shrink-0 inline-flex items-center justify-center w-[110px] truncate px-1">
-        {publisher}
-      </span>
-      <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium tracking-tight leading-snug line-clamp-2">
-          {signal.summary}
-        </div>
-        <div className="text-xs text-muted mt-1 flex items-center gap-2">
-          <span className="font-mono uppercase tracking-[0.08em]">
-            {typeLabel}
-          </span>
-          <span aria-hidden>·</span>
-          <span>{ageLabel}</span>
-        </div>
-      </div>
-    </div>
   );
 }
 
