@@ -15,9 +15,10 @@ import {
   getAccountContext,
   getCommitteeEngagement,
   getCorrelations,
+  listAccounts,
   rollup,
 } from "./ask-tools";
-import { DEMO_SCENARIO_ACCOUNTS } from "@/data/seed";
+import { DEMO_SCENARIO_ACCOUNTS, accounts } from "@/data/seed";
 
 describe("ASK_TOOL_SCHEMAS", () => {
   // OpenAI SDK v6 types ChatCompletionTool as a discriminated union; narrow
@@ -27,8 +28,8 @@ describe("ASK_TOOL_SCHEMAS", () => {
       t.type === "function",
   );
 
-  test("exports exactly the 8 tools from synthesis.md", () => {
-    expect(ASK_TOOL_SCHEMAS).toHaveLength(8);
+  test("exports exactly the 9 tools (8 original + list_accounts)", () => {
+    expect(ASK_TOOL_SCHEMAS).toHaveLength(9);
     const names = functionTools.map((t) => t.function.name).sort();
     expect(names).toEqual(
       [
@@ -40,6 +41,7 @@ describe("ASK_TOOL_SCHEMAS", () => {
         "get_emails",
         "get_committee_engagement",
         "rollup",
+        "list_accounts",
       ].sort(),
     );
   });
@@ -65,8 +67,8 @@ describe("ASK_TOOL_SCHEMAS", () => {
 });
 
 describe("ASK_TOOL_SCHEMAS_ANTHROPIC", () => {
-  test("exports exactly 8 tools with the same names as the OpenAI variant", () => {
-    expect(ASK_TOOL_SCHEMAS_ANTHROPIC).toHaveLength(8);
+  test("exports exactly 9 tools with the same names as the OpenAI variant", () => {
+    expect(ASK_TOOL_SCHEMAS_ANTHROPIC).toHaveLength(9);
 
     const anthropicNames = ASK_TOOL_SCHEMAS_ANTHROPIC.map((t) => t.name).sort();
     const openaiNames = ASK_TOOL_SCHEMAS_OPENAI.filter(
@@ -201,12 +203,54 @@ describe("deferred-v1 tool stubs", () => {
   });
 });
 
+describe("listAccounts", () => {
+  test("returns ok:true with every workspace account", async () => {
+    const r = await listAccounts();
+    expect(r.ok).toBe(true);
+    if (!r.ok) throw new Error("unreachable");
+    expect(r.data).toHaveLength(accounts.length);
+  });
+
+  test("each entry has slug and name", async () => {
+    const r = await listAccounts();
+    if (!r.ok) throw new Error("unreachable");
+    for (const entry of r.data) {
+      expect(typeof entry.slug).toBe("string");
+      expect(entry.slug.startsWith("acc_")).toBe(true);
+      expect(typeof entry.name).toBe("string");
+      expect(entry.name.length).toBeGreaterThan(0);
+    }
+  });
+
+  test("slugs match accounts array ids exactly (regression guard)", async () => {
+    const r = await listAccounts();
+    if (!r.ok) throw new Error("unreachable");
+    const catalogSlugs = r.data.map((e) => e.slug).sort();
+    const seedSlugs = accounts.map((a) => a.id).sort();
+    expect(catalogSlugs).toEqual(seedSlugs);
+  });
+
+  test("Moderna resolves to acc_apex", async () => {
+    const r = await listAccounts();
+    if (!r.ok) throw new Error("unreachable");
+    const moderna = r.data.find((e) => e.name === "Moderna");
+    expect(moderna?.slug).toBe("acc_apex");
+  });
+});
+
 describe("dispatchTool", () => {
   test("routes by name", async () => {
     const r = await dispatchTool("get_account_context", {
       account_slug: DEMO_SCENARIO_ACCOUNTS.healthy,
     });
     expect(r.ok).toBe(true);
+  });
+
+  test("dispatches list_accounts", async () => {
+    const r = await dispatchTool("list_accounts", {});
+    expect(r.ok).toBe(true);
+    if (!r.ok) throw new Error("unreachable");
+    expect(Array.isArray(r.data)).toBe(true);
   });
 
   test("returns ok:false on an unknown tool name", async () => {
