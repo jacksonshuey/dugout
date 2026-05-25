@@ -1,80 +1,106 @@
-import {
-  getHighRelevanceSignals,
-  type ExternalSignal,
-} from "@/lib/external-signals";
-import { accounts } from "@/data/seed";
+"use client";
 
-// Horizontal scrolling marquee of recent high-relevance signals tied to
-// specific tracked accounts. Renders the existing `marquee-right` CSS
-// keyframe (defined in globals.css) so there's no JS animation cost and
-// the loop pauses on hover + respects `prefers-reduced-motion`.
+import { useEffect, useState } from "react";
+
+// Live ticker for account-mentioning signals. Renders the existing
+// `marquee-right` CSS keyframe from globals.css with a slower
+// `animationDuration` override (240s) for a calmer scroll, and uses
+// larger fixed-width cards than the prior version.
 //
-// Data source: `getHighRelevanceSignals(48h)` — account-scoped (not
-// workspace-scoped), high or medium workspace_relevance. Account names
-// are resolved from the seed `accounts` array; the chip shows the human
-// name, not the raw `account_id`.
+// Polls /api/landing/ticker-signals every 30s so the ticker visibly
+// refreshes between the page's 60s ISR cycle. Polling pauses (no fetch
+// fires) when the tab is hidden, to avoid spinning on backgrounded tabs.
 //
-// Fails soft to a single muted placeholder card if the fetch errors so a
-// Supabase outage doesn't break the landing.
+// Fails soft to an empty state if the initial fetch fails — the loop
+// keeps trying, so a transient Supabase blip self-heals.
 
-const TICKER_LOOKBACK_HOURS = 72;
+interface TickerItem {
+  id: string;
+  summary: string;
+  accountName: string;
+  occurredAt: string;
+}
 
-export async function ClientNewsTicker() {
-  let signals: ExternalSignal[] = [];
-  try {
-    signals = await getHighRelevanceSignals(
-      TICKER_LOOKBACK_HOURS * 60 * 60 * 1000,
-    );
-  } catch {
-    signals = [];
-  }
+const POLL_INTERVAL_MS = 30_000;
+const TICKER_CARD_WIDTH_PX = 420;
+const TICKER_ANIMATION_DURATION = "240s";
 
-  if (signals.length === 0) {
+export function ClientNewsTicker() {
+  const [items, setItems] = useState<TickerItem[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchItems() {
+      if (document.hidden) return;
+      try {
+        const res = await fetch("/api/landing/ticker-signals", {
+          cache: "no-store",
+        });
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as { items: TickerItem[] };
+        if (!cancelled) setItems(data.items ?? []);
+      } catch {
+        // Swallow — keep prior items rendered, try again on next tick.
+      }
+    }
+
+    fetchItems();
+    const id = setInterval(fetchItems, POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
+
+  if (items === null) {
     return (
       <div className="mt-4 rounded-lg border border-border bg-foreground/[0.02] p-4 text-xs text-muted">
-        No account-scoped signals in the last {TICKER_LOOKBACK_HOURS}h. The
-        ticker resumes as soon as the news pipeline tags a new account.
+        Loading live ticker...
       </div>
     );
   }
 
-  const accountNameById = new Map(accounts.map((a) => [a.id, a.name]));
+  if (items.length === 0) {
+    return (
+      <div className="mt-4 rounded-lg border border-border bg-foreground/[0.02] p-4 text-xs text-muted">
+        No account-scoped signals in the last 72h. The ticker resumes as
+        soon as the news pipeline tags a new account.
+      </div>
+    );
+  }
 
   return (
-    <div className="mt-4 marquee-container overflow-hidden border border-border rounded-lg bg-foreground/[0.02] py-3">
-      <div className="marquee-track flex gap-3 w-max">
-        {[...signals, ...signals].map((s, i) => (
-          <TickerCard
-            key={`${s.id}-${i}`}
-            signal={s}
-            accountName={accountNameById.get(s.account_id) ?? s.account_id}
-          />
+    <div className="mt-4 marquee-container overflow-hidden border border-border rounded-lg bg-foreground/[0.02] py-4">
+      <div
+        className="marquee-track flex gap-4 w-max"
+        style={{ animationDuration: TICKER_ANIMATION_DURATION }}
+      >
+        {[...items, ...items].map((s, i) => (
+          <TickerCard key={`${s.id}-${i}`} item={s} />
         ))}
       </div>
     </div>
   );
 }
 
-function TickerCard({
-  signal,
-  accountName,
-}: {
-  signal: ExternalSignal;
-  accountName: string;
-}) {
-  const ageLabel = relativeAge(signal.occurred_at);
+function TickerCard({ item }: { item: TickerItem }) {
+  const ageLabel = relativeAge(item.occurredAt);
   return (
-    <div className="w-[300px] shrink-0 rounded-lg border border-border bg-background p-3 flex flex-col gap-1.5">
+    <div
+      className="shrink-0 rounded-lg border border-border bg-background p-4 flex flex-col gap-2"
+      style={{ width: `${TICKER_CARD_WIDTH_PX}px` }}
+    >
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-[10px] font-mono uppercase tracking-[0.1em] py-0.5 px-2 rounded border border-brand/40 bg-brand/10 text-brand">
-          {accountName}
+          {item.accountName}
         </span>
         <span className="text-[10px] font-mono uppercase tracking-[0.08em] text-muted">
           {ageLabel}
         </span>
       </div>
-      <div className="text-xs font-medium tracking-tight leading-snug line-clamp-2">
-        {signal.summary}
+      <div className="text-sm font-medium tracking-tight leading-snug line-clamp-3">
+        {item.summary}
       </div>
     </div>
   );
