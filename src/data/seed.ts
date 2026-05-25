@@ -221,7 +221,7 @@ export const accounts: Account[] = [
     id: "acc_atlas",
     name: "Snowflake",
     industry: "SaaS",
-    segment: "Enterprise",
+    segment: "Strategic",
     hqLocation: "Bozeman, MT",
     legalTeamSize: 85,
     trackable: true,

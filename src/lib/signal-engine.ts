@@ -836,10 +836,11 @@ const ruleAbmShadowResearch: SignalRule = {
     // abmTrigger field.
     const out: Signal[] = [];
     for (const account of ctx.accounts) {
-      // Segment gate: AccountSegment is "Enterprise" | "Mid-Market" in the
-      // current taxonomy. Named-accounts work is Enterprise-only until a
-      // Strategic tier is introduced.
-      if (account.segment !== "Enterprise") continue;
+      // Segment gate: named-accounts motion fires on Strategic or Enterprise
+      // tiers only. Mid-Market accounts stay silent regardless of signal
+      // volume — different motion, different prompts.
+      if (account.segment !== "Strategic" && account.segment !== "Enterprise")
+        continue;
       const trigger = account.abmTrigger;
       if (!trigger) continue;
       if (trigger.highRelevanceSignalsLast7d < 2) continue;

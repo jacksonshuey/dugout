@@ -804,6 +804,27 @@ describe("ABM_SHADOW_RESEARCH", () => {
     );
     expect(signals).toHaveLength(0);
   });
+
+  test("fires for Strategic account with 3 signals from 2 sources", () => {
+    const account = baseAccount({
+      segment: "Strategic",
+      abmTrigger: {
+        highRelevanceSignalsLast7d: 3,
+        sources: ["news", "sec_edgar"],
+        lastSignalAt: "2026-05-22T16:00:00Z",
+      },
+    });
+    const opp = makeOpp({ accountId: account.id });
+    const signals = evaluateRule(
+      "ABM_SHADOW_RESEARCH",
+      makeCtx({ accounts: [account], opportunities: [opp] }),
+    );
+    expect(signals).toHaveLength(1);
+    expect(signals[0].ruleId).toBe("ABM_SHADOW_RESEARCH");
+    expect(signals[0].severity).toBe("action");
+    expect(signals[0].signalType).toBe("shadow_research");
+    expect(signals[0].oppId).toBe(opp.id);
+  });
 });
 
 describe("CALL_NEGATIVE_SENTIMENT", () => {
