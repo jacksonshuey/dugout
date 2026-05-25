@@ -35,7 +35,7 @@ The [webhooks reference](https://developers.outreach.io/api/webhooks/) confirms 
 - Bot clicks: filter `mailings` where `clickedAt - deliveredAt < 2000ms` (gateway prefetch tell).
 - SDR-prospected leads not yet linked to an `opportunity` via `opportunityProspectRoles`.
 - `sequenceState.created` and `sequence.finished` events without an engagement delta — enrollment ≠ buyer signal.
-- Internal/test prospects (`prospects.attributes.emails[]` domain ∈ checkbox.legal) and replies from a `mailboxes.attributes.email` we own.
+- Internal/test prospects (`prospects.attributes.emails[]` domain matches the workspace's own corporate domain) and replies from a `mailboxes.attributes.email` we own.
 - Calls and tasks resources for v1 — voice/call data is Gong's job; we don't double-source.
 
 ## Effort to wire
@@ -48,6 +48,6 @@ The [webhooks reference](https://developers.outreach.io/api/webhooks/) confirms 
 ## Install-time discovery
 - **Custom Prospect fields:** Outreach exposes `custom1`–`custom150` on `prospects`. We need to know (a) whether any are already mapped to SFDC `Contact.Id` / `Account.Id` via the SFDC plugin, (b) which slot we can claim if not, and (c) whether any custom field encodes persona/committee role (so we don't have to title-regex). Pull `GET /prospects?fields[prospect]=custom1,custom2,...` against a known seed contact to inventory.
 - **Sequence IDs to filter to:** Get the list of `sequences` actively used for late-stage / champion-nurture motions — `GET /sequences?filter[enabled]=true&fields[sequence]=name,shareType,tags`. We only want to score engagement on sequences tagged for post-demo / Selected Vendor nurture, not top-of-funnel cold outbound (which has its own baselines and would corrupt the latency-decay model in Signal 1).
-- **Mailbox-domain allowlist:** `GET /mailboxes?fields[mailbox]=email,sendDisabled,userId` to enumerate the `@checkbox.legal` (and any acquired-brand) mailboxes. Required to (a) filter out internal-reply noise in Signal 3 and (b) detect rep-side `sendDisabled=true` mailboxes, which would silently zero out a rep's outbound and look like Signal 1 firing on every account they own.
+- **Mailbox-domain allowlist:** `GET /mailboxes?fields[mailbox]=email,sendDisabled,userId` to enumerate the workspace's own mailbox domain(s) (and any acquired-brand domains). Required to (a) filter out internal-reply noise in Signal 3 and (b) detect rep-side `sendDisabled=true` mailboxes, which would silently zero out a rep's outbound and look like Signal 1 firing on every account they own.
 - **OCR enforcement at Selected Vendor gate:** Confirm whether RevOps blocks stage progression without populated `opportunityProspectRoles`. If yes, the email→Contact→OCR join is high-confidence and Signal 2 can be BLOCKING. If no, we drop Signal 2 to ACTION and add account-domain + title-regex as a heuristic fallback.
 - **Gong/Chorus reply double-count:** Confirm whether the Gong-Outreach integration writes inbound replies back as `mailings` rows (which would inflate `replyCount`) or only attaches them to the SFDC activity timeline. If the former, dedupe by `mailings.attributes.bodyHtml` hash + `repliedAt` ±60s window before computing latency.

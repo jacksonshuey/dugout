@@ -18,7 +18,7 @@ Test/lint/build state: `113/113` tests passing (89 baseline + 24 new), `eslint` 
 
 The two things a reviewer should hold in their head while reading the diff:
 
-1. **The 11 alignment principles in `orgs/checkbox/BUILD_ALIGNMENT.md` are the design contract.** Every signal carries `source_tool` + `source_event_id`. Every UI claim cites a `signal_id`. Severity is exactly three tiers. The 12-type signal taxonomy is closed. AI provider neutrality (principle #11, new in this session) is the contract for any future agent surface.
+1. **The 11 alignment principles in `orgs/_default/BUILD_ALIGNMENT.md` are the design contract.** Every signal carries `source_tool` + `source_event_id`. Every UI claim cites a `signal_id`. Severity is exactly three tiers. The 12-type signal taxonomy is closed. AI provider neutrality (principle #11, new in this session) is the contract for any future agent surface.
 2. **The AD1 P2/P3 findings are deferrals, not bugs.** Rate-limit fails open on a Supabase outage by design (the demo continues, the gap is logged). `cost_usd_estimate` and `tool_calls_count` columns are v2 telemetry scaffolding. The flat sliding-window retry hint is a UX nit. None of these block the merge.
 
 ---
@@ -35,7 +35,7 @@ Walking oldest to newest. The session-5/6/7 backlog on this branch is summarized
 
 **`8c8c74e` feat(ask): dual-provider chatbot with rate cap, system prompt, UI picker.** The session's headline feature. Adds 9 new files and modifies 5; nets +2,129 / -470 LOC. See §3 for the file-by-file breakdown. AD1 reviewed → APPROVE WITH FIXES → all 6 findings are intentional deferrals (§7). Tests added: 24 new (`ask-agent.test.ts` 8, `ask-rate-limit.test.ts` 8, extended `ask-tools.test.ts` 8) bringing total to 113.
 
-**`072eb90` orgs/checkbox: document the shipped dual-provider /ask architecture.** Docs-only. Updates `synthesis.md` "AI query layer" section to reflect dual-provider reality (was OpenAI-only). Adds principle #11 to `BUILD_ALIGNMENT.md` ("AI provider neutrality") with seven explicit sub-rules — tokens server-side, per-question UI choice, dual schemas, single routing wrapper, shared prompt, rate cap posture, and the explicit non-rule that digest/classifier stay model-specific by design. The quick-reference table + checklist both extend to enforce it. No code changes; alignment-doc only.
+**`072eb90` orgs/_default: document the shipped dual-provider /ask architecture.** Docs-only. Updates `synthesis.md` "AI query layer" section to reflect dual-provider reality (was OpenAI-only). Adds principle #11 to `BUILD_ALIGNMENT.md` ("AI provider neutrality") with seven explicit sub-rules — tokens server-side, per-question UI choice, dual schemas, single routing wrapper, shared prompt, rate cap posture, and the explicit non-rule that digest/classifier stay model-specific by design. The quick-reference table + checklist both extend to enforce it. No code changes; alignment-doc only.
 
 **`9c22eb6` Firecrawl adapter: per-account site scrape → web_scrapes → sweeper → signals.** The Firecrawl feature. Cherry-picked from the sibling `claude/firecrawl-account-scrape` branch. Adds 7 files and modifies 5 (including `cron/classify-pending/route.ts` which gets extended to drain both queues). Scope: 11 trackable accounts × 4 pages = ~44 calls/day at 1 Firecrawl credit each = ~1,320/month, well inside Jackson's ~11k credit budget. Architectural choice: scrape and classification split (mirrors the AgentMail webhook → sweeper pattern), so re-classifying as the prompt evolves doesn't re-burn Firecrawl credits.
 

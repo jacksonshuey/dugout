@@ -21,11 +21,11 @@ Confirmed from help center + Salesloft AppDirectory listing + G2:
 - **Salesloft** — Per the Salesloft AppDirectory listing, Swyft "automatically receives the call recording" from Salesloft Cadence/Conversations and routes extracted MEDDIC fields, customer concerns, churn risks, and next steps to the CRM.
 - **Outreach** — Mentioned in Swyft marketing as supported; integration depth not documented publicly.
 
-For Dugout: **install-time we need to confirm which of these Checkbox actually has Swyft connected to.** If Checkbox calls happen on Zoom but Swyft is only wired to Gong, gaps in field freshness map to "no Gong recording" not "no Swyft run."
+For Dugout: **install-time we need to confirm which of these the customer actually has Swyft connected to.** If the customer's calls happen on Zoom but Swyft is only wired to Gong, gaps in field freshness map to "no Gong recording" not "no Swyft run."
 
 ## CRM targets Swyft writes to
 
-- **Salesforce** (primary) — Opportunity, Account, Contact objects, via OAuth under the connecting user. Field mapping is per-customer: Swyft maps its extracted entities (Economic Buyer, Metrics, Decision Criteria, Decision Process, Paper Process, Identified Pain, Champion, Competition, Next Steps, Customer Concerns, Churn Risk) to whichever custom field API names the org already uses. No standardized schema — Checkbox-specific.
+- **Salesforce** (primary) — Opportunity, Account, Contact objects, via OAuth under the connecting user. Field mapping is per-customer: Swyft maps its extracted entities (Economic Buyer, Metrics, Decision Criteria, Decision Process, Paper Process, Identified Pain, Champion, Competition, Next Steps, Customer Concerns, Churn Risk) to whichever custom field API names the org already uses. No standardized schema — customer-specific.
 - **HubSpot** — Deal properties + contact/company records. Same pattern, customer-defined property mapping.
 - **Slack** — Notifications fired post-call (deal alerts, handoff docs). Not relevant to Dugout — we have our own digest layer.
 
@@ -62,13 +62,13 @@ Swyft's "single-click confirm" UX means reps can either let Swyft auto-write or 
 ## Effort to wire
 
 - **Adapter LOC:** Zero net new. Dugout already reads Salesforce; Swyft just populates fields we'd be reading regardless.
-- **Time estimate:** 0 hours of code. ~2 hours of config to map Checkbox's actual custom field API names into Dugout's rule definitions, plus ~30 min with RevOps to confirm which call sources Swyft is connected to.
+- **Time estimate:** 0 hours of code. ~2 hours of config to map the customer's actual custom field API names into Dugout's rule definitions, plus ~30 min with RevOps to confirm which call sources Swyft is connected to.
 - **Hardest part:** Naming. Swyft writes to whatever custom field names the org defined; nothing is standardized. Without a 15-min RevOps call, Dugout can't write its rules against the right API names.
 
 ## Install-time discovery
 
-1. **Field naming.** What are Checkbox's actual Salesforce custom field API names for the MEDDPICC slots Swyft populates? (Could be `Economic_Buyer__c`, `Decision_Maker__c`, `Champion_Name__c`, `MEDDPICC_EB__c` — org-defined.)
-2. **Call source coverage.** Which of {Gong, Chorus, Zoom, Salesloft, Outreach} is Swyft actually connected to at Checkbox? Determines whether "field empty" means "no Swyft run" vs "Swyft ran and found nothing."
+1. **Field naming.** What are the customer's actual Salesforce custom field API names for the MEDDPICC slots Swyft populates? (Could be `Economic_Buyer__c`, `Decision_Maker__c`, `Champion_Name__c`, `MEDDPICC_EB__c` — org-defined.)
+2. **Call source coverage.** Which of {Gong, Chorus, Zoom, Salesloft, Outreach} is Swyft actually connected to? Determines whether "field empty" means "no Swyft run" vs "Swyft ran and found nothing."
 3. **Write attribution.** Does Swyft write under a dedicated integration user or under the connecting rep's identity? Drives whether `LastModifiedById = swyft_user` is a usable filter to distinguish AI-populated values from rep-edited ones.
-4. **Auto-write vs review-first mode.** If Checkbox uses Swyft's single-click confirm UX, "Swyft ran" doesn't guarantee "field updated" — reps can decline. Need to know default mode to calibrate the staleness threshold.
+4. **Auto-write vs review-first mode.** If the customer uses Swyft's single-click confirm UX, "Swyft ran" doesn't guarantee "field updated" — reps can decline. Need to know default mode to calibrate the staleness threshold.
 5. **Multi-thread coverage.** Does Swyft write to all contacts on the Opportunity or only the primary? Affects whether "Champion identified" is a per-Opp or per-Contact signal.

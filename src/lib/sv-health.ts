@@ -14,7 +14,7 @@
 // Tiering:
 //   80+ healthy, 60-79 watch, 40-59 at_risk, <40 critical
 //
-// Design rules (per orgs/checkbox/BUILD_ALIGNMENT.md):
+// Design rules (per orgs/_default/BUILD_ALIGNMENT.md):
 //   1. Pure function. No I/O, no Supabase, no fetch — testable closed-form.
 //   2. No `confidence` field anywhere (principle #5).
 //   3. Severity values respected — `blocking | action | awareness`.

@@ -1,7 +1,7 @@
 # Sales Manager Workflow — Day/Week/Month + Information Requirements
 
 ## Persona snapshot
-Frontline Sales Manager / Director of Sales at a Series B/C B2B SaaS company, managing 6–10 AEs (Checkbox: 9 AEs, likely split under one VP or two Directors). Measured on **team quota attainment, forecast accuracy (call vs. close within ±5–10%), new-rep ramp time, and rep retention** — not personal closes. Lives in dashboards and 1:1s, not deal-running. Drowning in tools (Salesforce, Gong, Outreach, ZoomInfo, Chili Piper, Dock, Nooks, Swyft, HubSpot, Zendesk) and optimizes for **signal-to-noise**: which 10 deals matter this week, which rep needs coaching, will I make my number. Unlike an AE — who goes deep on 15–25 active opps — a manager scans 80–150 opps weekly for **outliers and patterns**.
+Frontline Sales Manager / Director of Sales at a Series B/C B2B SaaS company, managing 6–10 AEs (representative customer: 9 AEs, likely split under one VP or two Directors). Measured on **team quota attainment, forecast accuracy (call vs. close within ±5–10%), new-rep ramp time, and rep retention** — not personal closes. Lives in dashboards and 1:1s, not deal-running. Drowning in tools (Salesforce, Gong, Outreach, ZoomInfo, Chili Piper, Dock, Nooks, Swyft, HubSpot, Zendesk) and optimizes for **signal-to-noise**: which 10 deals matter this week, which rep needs coaching, will I make my number. Unlike an AE — who goes deep on 15–25 active opps — a manager scans 80–150 opps weekly for **outliers and patterns**.
 
 ## A typical day
 - **7:30–8:30am** Coffee + inbox + scan overnight Slack channels (deal-alert, won/lost). Glance at forecast delta vs. yesterday.

@@ -161,7 +161,7 @@ export async function GET(req: Request) {
   });
   const oppToAccount = new Map(opportunities.map((o) => [o.id, o.accountId]));
 
-  // Hand-crafted demo signals (orgs/checkbox/discovery/information-requirements.md
+  // Hand-crafted demo signals (orgs/_default/discovery/information-requirements.md
   // demo scenarios) merge into the engine stream so the cross-source
   // correlations B2 authored — e.g., the 3-source champion_disengagement on
   // the critical scenario — actually surface in the API response. Each

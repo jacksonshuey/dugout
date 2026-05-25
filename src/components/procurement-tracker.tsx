@@ -2,7 +2,7 @@
 
 // Selected Vendor Procurement Tracker — the per-opp surface that makes the
 // buying-committee gap visible at a glance. This is Hero Surface #2 per
-// `orgs/checkbox/discovery/information-requirements.md`, drill-down view of
+// `orgs/_default/discovery/information-requirements.md`, drill-down view of
 // the `committeeCoverage` component scored in `src/lib/sv-health.ts`.
 //
 // Design rules (per BUILD_ALIGNMENT.md):

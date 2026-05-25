@@ -20,7 +20,7 @@ This is the **same pattern as the Dock card**: a vendor with thin public APIs bu
 
 ## Wedge alignment honesty
 
-Nooks is SDR-stage; the Checkbox wedge ("Selected Vendor" → procurement stall) is AE/late-stage. Direct relevance is lower than Gong/Dock/HubSpot. The value here is **account-level org-change detection via dialing patterns** — when an account is already in late stages, a sudden change in Nooks-sourced connect behavior is one of the earliest leading indicators that a champion has left or a reorg is underway. Treat Nooks signals as confirmatory/escalation evidence on late-stage accounts, not as primary signals.
+Nooks is SDR-stage; the workspace's wedge ("Selected Vendor" → procurement stall) is AE/late-stage. Direct relevance is lower than Gong/Dock/HubSpot. The value here is **account-level org-change detection via dialing patterns** — when an account is already in late stages, a sudden change in Nooks-sourced connect behavior is one of the earliest leading indicators that a champion has left or a reorg is underway. Treat Nooks signals as confirmatory/escalation evidence on late-stage accounts, not as primary signals.
 
 ## Signals we'd extract
 
@@ -55,7 +55,7 @@ Nooks is SDR-stage; the Checkbox wedge ("Selected Vendor" → procurement stall)
 
 - **Adapter LOC estimate:** ~100 LOC. It's a SOQL query against `Task` filtered to Nooks-sourced rows (typically `CallType != null AND CreatedById IN (<Nooks integration users>)` or a custom `Nooks_Source__c = TRUE` flag).
 - **Time estimate:** Half a day if the Salesforce adapter already exists; 1 day standalone.
-- **Hardest part:** Discovering which custom fields the Checkbox Nooks package writes to — varies per install (see below).
+- **Hardest part:** Discovering which custom fields the customer's Nooks package writes to — varies per install (see below).
 
 ## Install-time discovery
 

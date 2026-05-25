@@ -1,8 +1,8 @@
 # Metrics — What This Dashboard Actually Tracks
 
-> Drawn from `GTM Engineer Case.pdf` and `GTM Engineer Case Context.pdf` (the interview case Checkbox provided). Every metric here is either explicit in the case or directly implied by the strategic priorities. Nothing invented.
+> Drawn from a representative customer case (`GTM Engineer Case.pdf` and `GTM Engineer Case Context.pdf`). Every metric here is either explicit in the case or directly implied by the strategic priorities. Nothing invented.
 >
-> **Product spec context:** This doc is the Checkbox-customer-specific instantiation of measurement for the broader Dugout product. Generic product vision: [`/Users/jacksonshuey/Desktop/Checkbox/dugout_product_spec_v_0_1.md`](../../../dugout_product_spec_v_0_1.md). Spec §12 confirms Checkbox priorities (Budget Approval Risk, Finance/IT Engagement Sequencing, Trial Execution SLA as P0 modules); the SV Health Score formula below is the measurement layer on top of those modules.
+> **Product spec context:** This doc is the workspace-level instantiation of measurement for the broader Dugout product. Generic product vision: [`dugout_product_spec_v_0_1.md`](../../../dugout_product_spec_v_0_1.md). Spec §12 confirms the customer's priorities (Budget Approval Risk, Finance/IT Engagement Sequencing, Trial Execution SLA as P0 modules); the SV Health Score formula below is the measurement layer on top of those modules.
 
 > **Framing note:** This doc is the **backstop**, not the lead demo pitch. The demo leads with the *story* — "no AE walks into a meeting cold" — and the *artifacts* (live Granola integration, unified drawer, paste-and-sync onboarding). These formulas are here for the moment a Director of Finance or RevOps Lead asks "and how would you measure whether this is working?" — at which point you have a numerical answer with weights, source signals, and a worked example. Do not lead with the formula. Lead with the artifact.
 
@@ -10,7 +10,7 @@
 
 ## The numbers the case literally publishes
 
-Checkbox handed us five specific numerical anchors. These are the metrics the CEO, SVP Revenue, Director of Finance, and RevOps Lead (the interview panel) will measure us against.
+The customer case provides five specific numerical anchors. These are the metrics the CEO, SVP Revenue, Director of Finance, and RevOps Lead (the customer's executive stakeholders) will measure us against.
 
 | Anchor | Source in case | What it tells us |
 |---|---|---|
@@ -21,7 +21,7 @@ Checkbox handed us five specific numerical anchors. These are the metrics the CE
 | **Selected Vendor → Close: ~60%** | §3 Funnel Stages + case quote: *"Deals that reach here are dying at budget approval."* | **This is the entire interview.** 40% of post-champion deals dying at the procurement gate. Every Dugout feature points here. |
 | **AEs spend 70%+ of time in customer conversations** | Priority #3 | The only explicit non-funnel target in the case. The rep-productivity metric. |
 
-**Missing conversion rates we'd need from Checkbox to complete the funnel:**
+**Missing conversion rates we'd need from the customer to complete the funnel:**
 - Qualified → Demo Sat
 - Evaluating → Selected Vendor
 
@@ -89,7 +89,7 @@ Tiered output:
 `(assets_shared / 3) × 100`
 
 - Three assets per Priority #2: CFO Leave-Behind, IT Zero Lift one-pager, Finance Meeting Brief
-- "Shared" = lives in the Dock deal room AND has been viewed at least once by a non-Checkbox email
+- "Shared" = lives in the Dock deal room AND has been viewed at least once by a non-workspace email
 - All 3 shared and viewed = 100. None shared = 0.
 - **Why this exists as its own metric:** Priority #2 explicitly says *"Assets are built. The active work is adoption and AE habit formation."* Adoption rate IS the metric.
 
@@ -144,7 +144,7 @@ Display: **"Helios — 10/100 Critical. Champion engagement decaying (9d silent)
 | # | Priority (verbatim from case) | Headline metric | Contributing signal_types |
 |---|---|---|---|
 | **#1** | Outcome-First Trial Motion (*"highest-leverage change in H1"*) | % of Evaluating+ deals with active trial within 48h of stage entry | Salesforce stage entry + Dock trial workspace creation + SE intake form |
-| **#2** | Finance + IT Enablement Package (*"active work is adoption"*) | % of Selected Vendor deals with all 3 assets shared AND viewed by buyer | Dock asset upload events + Dock asset view events filtered to non-Checkbox domains |
+| **#2** | Finance + IT Enablement Package (*"active work is adoption"*) | % of Selected Vendor deals with all 3 assets shared AND viewed by buyer | Dock asset upload events + Dock asset view events filtered to non-workspace domains |
 | **#3** | AI-Powered Deal Execution Stack (*"AEs spend 70%+ of time in customer conversations"*) | (a) % AE time in customer conversations; (b) % Evaluating+ deals with Dock room + Gong configured | Gong call time + calendar API + Outreach admin time + Dock + Salesforce custom field |
 | **#4** | Stakeholder Engagement Sequencing (*"get Finance and IT involved during Evaluation, not Contracting"*) | **Time from Evaluating stage entry → first Finance touch + first IT touch** (separately tracked) | SFDC OCR additions + Gong call participants (title-classified) + HubSpot new contact creation + Chili Piper meeting attendees |
 | **#5** | Sales Motion Maturity | (a) Multithreading depth — avg distinct contacts engaged per opp by stage; (b) RFP win rate; (c) execution checklist completion | SFDC OCR count + Gong external participants + Outreach prospect breadth |
@@ -213,7 +213,7 @@ Don't deep-dive — Part 2 should be lightweight per the case instructions. One 
 
 ---
 
-## What we'd want to validate with Checkbox (interview questions)
+## What we'd want to validate with the customer (interview questions)
 
 The case literally tells us to "bring questions." Here's the metrics-anchored list:
 

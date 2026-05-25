@@ -13,7 +13,7 @@
 
 The spec is a real v0.1 product blueprint, not notes. It defines a five-namespace ontology, fourteen product modules, a seven-screen onboarding flow, a feature dependency engine, and an evidence-first signal model. The current code is at roughly v0.0: hardcoded TypeScript signal-engine rules, a workspace cookie, and a handful of single-purpose tables (`external_signals`, `meeting_signals`, `workspace_integrations`).
 
-The architectural intent is already consistent — the orgs/checkbox/ planning documents from earlier sessions anticipated most of the spec's structure. What's missing is the database refactor, the modules system, and the configurable signal definitions that turn the current single-tenant demo into the multi-customer product the spec describes.
+The architectural intent is already consistent — the orgs/_default/ planning documents from earlier sessions anticipated most of the spec's structure. What's missing is the database refactor, the modules system, and the configurable signal definitions that turn the current single-tenant demo into the multi-customer product the spec describes.
 
 Three small changes before the Checkbox interview tighten the demo story. Eight phases of post-interview work bring the codebase to the spec's definition-of-done.
 
@@ -39,7 +39,7 @@ This is a bigger product than what the code currently is. That's not a problem �
 
 ### 1.2 Where the spec aligns with existing thinking
 
-The `orgs/checkbox/` directory (added in earlier sessions) already contains:
+The `orgs/_default/` directory (added in earlier sessions) already contains:
 
 - `dictionary.md` — 49 signals across 13 internal operating systems
 - `synthesis.md` — 12-type canonical signal taxonomy + unified relational model
@@ -47,7 +47,7 @@ The `orgs/checkbox/` directory (added in earlier sessions) already contains:
 - `tools/*.md` — per-tool integration profiles for Salesforce, HubSpot, Outreach, ZoomInfo, Gong, Granola, Dock, etc.
 - `metrics.md` — Selected Vendor Health Score formula
 
-The spec generalizes this Checkbox-specific work into a customer-agnostic product. Most of the architectural decisions in `orgs/checkbox/synthesis.md` map cleanly onto the spec's `intel` namespace. The 12 canonical signal types in synthesis.md fit inside the spec's `signal_definitions` table without renaming.
+The spec generalizes this workspace-specific work into a customer-agnostic product. Most of the architectural decisions in `orgs/_default/synthesis.md` map cleanly onto the spec's `intel` namespace. The 12 canonical signal types in synthesis.md fit inside the spec's `signal_definitions` table without renaming.
 
 ### 1.3 Where the code lags
 
@@ -102,12 +102,12 @@ Three tasks, roughly two hours of work. None of them touch the database; all of 
 
 **Source files:** `HANDOFF.md` (gitignored — local only), memory files in `~/.claude/projects/.../memory/`
 **Effort:** ~30 minutes
-**Why this matters:** future sessions will read HANDOFF first. Right now HANDOFF points at the older `orgs/checkbox/synthesis.md` as the planning source of truth. The new spec supersedes that for customer-agnostic direction (orgs/checkbox/ remains the Checkbox-specific application of the same architecture).
+**Why this matters:** future sessions will read HANDOFF first. Right now HANDOFF points at the older `orgs/_default/synthesis.md` as the planning source of truth. The new spec supersedes that for customer-agnostic direction (orgs/_default/ remains the workspace-specific application of the same architecture).
 
 **Specific changes:**
 1. HANDOFF §3.5 (Product vision): add a sentence pointing at `dugout_product_spec_v_0_1.md` as the canonical product direction.
 2. HANDOFF §16 (Session 5 reference docs): add an entry for `docs/spec-v0.1-build-plan.md` (this file).
-3. Memory file `project_checkbox_interview.md`: append a paragraph about the spec under the existing "Session 5" section. Note that `orgs/checkbox/` is the Checkbox-specific application of the spec's architecture.
+3. Memory file `project_checkbox_interview.md`: append a paragraph about the spec under the existing "Session 5" section. Note that `orgs/_default/` is the workspace-specific application of the spec's architecture.
 4. Memory file `reference_dugout_tooling.md`: no change needed.
 
 **Acceptance criteria:** a fresh Claude session that reads HANDOFF + memory + this build plan can answer "what is Dugout becoming?" without needing the conversation history.
@@ -166,7 +166,7 @@ Mapped to the spec's §11 build phases. Effort estimates assume one engineer wor
 - A Checkbox-like customer can paste SF and Gong API keys and see their real opportunities + meetings populate within 5 minutes
 - The Budget Approval Risk signal (from A.2) fires on real opportunities with real transcript quotes as evidence
 
-**Reference:** spec §6.1 (Salesforce), §6.6 (Gong), §10.1 (Integration Research Agent), §10.4 (Connector Builder Agent), `orgs/checkbox/tools/salesforce.md` and `orgs/checkbox/tools/gong.md` for the existing per-tool research
+**Reference:** spec §6.1 (Salesforce), §6.6 (Gong), §10.1 (Integration Research Agent), §10.4 (Connector Builder Agent), `orgs/_default/tools/salesforce.md` and `orgs/_default/tools/gong.md` for the existing per-tool research
 
 ### B.3 (Spec Phase 3) — Configurable signal definitions
 
@@ -221,7 +221,7 @@ Mapped to the spec's §11 build phases. Effort estimates assume one engineer wor
 - The Budget Approval Risk signal can cite "CFO leave-behind not viewed in Dock" as evidence
 - An internal Slack message in the account channel that mentions a competitor fires Competitive Risk signal
 
-**Reference:** spec §6.3 (Slack), §6.13 (Dock), `orgs/checkbox/tools/dock.md`
+**Reference:** spec §6.3 (Slack), §6.13 (Dock), `orgs/_default/tools/dock.md`
 
 ### B.6 (Spec Phase 6) — External intelligence inbox
 
@@ -348,7 +348,7 @@ Explicit non-goals so the build doesn't drift:
 1. Read `HANDOFF.md` first.
 2. Read `dugout_product_spec_v_0_1.md` (in the parent Checkbox directory).
 3. Read this build plan.
-4. Read the relevant `orgs/checkbox/` document for the specific topic at hand.
+4. Read the relevant `orgs/_default/` document for the specific topic at hand.
 5. Confirm with Jackson what to work on first.
 
 ### For a contractor or new engineer
@@ -371,7 +371,7 @@ Explicit non-goals so the build doesn't drift:
 
 - **Spec:** `/Users/jacksonshuey/Desktop/Checkbox/dugout_product_spec_v_0_1.md`
 - **HANDOFF:** `HANDOFF.md` (gitignored, local)
-- **Checkbox-specific application:** `orgs/checkbox/` (synthesis.md is the canonical local document)
+- **Workspace-specific application:** `orgs/_default/` (synthesis.md is the canonical local document)
 - **GTM tool expansion research:** `docs/gtm-tool-expansion-research.md`
 - **Future builds parked list:** `FUTURE_BUILDS.md` (gitignored, local)
 - **Case PDFs:** `/Users/jacksonshuey/Desktop/Checkbox/GTM Engineer Case.pdf` and `GTM Engineer Case Context.pdf`
