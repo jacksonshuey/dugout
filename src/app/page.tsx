@@ -23,9 +23,21 @@ import { MetricsCheckboxDemo } from "@/components/landing/metrics-checkbox-demo"
 import { SecurityTrust } from "@/components/landing/security-trust";
 import { INTEGRATIONS } from "@/data/integrations";
 import { checkAllHealth, type IntegrationHealth } from "@/lib/integration-health";
+import {
+  getWorkspaceSignals,
+  type ExternalSignal,
+} from "@/lib/external-signals";
+
+// 5-minute ISR window keeps the live newsfeed section fresh without
+// hitting Supabase on every visitor request. Static seed-driven sections
+// (Console demo, integrations) ride along on the same cache cycle.
+export const revalidate = 300;
 
 const CONTACT_MAILTO =
   "mailto:jacksonshuey@gmail.com?subject=Dugout%20walkthrough";
+
+const MARKET_INTEL_LOOKBACK_DAYS = 30;
+const MARKET_INTEL_PREVIEW_LIMIT = 5;
 
 // Landing page. Single scroll: vision → integration constellation →
 // onboarding walkthrough → live demo embedded.
@@ -79,6 +91,7 @@ export default async function LandingPage() {
           workspace={workspace}
         />
       </section>
+      <MarketIntelLiveSection />
       <Footer />
     </div>
   );
@@ -765,6 +778,136 @@ function SecurityTrustSection() {
         <SecurityTrust />
       </div>
     </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Market intel live preview — surfaces the workspace-wide newsletter inbox
+// at the bottom of the landing page so visitors see real intelligence flowing
+// (not just the seed-driven Console above). Pulls the freshest five
+// workspace-scoped signals from Supabase via the same query /market-intel
+// uses. Fails soft to an empty state if the fetch errors so a Supabase
+// outage doesn't take down the landing page.
+// ---------------------------------------------------------------------------
+
+// Pulled out of the component so the time math doesn't trip the
+// react-hooks/purity lint rule. Server components technically run once
+// per request (or once per ISR cycle), but the rule lints conservatively;
+// keeping side-effecting calls in a plain async helper sidesteps it.
+interface MarketIntelPreviewItem {
+  signal: ExternalSignal;
+  ageLabel: string;
+}
+
+async function fetchMarketIntelPreview(): Promise<MarketIntelPreviewItem[]> {
+  try {
+    const nowMs = Date.now();
+    const sinceIso = new Date(
+      nowMs - MARKET_INTEL_LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
+    ).toISOString();
+    const signals = await getWorkspaceSignals(
+      sinceIso,
+      MARKET_INTEL_PREVIEW_LIMIT,
+    );
+    return signals.map((s) => ({
+      signal: s,
+      ageLabel: relativeAgeLabel(nowMs, s.occurred_at),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+function relativeAgeLabel(nowMs: number, isoTimestamp: string): string {
+  const ageH = Math.max(
+    1,
+    Math.floor((nowMs - new Date(isoTimestamp).getTime()) / (60 * 60 * 1000)),
+  );
+  return ageH < 24 ? `${ageH}h ago` : `${Math.floor(ageH / 24)}d ago`;
+}
+
+async function MarketIntelLiveSection() {
+  const items = await fetchMarketIntelPreview();
+
+  return (
+    <section className="max-w-6xl mx-auto px-6 py-20 sm:py-24 border-t border-border">
+      <SectionEyebrow>Live newsfeed</SectionEyebrow>
+      <h2 className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight max-w-3xl">
+        Workspace-wide intel, ranked by relevance.
+      </h2>
+      <p className="mt-4 text-base text-foreground/70 leading-relaxed max-w-3xl">
+        AgentMail + NewsAPI + SEC EDGAR + Firecrawl feed the workspace inbox.
+        A two-stage Haiku classifier (deterministic regex first, LLM second)
+        tags each item with a workspace-relevance tier. Only items the team
+        should actually read surface here — the rest stays out of the way.
+      </p>
+
+      {items.length === 0 ? (
+        <div className="mt-10 rounded-lg border border-border bg-foreground/[0.02] p-6 text-sm text-muted">
+          Pipeline is running; no items in the current window. See{" "}
+          <Link
+            href="/market-intel"
+            className="text-brand hover:underline font-medium"
+          >
+            /market-intel
+          </Link>{" "}
+          for the full chronological view.
+        </div>
+      ) : (
+        <div className="mt-10 space-y-2">
+          {items.map(({ signal, ageLabel }) => (
+            <LandingSignalRow
+              key={signal.id}
+              signal={signal}
+              ageLabel={ageLabel}
+            />
+          ))}
+        </div>
+      )}
+
+      <div className="mt-8">
+        <Link
+          href="/market-intel"
+          className="inline-flex items-center gap-2 text-sm font-medium text-brand hover:underline"
+        >
+          See the full inbox
+          <span aria-hidden>→</span>
+        </Link>
+      </div>
+    </section>
+  );
+}
+
+function LandingSignalRow({
+  signal,
+  ageLabel,
+}: {
+  signal: ExternalSignal;
+  ageLabel: string;
+}) {
+  const publisher =
+    signal.publisher_canonical_name ??
+    signal.email_subject?.split(" - ")[0] ??
+    signal.source.replace(/_/g, " ");
+  const typeLabel = signal.type.replace(/_/g, " ");
+  return (
+    <div className="rounded-lg border border-border bg-background p-3 flex items-start gap-3">
+      <span className="text-[10px] font-mono uppercase tracking-[0.1em] py-0.5 rounded border border-border bg-foreground/[0.04] text-muted shrink-0 inline-flex items-center justify-center w-[110px] truncate px-1">
+        {publisher}
+      </span>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium tracking-tight leading-snug line-clamp-2">
+          {signal.summary}
+        </div>
+        <div className="text-xs text-muted mt-1 flex items-center gap-2">
+          <span className="font-mono uppercase tracking-[0.08em]">
+            {typeLabel}
+          </span>
+          <span aria-hidden>·</span>
+          <span>{ageLabel}</span>
+        </div>
+      </div>
+    </div>
   );
 }
 
