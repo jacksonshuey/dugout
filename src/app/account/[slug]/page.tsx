@@ -60,6 +60,7 @@ import { getIntegrationContext } from "@/lib/integration-context";
 import { getWorkspaceConfig } from "@/lib/workspace-server";
 import type {
   Account,
+  Activity,
   Contact,
   Opportunity,
   Stage,
@@ -197,6 +198,9 @@ export default async function AccountPage({
             opportunity={primarySVOpp}
             contactsByRole={byRoleToFlatRecord(data.contactsByRole)}
             signals={data.signals}
+            activities={data.activities.filter(
+              (a) => a.oppId === primarySVOpp.id,
+            )}
           />
         </section>
       )}
@@ -228,6 +232,10 @@ type AccountContext = {
   openOpportunities: Opportunity[];
   contactsByRole: ContactsByRole;
   signals: UnifiedSignal[];
+  // Account-scoped activities, surfaced so per-opportunity surfaces like the
+  // ProcurementTracker can light up milestone state (e.g. legal redline
+  // received, SSO confirmed) without re-fetching the seed.
+  activities: Activity[];
   svHealthScore: SVHealthScore | null;
   warnings: string[];
 };
@@ -258,6 +266,7 @@ async function loadAccountContext(account: Account): Promise<AccountContext> {
       companyName: workspace.companyName,
       assets: workspace.assets,
       stack: workspace.stack,
+      contractIdleAmountFloor: workspace.contractIdleAmountFloor,
     },
   });
   const oppToAccount = new Map(opportunities.map((o) => [o.id, o.accountId]));
@@ -336,11 +345,17 @@ async function loadAccountContext(account: Account): Promise<AccountContext> {
   // future "Patterns" section if the call for it lands.
   void computeCorrelations(unified);
 
+  // Account-scoped activities — used by per-opp surfaces that need to
+  // observe the raw activity log (e.g. ProcurementTracker milestone state).
+  const accountOppIds = new Set(accountOpps.map((o) => o.id));
+  const accountActivities = activities.filter((a) => accountOppIds.has(a.oppId));
+
   return {
     account,
     openOpportunities: accountOpps,
     contactsByRole,
     signals: unified,
+    activities: accountActivities,
     svHealthScore,
     warnings,
   };

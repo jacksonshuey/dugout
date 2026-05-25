@@ -130,6 +130,11 @@ export const accounts: Account[] = [
     domain: "kkr.com",
     ticker: "KKR",
     isDemoScenario: true,
+    abmTrigger: {
+      highRelevanceSignalsLast7d: 3,
+      sources: ["news", "sec_edgar"],
+      lastSignalAt: "2026-05-23T14:00:00Z", // 1d ago
+    },
   },
   {
     id: "acc_cobalt",
@@ -143,6 +148,13 @@ export const accounts: Account[] = [
     website: "stripe.com",
     domain: "stripe.com",
     isDemoScenario: true,
+    // Below the firing threshold — only 1 signal from 1 source. Proves the
+    // rule is selective; surfaces in the manager card but doesn't emit.
+    abmTrigger: {
+      highRelevanceSignalsLast7d: 1,
+      sources: ["news"],
+      lastSignalAt: "2026-05-21T09:00:00Z",
+    },
   },
   {
     id: "acc_northwind",
@@ -171,6 +183,11 @@ export const accounts: Account[] = [
     domain: "unitedhealthgroup.com",
     ticker: "UNH",
     isDemoScenario: true,
+    abmTrigger: {
+      highRelevanceSignalsLast7d: 2,
+      sources: ["news", "newsletter"],
+      lastSignalAt: "2026-05-22T11:30:00Z", // 2d ago
+    },
   },
   {
     id: "acc_sentinel",
@@ -213,6 +230,13 @@ export const accounts: Account[] = [
     domain: "snowflake.com",
     ticker: "SNOW",
     isDemoScenario: true,
+    // Top of the named-accounts list: 4 signals across 3 distinct sources in
+    // the last week. Trips ABM_SHADOW_RESEARCH and leads the manager card.
+    abmTrigger: {
+      highRelevanceSignalsLast7d: 4,
+      sources: ["news", "sec_edgar", "newsletter"],
+      lastSignalAt: "2026-05-22T16:00:00Z", // 2d ago
+    },
   },
   {
     id: "acc_quantum",
@@ -545,6 +569,30 @@ export const opportunities: Opportunity[] = [
     closeDate: "2026-07-31",
     contactRoleIds: ["c_str_1"],
   },
+  // Second Atlassian opp at Contracting — exercises the three new
+  // Contracting-stage signal rules (LEGAL_REDLINE_AGE, SSO_SETUP_PENDING,
+  // CONTRACT_IDLE). Inserted AFTER opp_atlas so any `opportunities.find()`
+  // that previously returned the healthy Selected Vendor scenario keeps
+  // returning it; the account page sorts by stage rank so this becomes the
+  // primary SV+ opp on /account/atlas.
+  //
+  // Pattern (TODAY = 2026-05-21):
+  //   - 12 days in Contracting (enteredStageAt 2026-05-09)
+  //   - Last legal-redline activity 6 days ago (2026-05-15) → LEGAL_REDLINE_AGE fires
+  //   - Last buyer-side activity 12 days ago (2026-05-09) → CONTRACT_IDLE fires (amount $80k > $50k floor)
+  //   - No SSO/IT activity at all → SSO_SETUP_PENDING fires (12d > 7d)
+  {
+    id: "opp_atlas_2",
+    accountId: "acc_atlas",
+    name: "Snowflake — Data Cloud BU Expansion",
+    ownerId: "rep_mw",
+    stage: "Contracting",
+    amount: 80000,
+    enteredStageAt: "2026-05-09",
+    createdAt: "2026-01-15",
+    closeDate: "2026-06-30",
+    contactRoleIds: ["c_atl_1", "c_atl_3", "c_atl_4"],
+  },
 ];
 
 // Activities — recent enough to drive ghost/engagement signals. We focus on
@@ -621,6 +669,16 @@ export const activities: Activity[] = [
   { id: "a_str_1", oppId: "opp_stratos", contactId: "c_str_1", type: "call", occurredAt: "2026-05-02", summary: "Discovery — Tracy is interested but unsure of budget process" },
   { id: "a_str_2", oppId: "opp_stratos", contactId: "c_str_1", type: "email_sent", occurredAt: "2026-05-11", summary: "Sent recap + pricing tiers" },
   // 19 days since last meaningful activity
+
+  // Snowflake Data Cloud BU (opp_atlas_2) — Contracting, stuck.
+  // Pattern: buyer-side paperwork landed 12d ago, our in-house counsel
+  // returned the redline 6d ago, then silence from the buyer. Designed to
+  // fire LEGAL_REDLINE_AGE + CONTRACT_IDLE + SSO_SETUP_PENDING.
+  //   - a_atl2_1 (buyer-side, 12d ago) is the last buyer activity → CONTRACT_IDLE
+  //   - a_atl2_2 (internal, no contactId, 6d ago) matches LEGAL_REDLINE_RE → LEGAL_REDLINE_AGE
+  //   - No SSO/IT activity at all → SSO_SETUP_PENDING (12d in stage > 7d)
+  { id: "a_atl2_1", oppId: "opp_atlas_2", contactId: "c_atl_3", type: "email_received", occurredAt: "2026-05-09", summary: "Procurement Marcus Lee sent over the initial paperwork bundle" },
+  { id: "a_atl2_2", oppId: "opp_atlas_2", type: "email_sent", occurredAt: "2026-05-15", summary: "Sent our redline pass on the MSA back to buyer counsel — awaiting their next round" },
 ];
 
 // Gong-shaped call transcripts. The signal engine reasons over summary +
@@ -813,6 +871,13 @@ export const assetDeliveries: AssetDelivery[] = [
   { oppId: "opp_atlas", asset: "cfo_leave_behind", deliveredAt: "2026-05-05" },
   { oppId: "opp_atlas", asset: "it_zero_lift_one_pager", deliveredAt: "2026-05-08" },
   { oppId: "opp_atlas", asset: "dock_room", deliveredAt: "2026-03-01" },
+
+  // Snowflake Data Cloud BU expansion — early-stage assets delivered before
+  // the deal advanced to Contracting. No IT one-pager yet, which is part of
+  // the SSO_SETUP_PENDING story.
+  { oppId: "opp_atlas_2", asset: "outcome_first_trial_brief", deliveredAt: "2026-02-01" },
+  { oppId: "opp_atlas_2", asset: "kpi_assessment", deliveredAt: "2026-02-05" },
+  { oppId: "opp_atlas_2", asset: "dock_room", deliveredAt: "2026-02-01" },
 
   // UPS — only trial brief sent
   { oppId: "opp_quantum", asset: "outcome_first_trial_brief", deliveredAt: "2026-04-15" },

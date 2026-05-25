@@ -89,6 +89,16 @@ export interface Account {
   // on a specific account. Leave undefined → adapter uses dynamic discovery
   // (Firecrawl /map → preferred-pattern filter → fallback to ACCOUNT_PAGES).
   paths?: string[];
+  // ABM research-cluster trigger snapshot — populated in demo mode from a
+  // hand-curated seed value, in real mode by aggregating the external_signals
+  // table (news + EDGAR + newsletter mentions) over the last 7 days. Drives
+  // the ABM_SHADOW_RESEARCH rule (P6) and the Top Accounts manager card.
+  // Optional so existing fixtures don't need updates.
+  abmTrigger?: {
+    highRelevanceSignalsLast7d: number; // 0-8
+    sources: string[]; // e.g. ["news", "sec_edgar", "newsletter"]
+    lastSignalAt: string; // ISO timestamp
+  };
 }
 
 // Contact roles map to Salesforce OpportunityContactRole. The presence/absence
@@ -363,5 +373,8 @@ export interface EvaluationContext {
     companyName: string;
     assets: { id: string; name: string }[];
     stack: { dealRooms: string; conversationIntelligence: string };
+    // Optional ACV floor read by the CONTRACT_IDLE rule — see
+    // workspace.ts §CONTRACT_IDLE_AMOUNT_FLOOR_DEFAULT.
+    contractIdleAmountFloor?: number;
   };
 }

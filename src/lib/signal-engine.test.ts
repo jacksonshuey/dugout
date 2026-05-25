@@ -12,6 +12,7 @@ import {
   computeDealHealth,
 } from "./signal-engine";
 import type {
+  Account,
   Activity,
   CallTranscript,
   Contact,
@@ -509,6 +510,297 @@ describe("CHAMPION_DEPARTED", () => {
     const signals = evaluateRule(
       "CHAMPION_DEPARTED",
       makeCtx({ opportunities: [opp], contacts: [champion] }),
+    );
+    expect(signals).toHaveLength(0);
+  });
+});
+
+describe("LEGAL_REDLINE_AGE", () => {
+  test("fires when latest legal-redline activity is older than 5 days", () => {
+    const opp = makeOpp({ stage: "Contracting" });
+    const stale: Activity = {
+      id: "a_1",
+      oppId: opp.id,
+      type: "email_received",
+      occurredAt: "2026-05-13T00:00:00Z", // 8d before TODAY
+      summary: "GC returned MSA redlines on indemnification",
+    };
+    const signals = evaluateRule(
+      "LEGAL_REDLINE_AGE",
+      makeCtx({ opportunities: [opp], activities: [stale] }),
+    );
+    expect(signals).toHaveLength(1);
+    expect(signals[0].signalType).toBe("momentum_change");
+    expect(signals[0].severity).toBe("action");
+  });
+
+  test("does not fire when the only redline activity is recent (≤5d)", () => {
+    const opp = makeOpp({ stage: "Contracting" });
+    const recent: Activity = {
+      id: "a_1",
+      oppId: opp.id,
+      type: "email_received",
+      occurredAt: "2026-05-19T00:00:00Z", // 2d before TODAY
+      summary: "Legal review feedback on DPA",
+    };
+    const signals = evaluateRule(
+      "LEGAL_REDLINE_AGE",
+      makeCtx({ opportunities: [opp], activities: [recent] }),
+    );
+    expect(signals).toHaveLength(0);
+  });
+
+  test("does not fire when stage is not Contracting", () => {
+    const opp = makeOpp({ stage: "Selected Vendor" });
+    const stale: Activity = {
+      id: "a_1",
+      oppId: opp.id,
+      type: "email_received",
+      occurredAt: "2026-05-10T00:00:00Z",
+      summary: "MSA redlines back from GC",
+    };
+    const signals = evaluateRule(
+      "LEGAL_REDLINE_AGE",
+      makeCtx({ opportunities: [opp], activities: [stale] }),
+    );
+    expect(signals).toHaveLength(0);
+  });
+});
+
+describe("SSO_SETUP_PENDING", () => {
+  test("fires when in Contracting > 7d and no SSO/IT activity in the last 14d", () => {
+    const opp = makeOpp({
+      stage: "Contracting",
+      enteredStageAt: "2026-05-10T00:00:00Z", // 11d ago
+    });
+    const signals = evaluateRule(
+      "SSO_SETUP_PENDING",
+      makeCtx({ opportunities: [opp] }),
+    );
+    expect(signals).toHaveLength(1);
+    expect(signals[0].signalType).toBe("committee_gap");
+    expect(signals[0].severity).toBe("action");
+  });
+
+  test("does not fire when an SSO activity exists in the last 14d", () => {
+    const opp = makeOpp({
+      stage: "Contracting",
+      enteredStageAt: "2026-05-10T00:00:00Z",
+    });
+    const sso: Activity = {
+      id: "a_1",
+      oppId: opp.id,
+      type: "meeting",
+      occurredAt: "2026-05-17T00:00:00Z", // 4d ago, within 14d
+      summary: "IT walkthrough: SAML SSO setup confirmed",
+    };
+    const signals = evaluateRule(
+      "SSO_SETUP_PENDING",
+      makeCtx({ opportunities: [opp], activities: [sso] }),
+    );
+    expect(signals).toHaveLength(0);
+  });
+
+  test("does not fire when days in Contracting is ≤7", () => {
+    const opp = makeOpp({
+      stage: "Contracting",
+      enteredStageAt: "2026-05-17T00:00:00Z", // 4d ago, under 7d gate
+    });
+    const signals = evaluateRule(
+      "SSO_SETUP_PENDING",
+      makeCtx({ opportunities: [opp] }),
+    );
+    expect(signals).toHaveLength(0);
+  });
+});
+
+describe("CONTRACT_IDLE", () => {
+  test("fires when no buyer-side activity in 10+ days on a Contracting deal above the floor", () => {
+    const champion = makeContact({ id: "c_ch", role: "Champion" });
+    const opp = makeOpp({
+      stage: "Contracting",
+      amount: 100000,
+      contactRoleIds: [champion.id],
+    });
+    const stale: Activity = {
+      id: "a_1",
+      oppId: opp.id,
+      contactId: champion.id,
+      type: "email_received",
+      occurredAt: "2026-05-08T00:00:00Z", // 13d ago
+      summary: "Acknowledged the contract draft",
+    };
+    const signals = evaluateRule(
+      "CONTRACT_IDLE",
+      makeCtx({
+        opportunities: [opp],
+        contacts: [champion],
+        activities: [stale],
+      }),
+    );
+    expect(signals).toHaveLength(1);
+    expect(signals[0].severity).toBe("blocking");
+    expect(signals[0].signalType).toBe("momentum_change");
+  });
+
+  test("does not fire when buyer activity is within the last 10 days", () => {
+    const champion = makeContact({ id: "c_ch", role: "Champion" });
+    const opp = makeOpp({
+      stage: "Contracting",
+      amount: 100000,
+      contactRoleIds: [champion.id],
+    });
+    const recent: Activity = {
+      id: "a_1",
+      oppId: opp.id,
+      contactId: champion.id,
+      type: "email_received",
+      occurredAt: "2026-05-15T00:00:00Z", // 6d ago
+      summary: "Confirmed redline turnaround",
+    };
+    const signals = evaluateRule(
+      "CONTRACT_IDLE",
+      makeCtx({
+        opportunities: [opp],
+        contacts: [champion],
+        activities: [recent],
+      }),
+    );
+    expect(signals).toHaveLength(0);
+  });
+
+  test("does not fire when opp amount is at or below the workspace floor", () => {
+    const champion = makeContact({ id: "c_ch", role: "Champion" });
+    const opp = makeOpp({
+      stage: "Contracting",
+      amount: 40000, // below default 50k floor
+      contactRoleIds: [champion.id],
+    });
+    const stale: Activity = {
+      id: "a_1",
+      oppId: opp.id,
+      contactId: champion.id,
+      type: "email_received",
+      occurredAt: "2026-05-05T00:00:00Z", // 16d ago
+      summary: "Acknowledged draft",
+    };
+    const signals = evaluateRule(
+      "CONTRACT_IDLE",
+      makeCtx({
+        opportunities: [opp],
+        contacts: [champion],
+        activities: [stale],
+      }),
+    );
+    expect(signals).toHaveLength(0);
+  });
+
+  test("respects workspace-config floor override", () => {
+    const champion = makeContact({ id: "c_ch", role: "Champion" });
+    const opp = makeOpp({
+      stage: "Contracting",
+      amount: 100000,
+      contactRoleIds: [champion.id],
+    });
+    const stale: Activity = {
+      id: "a_1",
+      oppId: opp.id,
+      contactId: champion.id,
+      type: "email_received",
+      occurredAt: "2026-05-08T00:00:00Z",
+      summary: "Ack",
+    };
+    const signals = evaluateRule(
+      "CONTRACT_IDLE",
+      makeCtx({
+        opportunities: [opp],
+        contacts: [champion],
+        activities: [stale],
+        config: {
+          companyName: "Test",
+          assets: [],
+          stack: { dealRooms: "Dock", conversationIntelligence: "Gong" },
+          contractIdleAmountFloor: 250000, // raise floor above opp.amount
+        },
+      }),
+    );
+    expect(signals).toHaveLength(0);
+  });
+});
+
+describe("ABM_SHADOW_RESEARCH", () => {
+  // Account-level rule. Fires once per qualifying account, attached to the
+  // account's most-recently-created opp so the existing oppId-keyed UI has a
+  // target.
+  const baseAccount = (overrides: Partial<Account> = {}): Account => ({
+    id: "acc_abm",
+    name: "Test Co",
+    industry: "SaaS",
+    segment: "Enterprise",
+    hqLocation: "San Francisco, CA",
+    legalTeamSize: 50,
+    ...overrides,
+  });
+
+  test("fires for Enterprise account with 4 signals from 3 sources", () => {
+    const account = baseAccount({
+      abmTrigger: {
+        highRelevanceSignalsLast7d: 4,
+        sources: ["news", "sec_edgar", "newsletter"],
+        lastSignalAt: "2026-05-22T16:00:00Z",
+      },
+    });
+    const opp = makeOpp({ accountId: account.id });
+    const signals = evaluateRule(
+      "ABM_SHADOW_RESEARCH",
+      makeCtx({ accounts: [account], opportunities: [opp] }),
+    );
+    expect(signals).toHaveLength(1);
+    expect(signals[0].ruleId).toBe("ABM_SHADOW_RESEARCH");
+    expect(signals[0].severity).toBe("action");
+    expect(signals[0].signalType).toBe("shadow_research");
+    expect(signals[0].oppId).toBe(opp.id);
+  });
+
+  test("does not fire for Enterprise account with 1 signal from 1 source", () => {
+    const account = baseAccount({
+      abmTrigger: {
+        highRelevanceSignalsLast7d: 1,
+        sources: ["news"],
+        lastSignalAt: "2026-05-22T16:00:00Z",
+      },
+    });
+    const opp = makeOpp({ accountId: account.id });
+    const signals = evaluateRule(
+      "ABM_SHADOW_RESEARCH",
+      makeCtx({ accounts: [account], opportunities: [opp] }),
+    );
+    expect(signals).toHaveLength(0);
+  });
+
+  test("does not fire for Mid-Market account regardless of signal volume", () => {
+    const account = baseAccount({
+      segment: "Mid-Market",
+      abmTrigger: {
+        highRelevanceSignalsLast7d: 5,
+        sources: ["news", "sec_edgar", "newsletter"],
+        lastSignalAt: "2026-05-22T16:00:00Z",
+      },
+    });
+    const opp = makeOpp({ accountId: account.id });
+    const signals = evaluateRule(
+      "ABM_SHADOW_RESEARCH",
+      makeCtx({ accounts: [account], opportunities: [opp] }),
+    );
+    expect(signals).toHaveLength(0);
+  });
+
+  test("does not fire for Enterprise account with no abmTrigger field", () => {
+    const account = baseAccount(); // no abmTrigger
+    const opp = makeOpp({ accountId: account.id });
+    const signals = evaluateRule(
+      "ABM_SHADOW_RESEARCH",
+      makeCtx({ accounts: [account], opportunities: [opp] }),
     );
     expect(signals).toHaveLength(0);
   });

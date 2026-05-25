@@ -154,6 +154,7 @@ export async function POST(req: Request) {
           companyName: workspace.companyName,
           assets: workspace.assets,
           stack: workspace.stack,
+          contractIdleAmountFloor: workspace.contractIdleAmountFloor,
         },
       },
       rep.id,

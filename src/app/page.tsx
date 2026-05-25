@@ -48,6 +48,7 @@ export default async function LandingPage() {
       companyName: workspace.companyName,
       assets: workspace.assets,
       stack: workspace.stack,
+      contractIdleAmountFloor: workspace.contractIdleAmountFloor,
     },
   };
   const signals = evaluateAll(ctx);

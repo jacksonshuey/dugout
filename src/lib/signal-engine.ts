@@ -9,6 +9,14 @@ import {
   type StandardAsset,
 } from "./types";
 import { daysBetween, TODAY } from "./utils";
+import { CONTRACT_IDLE_AMOUNT_FLOOR_DEFAULT } from "./workspace";
+
+// Regex library for the Contracting-stage rules. Exported so the
+// ProcurementTracker (and tests) can reuse the same patterns when computing
+// milestone checked-state — keeps activity-match logic in one place.
+export const LEGAL_REDLINE_RE = /redline|legal review|MSA|DPA/i;
+export const SSO_SETUP_RE = /SSO|SAML|OIDC|provisioning|IT setup/i;
+export const SIGNATURE_RE = /docusign|signature requested|sent for signature/i;
 
 // ---------------------------------------------------------------------------
 // Signal Engine — deterministic rules
@@ -216,6 +224,34 @@ const ruleBudgetApprovalRisk: SignalRule = {
           "This deal is in Selected Vendor, budget approval was mentioned in the last call, no Finance stakeholder is mapped, and the CFO leave-behind has not been viewed.",
         suggestedAction:
           "Map Finance, send CFO package, and schedule Finance alignment before the next buyer meeting.",
+        assetLink: assetLink(ctx, "cfo_leave_behind", "CFO Leave-Behind"),
+        detectedAt: TODAY.toISOString(),
+      })),
+};
+
+const ruleSelectedVendorNoFinance: SignalRule = {
+  id: "SELECTED_VENDOR_NO_FINANCE",
+  name: "Selected Vendor without Finance contact",
+  description:
+    "Deal is at the budget-approval gate without a Finance/CFO contact on the OCR. Per case data, this is the stage where deals die.",
+  severity: "blocking",
+  strategicPriority: "P4",
+  evaluate: (ctx) =>
+    ctx.opportunities
+      .filter(
+        (o) =>
+          o.stage === "Selected Vendor" &&
+          !hasContactRole(o, ctx, "Finance/CFO"),
+      )
+      .map((o) => ({
+        id: ruleId("SELECTED_VENDOR_NO_FINANCE", o.id),
+        ruleId: "SELECTED_VENDOR_NO_FINANCE",
+        oppId: o.id,
+        severity: "blocking",
+        signalType: "committee_gap" as const,
+        title: "Finance gate unmanned",
+        body: "Deal is at Selected Vendor without a Finance contact identified. Budget approval is the most common kill point at this stage.",
+        suggestedAction: `Send the ${assetName(ctx, "cfo_leave_behind", "CFO Leave-Behind")} to your champion today and ask for a Finance intro by EOW.`,
         assetLink: assetLink(ctx, "cfo_leave_behind", "CFO Leave-Behind"),
         detectedAt: TODAY.toISOString(),
       })),
@@ -632,12 +668,223 @@ const ruleCallNegativeSentiment: SignalRule = {
 };
 
 // ---------------------------------------------------------------------------
+// Contracting-stage rules. The generic STAGE_AGE_EXCEEDED rule covers the
+// "stage is aging" angle but says nothing about the specific failure modes
+// of the Contracting stage (legal redline aging, SSO/IT not started,
+// contract sitting in signature with no buyer movement). These three rules
+// model each failure mode independently so the suggestedAction is
+// actionable rather than generic.
+// ---------------------------------------------------------------------------
+
+// Helper: most recent activity on opp whose summary matches `pattern`.
+// Returns the activity's age in days, or null when no match.
+function lastActivityMatchingDays(
+  opp: Opportunity,
+  ctx: EvaluationContext,
+  pattern: RegExp,
+): number | null {
+  const matches = ctx.activities
+    .filter((a) => a.oppId === opp.id && pattern.test(a.summary))
+    .sort((a, b) => (a.occurredAt < b.occurredAt ? 1 : -1));
+  if (matches.length === 0) return null;
+  return daysBetween(matches[0].occurredAt);
+}
+
+// Helper: most recent activity on opp from any buyer-side contact (i.e.,
+// any contact tied to a contactRoleId on the opp). Returns age in days, or
+// null when no such activity exists. Internal-only activities (no contactId)
+// don't count — the rule is specifically about buyer-side momentum.
+function lastBuyerActivityDays(
+  opp: Opportunity,
+  ctx: EvaluationContext,
+): number | null {
+  const buyerContactIds = new Set(opp.contactRoleIds);
+  const buyerActs = ctx.activities
+    .filter(
+      (a) =>
+        a.oppId === opp.id && a.contactId && buyerContactIds.has(a.contactId),
+    )
+    .sort((a, b) => (a.occurredAt < b.occurredAt ? 1 : -1));
+  if (buyerActs.length === 0) return null;
+  return daysBetween(buyerActs[0].occurredAt);
+}
+
+const ruleLegalRedlineAge: SignalRule = {
+  id: "LEGAL_REDLINE_AGE",
+  name: "Legal redline outstanding 5+ days",
+  description:
+    "Stage=Contracting with a legal-redline activity on file but no follow-up movement in 5+ days. Most contracting stalls trace to a redline that stopped pinging the right side.",
+  severity: "action",
+  strategicPriority: "P5",
+  evaluate: (ctx) => {
+    const out: Signal[] = [];
+    for (const opp of ctx.opportunities) {
+      if (opp.stage !== "Contracting") continue;
+      const days = lastActivityMatchingDays(opp, ctx, LEGAL_REDLINE_RE);
+      if (days === null) continue;
+      if (days <= 5) continue;
+      out.push({
+        id: ruleId("LEGAL_REDLINE_AGE", opp.id),
+        ruleId: "LEGAL_REDLINE_AGE",
+        oppId: opp.id,
+        severity: "action",
+        // Legal review aging without progression is a negative-direction
+        // momentum_change — the deal's forward motion has stalled.
+        signalType: "momentum_change",
+        title: `Legal redline outstanding ${days} days`,
+        body: `Most recent legal-redline activity on this Contracting deal was ${days} days ago. Redlines that stop pinging back are the most common contracting kill point.`,
+        suggestedAction:
+          "Legal redline outstanding 5+ days. Follow up with the buyer-side counsel today or escalate to in-house counsel.",
+        detectedAt: TODAY.toISOString(),
+      });
+    }
+    return out;
+  },
+};
+
+const ruleSsoSetupPending: SignalRule = {
+  id: "SSO_SETUP_PENDING",
+  name: "SSO / IT provisioning not confirmed",
+  description:
+    "Stage=Contracting for 7+ days with no SSO/IT setup confirmation activity in the last 14 days. Provisioning is the surprise time-sink — getting IT on a call early prevents a last-minute slip.",
+  severity: "action",
+  strategicPriority: "P4",
+  evaluate: (ctx) => {
+    const out: Signal[] = [];
+    for (const opp of ctx.opportunities) {
+      if (opp.stage !== "Contracting") continue;
+      if (ageInStage(opp) <= 7) continue;
+      const recentSsoActivity = ctx.activities.some(
+        (a) =>
+          a.oppId === opp.id &&
+          SSO_SETUP_RE.test(a.summary) &&
+          daysBetween(a.occurredAt) <= 14,
+      );
+      if (recentSsoActivity) continue;
+      out.push({
+        id: ruleId("SSO_SETUP_PENDING", opp.id),
+        ruleId: "SSO_SETUP_PENDING",
+        oppId: opp.id,
+        severity: "action",
+        // The task spec called this 'deal_structure_gap', but the canonical
+        // taxonomy in types.ts §SignalType doesn't include that value. Map to
+        // committee_gap instead — same shape as the existing ASSET_GAP_IT /
+        // NO_IT_AT_EVALUATING rules: an IT-persona engagement gap on a stage
+        // that requires it. (synthesis.md §1 keeps the 12-type taxonomy
+        // closed; BUILD_ALIGNMENT principle #2 forbids inventing new types.)
+        signalType: "committee_gap",
+        title: "SSO / IT setup not confirmed",
+        body: `${ageInStage(opp)} days in Contracting and no SSO/IT-provisioning activity logged in the last 14 days. Provisioning usually runs 2–3 weeks once IT is engaged.`,
+        suggestedAction:
+          "SSO/IT setup not confirmed after 7 days in Contracting. Loop in the IT contact to schedule a provisioning call.",
+        detectedAt: TODAY.toISOString(),
+      });
+    }
+    return out;
+  },
+};
+
+const ruleContractIdle: SignalRule = {
+  id: "CONTRACT_IDLE",
+  name: "Contract idle with no buyer activity",
+  description:
+    "Stage=Contracting with no buyer-side activity in 10+ days on a deal above the workspace ACV floor (default $50k). At this stage, silence is the most predictive kill signal.",
+  severity: "blocking",
+  strategicPriority: "P4",
+  evaluate: (ctx) => {
+    const floor =
+      ctx.config?.contractIdleAmountFloor ??
+      CONTRACT_IDLE_AMOUNT_FLOOR_DEFAULT;
+    const out: Signal[] = [];
+    for (const opp of ctx.opportunities) {
+      if (opp.stage !== "Contracting") continue;
+      if (opp.amount <= floor) continue;
+      const days = lastBuyerActivityDays(opp, ctx);
+      // Null means no buyer activity has ever been logged — treat as idle.
+      if (days !== null && days <= 10) continue;
+      const renderDays = days ?? "10+";
+      out.push({
+        id: ruleId("CONTRACT_IDLE", opp.id),
+        ruleId: "CONTRACT_IDLE",
+        oppId: opp.id,
+        severity: "blocking",
+        // Buyer side has gone dark on a contract — negative-direction
+        // momentum_change. CHAMPION_GHOST also fires for champion-only
+        // silence; this rule is broader (any buyer-side contact).
+        signalType: "momentum_change",
+        title: `Contract idle ${renderDays} days`,
+        body: `No buyer-side activity logged on this Contracting deal in ${renderDays} days. At this stage, silence is the strongest predictor of slip.`,
+        suggestedAction:
+          "Contract idle 10+ days with no buyer activity. Call the economic buyer or send a procurement nudge today.",
+        detectedAt: TODAY.toISOString(),
+      });
+    }
+    return out;
+  },
+};
+
+const ruleAbmShadowResearch: SignalRule = {
+  id: "ABM_SHADOW_RESEARCH",
+  name: "Named-account research cluster",
+  description:
+    "Strategic or Enterprise account has 2+ high-relevance external signals from 2+ distinct sources in the last 7 days. The first proactive-outreach prompt for the named-accounts motion (P6).",
+  severity: "action",
+  strategicPriority: "P6",
+  evaluate: (ctx) => {
+    // TODO: real-mode reads from external_signals table via Supabase, same
+    // pattern as src/app/api/account-context/route.ts. Demo uses seed
+    // abmTrigger field.
+    const out: Signal[] = [];
+    for (const account of ctx.accounts) {
+      // Segment gate: AccountSegment is "Enterprise" | "Mid-Market" in the
+      // current taxonomy. Named-accounts work is Enterprise-only until a
+      // Strategic tier is introduced.
+      if (account.segment !== "Enterprise") continue;
+      const trigger = account.abmTrigger;
+      if (!trigger) continue;
+      if (trigger.highRelevanceSignalsLast7d < 2) continue;
+      if (trigger.sources.length < 2) continue;
+
+      // Attach the signal to the account's most-recently-created opp so the
+      // existing oppId-keyed UI (drawer, tasks) has a target. Skip if the
+      // account has no opp on file — no surface to render against.
+      const accountOpps = ctx.opportunities.filter(
+        (o) => o.accountId === account.id,
+      );
+      if (accountOpps.length === 0) continue;
+      const anchorOpp = [...accountOpps].sort((a, b) =>
+        a.createdAt < b.createdAt ? 1 : -1,
+      )[0];
+
+      const sourcesLabel = trigger.sources.join(", ");
+      out.push({
+        id: ruleId("ABM_SHADOW_RESEARCH", account.id),
+        ruleId: "ABM_SHADOW_RESEARCH",
+        oppId: anchorOpp.id,
+        severity: "action",
+        // Named-account research cluster = shadow_research per the canonical
+        // taxonomy (synthesis.md §1): buyer-side activity indicating intent
+        // before a deal exists.
+        signalType: "shadow_research",
+        title: `${account.name}: ${trigger.highRelevanceSignalsLast7d} high-relevance signals across ${trigger.sources.length} sources`,
+        body: `${account.name} has ${trigger.highRelevanceSignalsLast7d} high-relevance signals across ${sourcesLabel} in the last 7 days. Compounding external research is a leading indicator of buying intent on named accounts.`,
+        suggestedAction: `${account.name} has ${trigger.highRelevanceSignalsLast7d} high-relevance signals across ${sourcesLabel} in the last 7 days. Consider proactive outreach.`,
+        detectedAt: TODAY.toISOString(),
+      });
+    }
+    return out;
+  },
+};
+
+// ---------------------------------------------------------------------------
 // The rule registry. Order = priority order when displayed in same severity.
 // ---------------------------------------------------------------------------
 export const RULES: SignalRule[] = [
   ruleChampionDeparted,
   ruleChampionGhost,
   ruleBudgetApprovalRisk,
+  ruleContractIdle,
+  ruleSelectedVendorNoFinance,
   ruleSelectedVendorNoProcurement,
   ruleNoFinanceAtEvaluating,
   ruleNoITAtEvaluating,
@@ -648,6 +895,9 @@ export const RULES: SignalRule[] = [
   ruleStageAgeExceeded,
   ruleDemoNotBooked,
   ruleCallNegativeSentiment,
+  ruleLegalRedlineAge,
+  ruleSsoSetupPending,
+  ruleAbmShadowResearch,
 ];
 
 export function evaluateAll(ctx: EvaluationContext): Signal[] {

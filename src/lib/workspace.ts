@@ -52,9 +52,20 @@ export interface WorkspaceConfig {
   // Slack — optional webhook for the live digest demo
   slackWebhookUrl?: string;
 
+  // ACV floor for the CONTRACT_IDLE signal — opps below this don't fire the
+  // blocking-tier "buyer-side activity is silent" rule because the cost of
+  // chasing a low-ACV deal at Contracting isn't worth the false-positive risk.
+  // Defaults to 50000 (USD) via CONTRACT_IDLE_AMOUNT_FLOOR_DEFAULT.
+  contractIdleAmountFloor?: number;
+
   // Bookkeeping
   presetName?: string; // "Checkbox" / "Generic B2B SaaS" / "Custom"
 }
+
+// Default ACV floor for CONTRACT_IDLE — $50k. Workspace config can raise this
+// per preset; the signal rule reads ctx.config?.contractIdleAmountFloor and
+// falls back to this constant when unset.
+export const CONTRACT_IDLE_AMOUNT_FLOOR_DEFAULT = 50000;
 
 // ---------------------------------------------------------------------------
 // Preset: Checkbox

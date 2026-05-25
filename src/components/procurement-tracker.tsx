@@ -20,7 +20,12 @@
 //     `procurement`). Display labels are friendlier ("Economic Buyer").
 
 import { useState } from "react";
-import type { Contact, Opportunity } from "@/lib/types";
+import type { Activity, Contact, Opportunity } from "@/lib/types";
+import {
+  LEGAL_REDLINE_RE,
+  SIGNATURE_RE,
+  SSO_SETUP_RE,
+} from "@/lib/signal-engine";
 import type { UnifiedSignal } from "@/lib/unify-signals";
 import { cn, daysBetween, formatDate } from "@/lib/utils";
 
@@ -119,10 +124,15 @@ export function ProcurementTracker({
   opportunity,
   contactsByRole,
   signals,
+  activities = [],
 }: {
   opportunity: Opportunity;
   contactsByRole: Record<string, Contact[]>;
   signals: UnifiedSignal[];
+  // Opportunity-scoped activities. Optional so existing call sites that only
+  // care about the Selected Vendor matrix continue to compile; only the
+  // Contracting milestones panel reads from this list.
+  activities?: Activity[];
 }): React.ReactElement {
   // Day counter. enteredStageAt is required on Opportunity; daysBetween
   // returns a number (Math.floor on Invalid Date → NaN, guarded below).
@@ -287,6 +297,15 @@ export function ProcurementTracker({
         </table>
       </div>
 
+      {/* Contracting milestones (additive — only renders when opp is in the
+          Contracting stage). The Selected Vendor matrix above stays
+          unchanged; this strip surfaces the back-half-of-funnel checkpoints
+          that the new Contracting-stage signal rules also key off (legal
+          redline received, SSO confirmed, signature in flight). */}
+      {opportunity.stage === "Contracting" && (
+        <ContractingMilestones activities={activities} />
+      )}
+
       {/* Footer — summary claim + contributing signals (the evidence chain
           load-bearing piece per BUILD_ALIGNMENT principle #6) */}
       <div className="px-5 py-4 border-t border-border space-y-3">
@@ -442,6 +461,106 @@ function ContributingSignals({
             ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Contracting milestones ────────────────────────────────────────────
+//
+// Three back-half-of-funnel checkpoints surfaced only when the opp is at
+// Contracting. The pattern mirrors the matrix above (checkbox + label +
+// hint) but is keyed off raw activity-log matches against the same regexes
+// the signal engine's Contracting-stage rules use. Keeping the patterns
+// shared (via `@/lib/signal-engine` exports) means "the tracker shows a
+// green check" and "the rule does not fire" are computed from one source.
+
+type MilestoneState = {
+  label: string;
+  hint: string;
+  reached: boolean;
+  // ISO date of the activity that flipped the milestone. Undefined when not
+  // yet reached.
+  reachedAt?: string;
+};
+
+function findLatestMatching(
+  activities: Activity[],
+  pattern: RegExp,
+): Activity | undefined {
+  return activities
+    .filter((a) => pattern.test(a.summary))
+    .sort((a, b) => (a.occurredAt < b.occurredAt ? 1 : -1))[0];
+}
+
+function ContractingMilestones({ activities }: { activities: Activity[] }) {
+  const redline = findLatestMatching(activities, LEGAL_REDLINE_RE);
+  const sso = findLatestMatching(activities, SSO_SETUP_RE);
+  const signature = findLatestMatching(activities, SIGNATURE_RE);
+
+  const milestones: MilestoneState[] = [
+    {
+      label: "Legal redline received",
+      hint: "First MSA / DPA redline back from buyer counsel.",
+      reached: !!redline,
+      reachedAt: redline?.occurredAt,
+    },
+    {
+      label: "SSO / IT provisioning confirmed",
+      hint: "IT contact confirmed SSO / SAML / OIDC setup path.",
+      reached: !!sso,
+      reachedAt: sso?.occurredAt,
+    },
+    {
+      label: "Signature in flight",
+      hint: "Contract sent for signature (DocuSign or equivalent).",
+      reached: !!signature,
+      reachedAt: signature?.occurredAt,
+    },
+  ];
+
+  return (
+    <div className="px-5 py-4 border-t border-border space-y-2">
+      <div className="text-[11px] uppercase tracking-wider text-muted font-semibold">
+        Contracting milestones
+      </div>
+      <ul className="space-y-1.5">
+        {milestones.map((m) => (
+          <li
+            key={m.label}
+            className="flex items-start gap-2.5 text-sm"
+          >
+            <span
+              aria-hidden
+              className={cn(
+                "mt-0.5 inline-flex h-4 w-4 items-center justify-center rounded-sm border text-[10px] font-bold leading-none shrink-0",
+                m.reached
+                  ? "bg-severity-green/10 border-severity-green text-severity-green"
+                  : "bg-slate-50 border-border text-muted",
+              )}
+            >
+              {m.reached ? "✓" : ""}
+            </span>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-baseline justify-between gap-2 flex-wrap">
+                <span
+                  className={cn(
+                    "font-medium",
+                    m.reached ? "text-foreground" : "text-muted",
+                  )}
+                >
+                  {m.label}
+                </span>
+                {m.reachedAt && (
+                  <span className="font-mono text-[10px] text-muted">
+                    {formatDate(m.reachedAt)}
+                  </span>
+                )}
+              </div>
+              <div className="text-xs text-muted">{m.hint}</div>
+            </div>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
