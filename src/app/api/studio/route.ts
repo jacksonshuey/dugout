@@ -130,7 +130,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json(parsed);
   } catch (e) {
-    const message = e instanceof Error ? e.message : String(e);
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[studio] Claude API call failed", e);
+    return NextResponse.json({ error: "Failed to generate rule" }, { status: 500 });
   }
 }
