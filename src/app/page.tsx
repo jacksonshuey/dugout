@@ -25,8 +25,13 @@ import { INTEGRATIONS } from "@/data/integrations";
 import { checkAllHealth, type IntegrationHealth } from "@/lib/integration-health";
 import {
   getWorkspaceSignals,
+  getExternalSignalsCounts,
   type ExternalSignal,
 } from "@/lib/external-signals";
+import {
+  getInboundStats,
+  getInboundQueueSummary,
+} from "@/lib/inbound-email";
 
 // 5-minute ISR window keeps the live newsfeed section fresh without
 // hitting Supabase on every visitor request. Static seed-driven sections
@@ -602,6 +607,135 @@ function SecurityTrustSection() {
 // outage doesn't take down the landing page.
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Pipeline funnel — live counts straight from Supabase showing how many
+// emails make it through each stage of the AgentMail → Stage 1 → Stage 2
+// → surfaced pipeline. Numbers refresh every 5 minutes via the page's
+// `revalidate = 300` ISR window. Fails soft to zeros so a Supabase outage
+// doesn't break the landing page.
+// ---------------------------------------------------------------------------
+
+interface PipelineMetrics {
+  inbound: number;
+  passedStage1: number;
+  classifiedTotal: number;
+  surfaced: number;
+}
+
+async function fetchPipelineMetrics(): Promise<PipelineMetrics> {
+  try {
+    const [inboundStats, queueSummary, signalCounts] = await Promise.all([
+      getInboundStats(),
+      getInboundQueueSummary(0),
+      getExternalSignalsCounts(),
+    ]);
+    return {
+      inbound: inboundStats.receivedTotal,
+      passedStage1: Math.max(
+        0,
+        queueSummary.totalCount - queueSummary.pendingCount,
+      ),
+      classifiedTotal: signalCounts.total,
+      surfaced: signalCounts.highOrMedium,
+    };
+  } catch {
+    return { inbound: 0, passedStage1: 0, classifiedTotal: 0, surfaced: 0 };
+  }
+}
+
+interface PipelineStageSpec {
+  step: number;
+  label: string;
+  sub: string;
+  count: number;
+  detail: string;
+}
+
+async function PipelineFunnel() {
+  const m = await fetchPipelineMetrics();
+  const stages: PipelineStageSpec[] = [
+    {
+      step: 1,
+      label: "Inbound",
+      sub: "AgentMail webhook",
+      count: m.inbound,
+      detail: "newsletters received",
+    },
+    {
+      step: 2,
+      label: "Stage 1",
+      sub: "Deterministic filter",
+      count: m.passedStage1,
+      detail: "passed allowlist + size + link-ratio",
+    },
+    {
+      step: 3,
+      label: "Stage 2 · Haiku",
+      sub: "LLM classifier",
+      count: m.classifiedTotal,
+      detail: "summarized + workspace-tagged",
+    },
+    {
+      step: 4,
+      label: "Surfaced",
+      sub: "Worth your team's time",
+      count: m.surfaced,
+      detail: "high or medium relevance",
+    },
+  ];
+
+  return (
+    <div className="mt-10 grid grid-cols-2 md:grid-cols-4 gap-3">
+      {stages.map((s, i) => (
+        <PipelineStageCard
+          key={s.step}
+          stage={s}
+          isLast={i === stages.length - 1}
+        />
+      ))}
+    </div>
+  );
+}
+
+function PipelineStageCard({
+  stage,
+  isLast,
+}: {
+  stage: PipelineStageSpec;
+  isLast: boolean;
+}) {
+  return (
+    <div className="relative rounded-lg border border-border bg-background p-4">
+      <div className="flex items-center gap-2">
+        <span
+          aria-hidden
+          className="w-5 h-5 rounded-full bg-brand/10 text-brand text-[10px] font-mono font-semibold flex items-center justify-center"
+        >
+          {stage.step}
+        </span>
+        <span className="text-[10px] font-mono uppercase tracking-[0.1em] text-foreground/80">
+          {stage.label}
+        </span>
+      </div>
+      <div className="text-[10px] text-muted mt-0.5">{stage.sub}</div>
+      <div className="mt-3 text-3xl font-semibold tracking-tight tabular-nums">
+        {stage.count.toLocaleString()}
+      </div>
+      <div className="text-[10px] font-mono uppercase tracking-[0.08em] text-muted mt-1 leading-snug">
+        {stage.detail}
+      </div>
+      {!isLast && (
+        <span
+          aria-hidden
+          className="hidden md:flex absolute -right-2 top-1/2 -translate-y-1/2 w-4 h-4 items-center justify-center bg-background border border-border rounded-full text-muted text-[10px]"
+        >
+          →
+        </span>
+      )}
+    </div>
+  );
+}
+
 // Hand-curated examples that visibly demonstrate the Haiku summarization
 // step. The live feed below is real production data; this block is a
 // teaching aid so a first-time visitor understands "what am I looking at
@@ -732,10 +866,13 @@ async function MarketIntelLiveSection() {
         AgentMail + NewsAPI + SEC EDGAR + Firecrawl feed the workspace inbox.
         A two-stage Haiku classifier (deterministic regex first, LLM second)
         reads each item, summarizes what matters, and matches it to the
-        accounts you track. The examples below show the synthesis step on
-        real customer scenarios; the live feed underneath is production data,
-        ranked, and refreshed every few minutes.
+        accounts you track. The funnel below shows live counts at each
+        stage; the curated examples after it walk through the synthesis on
+        real customer scenarios; the live feed at the bottom is production
+        data, ranked, and refreshed every few minutes.
       </p>
+
+      <PipelineFunnel />
 
       <HaikuShowcaseFlow />
 
