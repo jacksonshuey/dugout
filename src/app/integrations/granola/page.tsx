@@ -1,4 +1,4 @@
-import { accounts } from "@/data/seed";
+import { accounts, accountsById } from "@/data/seed";
 import { getIntegrationContext } from "@/lib/integration-context";
 import {
   getIntegrationStatus,
@@ -114,10 +114,7 @@ export default async function GranolaIntegrationPage() {
                 backfill this view.
               </div>
             ) : (
-              <RecentMeetingsTable
-                meetingsByNote={meetingsByNote}
-                accounts={accountChoices}
-              />
+              <RecentMeetingsTable meetingsByNote={meetingsByNote} />
             )}
           </section>
         </>
@@ -201,10 +198,8 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 function RecentMeetingsTable({
   meetingsByNote,
-  accounts,
 }: {
   meetingsByNote: Map<string, MeetingSignalRow[]>;
-  accounts: { id: string; name: string }[];
 }) {
   // Sort by most recent meeting_date across signal rows.
   const entries = [...meetingsByNote.entries()]
@@ -218,7 +213,7 @@ function RecentMeetingsTable({
       return a.date < b.date ? 1 : -1;
     });
   const accountName = (id: string) =>
-    accounts.find((a) => a.id === id)?.name ?? id;
+    accountsById.get(id)?.name ?? id;
 
   return (
     <div className="rounded-2xl border border-border bg-background overflow-hidden">

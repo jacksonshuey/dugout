@@ -38,6 +38,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   accounts,
+  accountsById,
   activities,
   assetDeliveries,
   calls,
@@ -116,7 +117,7 @@ export default async function AccountPage({
 }) {
   const { slug } = await params;
 
-  const account = accounts.find((a) => a.id === slug);
+  const account = accountsById.get(slug);
   if (!account) {
     // notFound() renders the closest not-found.tsx; we lean on the global
     // 404 here. error.tsx handles thrown errors from the lib calls below.

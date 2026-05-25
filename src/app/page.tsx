@@ -20,6 +20,7 @@ import {
 import { IntegrationSetupReel } from "@/components/landing/integration-setup-reel";
 import { IntegrationsMatrix } from "@/components/landing/integrations-matrix";
 import { MetricsCheckboxDemo } from "@/components/landing/metrics-checkbox-demo";
+import { NinetyDayVision } from "@/components/landing/ninety-day-vision";
 import { SecurityTrust } from "@/components/landing/security-trust";
 import { ClientNewsTicker } from "@/components/landing/client-news-ticker";
 import { SortableWorkspaceFeed } from "@/components/landing/sortable-workspace-feed";
@@ -75,6 +76,7 @@ export default async function LandingPage() {
   return (
     <div className="bg-background">
       <Hero />
+      <NinetyDayVision />
       <IntegrationConstellation health={integrationHealth} />
       <IntegrationsMatrixSection health={integrationHealth} />
       <OnboardingWalkthrough />
@@ -206,10 +208,16 @@ function Hero() {
         </p>
         <div className="mt-8 flex flex-wrap gap-3 items-center">
           <Link
-            href="#demo"
+            href="#ninety-day-plan"
             className="inline-flex items-center px-5 h-11 rounded-lg bg-background text-foreground text-sm font-semibold hover:bg-background/90 transition-colors"
           >
-            See the live demo ↓
+            See the 90-day plan ↓
+          </Link>
+          <Link
+            href="#demo"
+            className="inline-flex items-center px-5 h-11 rounded-lg border border-background/25 text-background text-sm font-semibold hover:bg-background/10 transition-colors"
+          >
+            Skip to live demo
           </Link>
         </div>
       </div>

@@ -22,6 +22,7 @@ import OpenAI from "openai";
 import {
   AccountCatalogEntry,
   accounts,
+  accountsById,
   activities,
   assetDeliveries,
   calls,
@@ -140,7 +141,7 @@ async function buildAccountContext(
   accountId: string,
   days: number,
 ): Promise<ToolResult<AccountContextResult>> {
-  const account = accounts.find((a) => a.id === accountId);
+  const account = accountsById.get(accountId);
   if (!account) return { ok: false, error: `Unknown account: ${accountId}` };
 
   const warnings: string[] = [];
