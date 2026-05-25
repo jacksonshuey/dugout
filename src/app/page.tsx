@@ -327,12 +327,11 @@ function OnboardingWalkthrough() {
     <section className="max-w-6xl mx-auto px-6 py-20 sm:py-24 border-b border-border">
       <SectionEyebrow>Onboarding · end to end</SectionEyebrow>
       <h2 className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight max-w-3xl">
-        From paste-a-key to first signal in four steps.
+        From paste-a-key to first signal in three steps.
       </h2>
       <div className="mt-10">
         <StepTwo />
         <StepThree />
-        <StepFour />
         <StepFive />
       </div>
     </section>
@@ -355,7 +354,7 @@ function StepShell({
       <div className="md:col-span-4 space-y-2">
         <div className="flex items-center gap-2">
           <span className="font-mono text-xs text-muted">
-            STEP 0{num} / 04
+            STEP 0{num} / 03
           </span>
         </div>
         <h3 className="text-xl sm:text-2xl font-semibold tracking-tight">
@@ -492,193 +491,6 @@ function StepThree() {
   );
 }
 
-// Role icons for the data-flow diagram. Stroke-based, inherit currentColor.
-function BriefcaseIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="w-3.5 h-3.5"
-    >
-      <rect x="3" y="7" width="18" height="13" rx="2" />
-      <path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-      <path d="M3 13h18" />
-    </svg>
-  );
-}
-function HeadsetIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="w-3.5 h-3.5"
-    >
-      <path d="M4 13a8 8 0 0 1 16 0" />
-      <rect x="3" y="13" width="4" height="7" rx="1" />
-      <rect x="17" y="13" width="4" height="7" rx="1" />
-      <path d="M19 20v1a2 2 0 0 1-2 2h-3" />
-    </svg>
-  );
-}
-function ChartIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="w-3.5 h-3.5"
-    >
-      <path d="M3 3v18h18" />
-      <rect x="7" y="14" width="3" height="4" />
-      <rect x="12" y="10" width="3" height="8" />
-      <rect x="17" y="6" width="3" height="12" />
-    </svg>
-  );
-}
-
-function StepFour() {
-  // Connect data sources — flow diagram. SVG draws dashed curves between
-  // source chips → the Dugout hub → role chips. Everything lives in one
-  // viewBox so geometry stays aligned at every breakpoint; foreignObject
-  // embeds React components (BrandLogo, role icons, hub) so they scale
-  // with the SVG.
-  const sources: { brand: BrandKey; cx: number; cy: number }[] = [
-    { brand: "newsapi", cx: 70, cy: 50 },
-    { brand: "granola", cx: 70, cy: 130 },
-    { brand: "slack", cx: 70, cy: 210 },
-    { brand: "anthropic", cx: 70, cy: 290 },
-    { brand: "sec", cx: 190, cy: 90 },
-    { brand: "supabase", cx: 190, cy: 250 },
-  ];
-  const roles: { label: string; cy: number; icon: React.ReactNode }[] = [
-    { label: "AE", cy: 90, icon: <BriefcaseIcon /> },
-    { label: "SDR", cy: 170, icon: <HeadsetIcon /> },
-    { label: "Manager", cy: 250, icon: <ChartIcon /> },
-  ];
-  const hubLeft = 290;
-  const hubRight = 410;
-  const hubCy = 170;
-  const roleLeft = 500;
-  const roleWidth = 95;
-  return (
-    <StepShell
-      num={3}
-      title="Connect data sources"
-      sub="API keys live in Supabase Vault, encrypted at rest, never returned to the browser. Sources stream into Dugout; the engine routes signals to your team."
-    >
-      <div className="relative w-full" style={{ aspectRatio: "600 / 340" }}>
-        <svg
-          viewBox="0 0 600 340"
-          preserveAspectRatio="xMidYMid meet"
-          className="absolute inset-0 w-full h-full text-foreground/30"
-        >
-          {/* Source → hub curves */}
-          {sources.map((s) => (
-            <path
-              key={`in-${s.brand}`}
-              d={`M ${s.cx + 20} ${s.cy} C ${s.cx + 90} ${s.cy}, ${hubLeft - 60} ${hubCy}, ${hubLeft} ${hubCy}`}
-              stroke="currentColor"
-              strokeWidth="1.25"
-              fill="none"
-              strokeDasharray="3 4"
-              className="flow-path"
-            />
-          ))}
-          {/* Hub → role curves */}
-          {roles.map((r) => (
-            <path
-              key={`out-${r.label}`}
-              d={`M ${hubRight} ${hubCy} C ${hubRight + 50} ${hubCy}, ${roleLeft - 50} ${r.cy}, ${roleLeft} ${r.cy}`}
-              stroke="currentColor"
-              strokeWidth="1.25"
-              fill="none"
-              strokeDasharray="3 4"
-              className="flow-path"
-            />
-          ))}
-
-          {/* Source chips with name labels */}
-          {sources.map((s) => (
-            <foreignObject
-              key={`chip-${s.brand}`}
-              x={s.cx - 40}
-              y={s.cy - 20}
-              width={80}
-              height={60}
-            >
-              <div className="flex flex-col items-center gap-1">
-                <BrandLogo brand={s.brand} size={40} />
-                <span className="text-[10px] text-muted whitespace-nowrap leading-none">
-                  {getBrandName(s.brand)}
-                </span>
-              </div>
-            </foreignObject>
-          ))}
-
-          {/* Dugout hub — matches the nav: brand-color chip with the
-              baseball-base mark + wordmark. */}
-          <foreignObject
-            x={hubLeft}
-            y={hubCy - 28}
-            width={hubRight - hubLeft}
-            height={56}
-          >
-            <div className="w-full h-full rounded-xl bg-brand text-white flex items-center justify-center gap-2 shadow-sm">
-              <span className="w-6 h-6 rounded-[6px] bg-white/15 flex items-center justify-center shrink-0">
-                <svg
-                  viewBox="0 0 24 18"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinejoin="round"
-                  className="w-4 h-4 text-white"
-                >
-                  <polygon points="6,3 21,3 18,14 3,14" />
-                  <polygon
-                    points="7.8,4.65 18.3,4.65 16.2,12.35 5.7,12.35"
-                    strokeOpacity="0.4"
-                  />
-                </svg>
-              </span>
-              <span className="text-base font-semibold tracking-tight">
-                Dugout
-              </span>
-            </div>
-          </foreignObject>
-
-          {/* Role chips with icons */}
-          {roles.map((r) => (
-            <foreignObject
-              key={`role-${r.label}`}
-              x={roleLeft}
-              y={r.cy - 18}
-              width={roleWidth}
-              height={36}
-            >
-              <div className="w-full h-full rounded-lg border border-border bg-background flex items-center justify-center gap-1.5 px-2 text-foreground">
-                {r.icon}
-                <span className="text-xs font-semibold tracking-tight">
-                  {r.label}
-                </span>
-              </div>
-            </foreignObject>
-          ))}
-        </svg>
-      </div>
-    </StepShell>
-  );
-}
 
 function StepFive() {
   // Signals flow in — show stylized signal cards landing in a feed.
@@ -709,7 +521,7 @@ function StepFive() {
   ];
   return (
     <StepShell
-      num={4}
+      num={3}
       title="Signals start flowing"
       sub="13 deterministic rules over your CRM data. News + SEC + meetings classified by Haiku. Severity routing: blocking → page, action → digest, awareness → weekly."
     >
