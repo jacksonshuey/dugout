@@ -23,7 +23,7 @@ interface TickerItem {
 
 const POLL_INTERVAL_MS = 30_000;
 const TICKER_CARD_WIDTH_PX = 420;
-const TICKER_ANIMATION_DURATION = "240s";
+const TICKER_ANIMATION_DURATION = "480s";
 
 export function ClientNewsTicker() {
   const [items, setItems] = useState<TickerItem[] | null>(null);
