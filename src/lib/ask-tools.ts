@@ -1,6 +1,6 @@
 // Tool definitions for the /ask agent (U4).
 //
-// Source of truth: orgs/_default/synthesis.md "The AI query layer" — defines
+// Source of truth: orgs/_default/synthesis.md "The AI query layer" - defines
 // 8 typed query tools the agent can call to fetch grounded data. The agent
 // never writes; every tool is read-only (BUILD_ALIGNMENT principle #9).
 //
@@ -9,7 +9,7 @@
 //   2. A typed TypeScript implementation that returns citable data
 //
 // The implementations call directly into the same data builders the
-// /api/account-context route uses. We do NOT go back out over HTTP — both
+// /api/account-context route uses. We do NOT go back out over HTTP - both
 // surfaces are server-side, an HTTP hop would just add auth ceremony and
 // latency. The trade-off: when the data shape changes, both consumers update.
 // Worth it for correctness + speed.
@@ -74,7 +74,7 @@ const STAGE_RANK: Record<Stage, number> = {
 };
 
 // Canonical 12 signal types (synthesis.md §1). Enumerated for the JSON schema
-// `enum` constraint — keeps OpenAI from inventing a 13th type.
+// `enum` constraint - keeps OpenAI from inventing a 13th type.
 const CANONICAL_SIGNAL_TYPES: SignalType[] = [
   "champion_loss",
   "champion_disengagement",
@@ -105,7 +105,7 @@ function clampDays(d: unknown, fallback = DEFAULT_DAYS): number {
 // ─── Result types ───────────────────────────────────────────────────────
 //
 // Every tool returns a `notFound` discriminant when the account_slug doesn't
-// resolve. We don't throw — the agent should see the failure as data and
+// resolve. We don't throw - the agent should see the failure as data and
 // adapt (e.g. ask the user to clarify the slug).
 
 export type AccountContextResult = {
@@ -124,7 +124,7 @@ export type ToolResult<T> =
 
 // ─── Internal: full account-context build ───────────────────────────────
 //
-// ⚠️ DUPLICATION HAZARD — this mirrors the body of
+// ⚠️ DUPLICATION HAZARD - this mirrors the body of
 // `src/app/api/account-context/route.ts`. The route is the canonical
 // shape; this version exists so the agent can call the same logic without
 // an HTTP hop. Any change to the route's signal-unification / correlation
@@ -155,7 +155,7 @@ async function buildAccountContext(
   // getWorkspaceConfig reads from next/headers cookies(), which throws when
   // called outside a request scope (unit tests, build-time prerender). Fall
   // back to DEFAULT_CONFIG so the agent's tools stay callable in those
-  // contexts — only the workspace-specific copy in evaluated signals
+  // contexts - only the workspace-specific copy in evaluated signals
   // differs, and the signal set itself is unchanged.
   let workspace: WorkspaceConfig = DEFAULT_CONFIG;
   try {
@@ -266,7 +266,7 @@ async function buildAccountContext(
 
 // ─── Public tool implementations ────────────────────────────────────────
 
-// Tool 1: get_account_context — the full picture for an account
+// Tool 1: get_account_context - the full picture for an account
 export async function getAccountContext(args: {
   account_slug: string;
   days?: number;
@@ -274,7 +274,7 @@ export async function getAccountContext(args: {
   return buildAccountContext(args.account_slug, clampDays(args.days));
 }
 
-// Tool 2: get_account_timeline — just the signals, time-ordered
+// Tool 2: get_account_timeline - just the signals, time-ordered
 export async function getAccountTimeline(args: {
   account_slug: string;
   days?: number;
@@ -287,7 +287,7 @@ export async function getAccountTimeline(args: {
   return { ok: true, data: { signals: ctx.data.signals } };
 }
 
-// Tool 3: find_signals — filter timeline by signal_type
+// Tool 3: find_signals - filter timeline by signal_type
 export async function findSignals(args: {
   signal_type: SignalType;
   account_slug: string;
@@ -307,7 +307,7 @@ export async function findSignals(args: {
   return { ok: true, data: { signals: filtered } };
 }
 
-// Tool 4: get_correlations — multi-source agreement patterns
+// Tool 4: get_correlations - multi-source agreement patterns
 export async function getCorrelations(args: {
   account_slug: string;
   types?: SignalType[];
@@ -322,12 +322,12 @@ export async function getCorrelations(args: {
   return { ok: true, data: { correlations: out } };
 }
 
-// Tool 5: get_calls — Granola pipeline deferred per session 5 handoff
+// Tool 5: get_calls - Granola pipeline deferred per session 5 handoff
 export async function getCalls(args: {
   opportunity_id: string;
   limit?: number;
 }): Promise<ToolResult<{ calls: never[]; note: string }>> {
-  void args; // intentional — stub honors the schema but does no work yet
+  void args; // intentional - stub honors the schema but does no work yet
   return {
     ok: true,
     data: {
@@ -337,7 +337,7 @@ export async function getCalls(args: {
   };
 }
 
-// Tool 6: get_emails — Outreach/email pipeline deferred
+// Tool 6: get_emails - Outreach/email pipeline deferred
 export async function getEmails(args: {
   account_slug: string;
   days?: number;
@@ -352,7 +352,7 @@ export async function getEmails(args: {
   };
 }
 
-// Tool 7: get_committee_engagement — derive present/missing roles from
+// Tool 7: get_committee_engagement - derive present/missing roles from
 // contactsByRole on the SV+ opportunity.
 export type CommitteeEngagement = {
   opportunityId: string;
@@ -402,7 +402,7 @@ export async function getCommitteeEngagement(args: {
   };
 }
 
-// Tool 8: rollup — manager-level aggregations, deferred for v1
+// Tool 8: rollup - manager-level aggregations, deferred for v1
 export async function rollup(args: {
   metric: string;
   dimension: string;
@@ -427,12 +427,12 @@ export async function listAccounts(): Promise<
 // ─── OpenAI function-calling schemas ────────────────────────────────────
 //
 // Shape matches the `tools` parameter of openai.chat.completions.create.
-// Descriptions are written FOR the model — they should tell it when to pick
+// Descriptions are written FOR the model - they should tell it when to pick
 // this tool over another.
 //
 // We ALSO derive an Anthropic-shaped schema array below
 // (ASK_TOOL_SCHEMAS_ANTHROPIC). Both are generated from a single source of
-// truth so the 8 tools stay aligned across providers — only the wrapper
+// truth so the 8 tools stay aligned across providers - only the wrapper
 // envelope differs. `ASK_TOOL_SCHEMAS` is kept as an alias for backwards
 // compatibility with callers that pre-date the dual-provider work.
 
@@ -449,7 +449,7 @@ export const ASK_TOOL_SCHEMAS_OPENAI: OpenAI.Chat.Completions.ChatCompletionTool
           account_slug: {
             type: "string",
             description:
-              "Internal account slug (e.g. 'acc_apex'). Slugs are codenames — they do NOT pattern-match company names. Call list_accounts() first if you don't know the slug.",
+              "Internal account slug (e.g. 'acc_apex'). Slugs are codenames - they do NOT pattern-match company names. Call list_accounts() first if you don't know the slug.",
           },
           days: {
             type: "number",
@@ -508,7 +508,7 @@ export const ASK_TOOL_SCHEMAS_OPENAI: OpenAI.Chat.Completions.ChatCompletionTool
     function: {
       name: "get_correlations",
       description:
-        "Cross-source correlation patterns for an account — signals where 2+ independent tools agreed on the same signal_type. Strongest evidence available.",
+        "Cross-source correlation patterns for an account - signals where 2+ independent tools agreed on the same signal_type. Strongest evidence available.",
       parameters: {
         type: "object",
         properties: {
@@ -530,7 +530,7 @@ export const ASK_TOOL_SCHEMAS_OPENAI: OpenAI.Chat.Completions.ChatCompletionTool
     function: {
       name: "get_calls",
       description:
-        "Retrieve recent call transcripts for an opportunity. (Granola call pipeline is deferred in v1 — this returns an empty list with a note.)",
+        "Retrieve recent call transcripts for an opportunity. (Granola call pipeline is deferred in v1 - this returns an empty list with a note.)",
       parameters: {
         type: "object",
         properties: {
@@ -547,7 +547,7 @@ export const ASK_TOOL_SCHEMAS_OPENAI: OpenAI.Chat.Completions.ChatCompletionTool
     function: {
       name: "get_emails",
       description:
-        "Retrieve recent email threads for an account. (Outreach/email pipeline deferred in v1 — returns empty with a note.)",
+        "Retrieve recent email threads for an account. (Outreach/email pipeline deferred in v1 - returns empty with a note.)",
       parameters: {
         type: "object",
         properties: {
@@ -580,7 +580,7 @@ export const ASK_TOOL_SCHEMAS_OPENAI: OpenAI.Chat.Completions.ChatCompletionTool
     function: {
       name: "rollup",
       description:
-        "Cross-account aggregations for manager-level questions ('which deals lost momentum this week'). Deferred in v1 — returns an empty result with a note.",
+        "Cross-account aggregations for manager-level questions ('which deals lost momentum this week'). Deferred in v1 - returns an empty result with a note.",
       parameters: {
         type: "object",
         properties: {
@@ -598,7 +598,7 @@ export const ASK_TOOL_SCHEMAS_OPENAI: OpenAI.Chat.Completions.ChatCompletionTool
     function: {
       name: "list_accounts",
       description:
-        "Return every account in this workspace as {slug, name} pairs. Call this FIRST whenever the user names a company and you don't already know its account slug. Slugs are internal codenames — they do NOT pattern-match company names (e.g. Moderna is 'acc_apex', not 'acc_moderna'). Never guess a slug.",
+        "Return every account in this workspace as {slug, name} pairs. Call this FIRST whenever the user names a company and you don't already know its account slug. Slugs are internal codenames - they do NOT pattern-match company names (e.g. Moderna is 'acc_apex', not 'acc_moderna'). Never guess a slug.",
       parameters: {
         type: "object",
         properties: {},
@@ -616,7 +616,7 @@ export const ASK_TOOL_SCHEMAS_OPENAI: OpenAI.Chat.Completions.ChatCompletionTool
 //
 // `input_schema` body is the same JSON Schema shape we already build for
 // OpenAI's `parameters`. So we project the OpenAI schemas through a tiny
-// transform — one source of truth, no risk of the two arrays drifting.
+// transform - one source of truth, no risk of the two arrays drifting.
 
 export type AnthropicToolSchema = {
   name: string;
@@ -648,7 +648,7 @@ function toAnthropicSchema(
 export const ASK_TOOL_SCHEMAS_ANTHROPIC: AnthropicToolSchema[] =
   ASK_TOOL_SCHEMAS_OPENAI.map(toAnthropicSchema);
 
-// Backwards-compatible alias — the original single-provider export. Existing
+// Backwards-compatible alias - the original single-provider export. Existing
 // callers (and `/api/ask/route.ts` in its pre-D1 form) import this name.
 export const ASK_TOOL_SCHEMAS = ASK_TOOL_SCHEMAS_OPENAI;
 

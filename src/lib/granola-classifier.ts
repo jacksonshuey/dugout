@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-// Granola classifier — reads a meeting summary (and optionally transcript
+// Granola classifier - reads a meeting summary (and optionally transcript
 // excerpts) and emits structured signals for the Dugout pipeline.
 //
 // Why Haiku, not Sonnet: this is structured extraction over short prose
@@ -20,7 +20,7 @@ const HAIKU_MODEL = "claude-haiku-4-5";
 const MAX_SUMMARY_CHARS = 8_000;
 
 // ---------------------------------------------------------------------------
-// Signal types — keep tight. We ship 3 in v1; the schema validates against
+// Signal types - keep tight. We ship 3 in v1; the schema validates against
 // this list so a hallucinated type from Haiku gets dropped.
 // ---------------------------------------------------------------------------
 
@@ -28,7 +28,7 @@ export const MEETING_SIGNAL_TYPES = [
   "finance_mentioned_not_engaged",
   "new_stakeholder_introduced",
   "champion_role_change",
-  // Below ship in v1.5 — keep the schema open so the classifier prompt can
+  // Below ship in v1.5 - keep the schema open so the classifier prompt can
   // include them and we don't need a migration when we enable them.
   "competitor_mentioned",
   "legal_review_requested",
@@ -41,7 +41,7 @@ export type MeetingSignalType = (typeof MEETING_SIGNAL_TYPES)[number];
 export type MeetingSignalSeverity = "blocking" | "action" | "awareness";
 
 const SEVERITY_FOR_TYPE: Record<MeetingSignalType, MeetingSignalSeverity> = {
-  // Selected Vendor wedge — late-stage stakeholder gaps are blocking.
+  // Selected Vendor wedge - late-stage stakeholder gaps are blocking.
   finance_mentioned_not_engaged: "blocking",
   // Champion loss is the case's load-bearing example of "deal dies silently."
   champion_role_change: "blocking",
@@ -72,7 +72,7 @@ export interface ClassifierInput {
 }
 
 // ---------------------------------------------------------------------------
-// Env loading — same fallback as news-adapter / claude.ts so a missing
+// Env loading - same fallback as news-adapter / claude.ts so a missing
 // shell env var doesn't trump .env.local in dev.
 // ---------------------------------------------------------------------------
 
@@ -110,7 +110,7 @@ function buildPrompt(input: ClassifierInput): string {
 
   return `You are extracting buying-process signals from a B2B sales meeting summary.
 
-This meeting's customer-side attendees matter — your job is to identify when
+This meeting's customer-side attendees matter - your job is to identify when
 the conversation reveals a gap or risk that the AE needs to act on.
 
 CONTEXT
@@ -126,7 +126,7 @@ ${summary}
 
 SIGNAL TYPES (only emit a signal if it's clearly supported by the summary)
 
-- finance_mentioned_not_engaged: The buyer references Finance/Procurement/CFO/budget approval as a step they'll need to take, but no Finance person was on this call. THIS IS THE HIGHEST-PRIORITY SIGNAL — late-stage deals die when Finance enters too late.
+- finance_mentioned_not_engaged: The buyer references Finance/Procurement/CFO/budget approval as a step they'll need to take, but no Finance person was on this call. THIS IS THE HIGHEST-PRIORITY SIGNAL - late-stage deals die when Finance enters too late.
 - new_stakeholder_introduced: A new buyer-side stakeholder (especially Finance, IT/Security, Legal, Procurement) joined this meeting for the first time, or was named as joining future meetings.
 - champion_role_change: The buyer's champion mentions a role change, departure, new responsibilities, or being deprioritized.
 - legal_review_requested: Buyer asks about legal, security, compliance, MSA, DPA, or red-line review.
@@ -148,7 +148,7 @@ Return \`[]\` if no signals are clearly supported. Do not invent. No preamble.`;
 
 // ---------------------------------------------------------------------------
 // Classifier entry point. Returns an empty array on parse/model failure
-// rather than throwing — the adapter is responsible for treating "no
+// rather than throwing - the adapter is responsible for treating "no
 // signals extracted" as a valid outcome (most internal meetings produce
 // nothing, and we don't want a single bad parse to break the cron run).
 // ---------------------------------------------------------------------------
@@ -157,7 +157,7 @@ export async function classifyMeeting(
   input: ClassifierInput,
 ): Promise<ClassifiedMeetingSignal[]> {
   if (!input.summary || input.summary.trim().length < 40) {
-    // Too little to classify — skip rather than spend tokens.
+    // Too little to classify - skip rather than spend tokens.
     return [];
   }
   let text: string;
@@ -176,7 +176,7 @@ export async function classifyMeeting(
       .map((b) => (b as { type: "text"; text: string }).text)
       .join("\n");
   } catch (e) {
-    // 529 overloaded_error, missing key, or transient failure — log and
+    // 529 overloaded_error, missing key, or transient failure - log and
     // skip. The cron can re-classify on the next run when the same note is
     // still within the lookback window.
     console.warn(
@@ -189,7 +189,7 @@ export async function classifyMeeting(
   return parseClassification(text);
 }
 
-// Exported for testability — pure function over text → signals.
+// Exported for testability - pure function over text → signals.
 export function parseClassification(text: string): ClassifiedMeetingSignal[] {
   const fence = text.match(/```json\s*([\s\S]*?)```/i);
   const jsonStr = fence ? fence[1].trim() : text.trim();

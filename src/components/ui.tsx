@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 import type { DealHealth, SignalSeverity } from "@/lib/types";
 
 // Hand-rolled UI primitives. Kept in one file because there are 5 of them and
-// pulling in shadcn for this is overkill — and makes the codebase legible to
+// pulling in shadcn for this is overkill - and makes the codebase legible to
 // someone reading it in an interview ("yeah, I wrote that").
 
 export function Card({

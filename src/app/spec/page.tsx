@@ -31,7 +31,7 @@ export default async function SpecPage() {
           How Dugout is designed and rolled out
         </h1>
         <p className="text-base text-muted max-w-2xl">
-          Three sections — architecture, rollout, and a companion system. Same page; jump links below.
+          Three sections - architecture, rollout, and a companion system. Same page; jump links below.
         </p>
         <nav className="flex flex-wrap gap-2 text-sm pt-2">
           <AnchorLink href="#architecture">Architecture</AnchorLink>
@@ -50,7 +50,7 @@ export default async function SpecPage() {
       <section id="architecture" className="scroll-mt-20 space-y-8 pb-12 border-b border-border">
         <H2>Architecture</H2>
 
-        <Sub>Four layers — built bottom-up. Each ships only if the layer below earns trust.</Sub>
+        <Sub>Four layers - built bottom-up. Each ships only if the layer below earns trust.</Sub>
 
         <div className="space-y-2">
           <Layer
@@ -58,12 +58,12 @@ export default async function SpecPage() {
             name="Data"
             sub="Read-only ingestion."
             items={[
-              `${workspace.stack.crm} — accounts, opportunities, contacts, OCR, activities`,
-              `${workspace.stack.conversationIntelligence} — call transcripts + risk markers`,
-              `${workspace.stack.salesEngagement} — sequence enrollment, email/call activity`,
-              `${workspace.stack.dealRooms} — buyer engagement on shared assets`,
-              `${workspace.stack.meetingScheduling} — meeting booking events`,
-              `${workspace.stack.prospectingEnrichment} — account firmographics + buyer enrichment`,
+              `${workspace.stack.crm} - accounts, opportunities, contacts, OCR, activities`,
+              `${workspace.stack.conversationIntelligence} - call transcripts + risk markers`,
+              `${workspace.stack.salesEngagement} - sequence enrollment, email/call activity`,
+              `${workspace.stack.dealRooms} - buyer engagement on shared assets`,
+              `${workspace.stack.meetingScheduling} - meeting booking events`,
+              `${workspace.stack.prospectingEnrichment} - account firmographics + buyer enrichment`,
             ]}
           />
           <Connector />
@@ -72,9 +72,9 @@ export default async function SpecPage() {
             name="Signal engine"
             sub="Pure functions over CRM state."
             items={[
-              "Rules library — each rule = (id, severity, strategicPriority, evaluate fn)",
-              "Deal Health — compound state weighted by close-date proximity",
-              "Playbooks — multi-phase workflows attached to specific signals",
+              "Rules library - each rule = (id, severity, strategicPriority, evaluate fn)",
+              "Deal Health - compound state weighted by close-date proximity",
+              "Playbooks - multi-phase workflows attached to specific signals",
             ]}
           />
           <Connector />
@@ -83,10 +83,10 @@ export default async function SpecPage() {
             name="Orchestration"
             sub="Tasks: state, history, notes. Signals become work items, not alerts."
             items={[
-              "Reconciliation — signals ⇌ tasks every render",
-              "Lifecycle — open / done / snoozed / muted (with reason)",
-              "Notes — AE work notes + manager coaching notes",
-              "Auto-resolve — when a signal stops firing, the task closes itself + a toast surfaces it",
+              "Reconciliation - signals ⇌ tasks every render",
+              "Lifecycle - open / done / snoozed / muted (with reason)",
+              "Notes - AE work notes + manager coaching notes",
+              "Auto-resolve - when a signal stops firing, the task closes itself + a toast surfaces it",
             ]}
           />
           <Connector />
@@ -95,9 +95,9 @@ export default async function SpecPage() {
             name="AI synthesis"
             sub="LLM only where it earns its keep."
             items={[
-              "Morning digest — Claude synthesizes the briefing from signals + transcripts",
+              "Morning digest - Claude synthesizes the briefing from signals + transcripts",
               "Sentiment + risk extraction on call transcripts (precomputed in seed)",
-              "Studio v2 (deferred) — NL → runnable rule",
+              "Studio v2 (deferred) - NL → runnable rule",
             ]}
           />
         </div>
@@ -169,7 +169,7 @@ export default async function SpecPage() {
           .filter((p) => !RULES.some((r) => r.strategicPriority === p.id))
           .map((p) => (
             <p key={p.id} className="text-xs text-muted leading-relaxed">
-              <span className="font-mono">{p.id}</span> · {p.name} has no rules in v1 — on the rollout, not the architecture.
+              <span className="font-mono">{p.id}</span> · {p.name} has no rules in v1 - on the rollout, not the architecture.
             </p>
           ))}
 
@@ -188,7 +188,7 @@ export default async function SpecPage() {
         <Sub>Three phases. The first one decides if the rest happen.</Sub>
 
         <Phase
-          title="Phase 1 · Weeks 1–3 — Win the wedge"
+          title="Phase 1 · Weeks 1–3 - Win the wedge"
           summary="3 signals. 1 surface. 1 pod."
           scope={[
             `3 signals only, all mapped to ${wedgePriority}.`,
@@ -196,14 +196,14 @@ export default async function SpecPage() {
             "1 pod: 3 AEs chosen for trust, not for need.",
           ]}
           metrics={[
-            "Leading: % of late-stage deals with the missing stakeholder added — target +30 pts in 6 weeks.",
+            "Leading: % of late-stage deals with the missing stakeholder added - target +30 pts in 6 weeks.",
             "Trust: signal mute rate < 10%, action rate > 50%.",
-            "Lagging (8-week look): conversion at the wedge stage vs control — target +10 pts.",
+            "Lagging (8-week look): conversion at the wedge stage vs control - target +10 pts.",
           ]}
         />
 
         <Phase
-          title="Phase 2 · Weeks 4–8 — Earn the digest"
+          title="Phase 2 · Weeks 4–8 - Earn the digest"
           summary="Console + manager view + Studio v0."
           scope={[
             "Expand the rule library to the full v1 catalog.",
@@ -221,13 +221,13 @@ export default async function SpecPage() {
         />
 
         <Phase
-          title="Phase 3 · Weeks 9–12 — Compound the loop"
+          title="Phase 3 · Weeks 9–12 - Compound the loop"
           summary="Cross-deal patterns + ABM signals + feedback flywheel."
           scope={[
-            "Open Studio to managers — codify questions instead of repeating them.",
+            "Open Studio to managers - codify questions instead of repeating them.",
             "Cross-deal pattern signals: champion-changing-jobs, competitor mention clusters.",
-            "Account-level ABM signals — intent scoring, multi-deal aggregation.",
-            "Feedback dashboard — low action-rate rules auto-flag for review.",
+            "Account-level ABM signals - intent scoring, multi-deal aggregation.",
+            "Feedback dashboard - low action-rate rules auto-flag for review.",
             "Begin selective write-back scoping.",
           ]}
           metrics={[
@@ -274,7 +274,7 @@ export default async function SpecPage() {
         <Card className="p-6 text-sm space-y-2">
           <Row label="Trial-deploy lead time" value="~6 business days → ≤ 48 business hours on 80% of triggered trials" />
           <Row label="Trial deployment rate" value="~35% of Eval deals → 90% in 8 weeks" />
-          <Row label="Trial → won conversion" value="Hold steady at 3× the trial volume — proves quality isn't degrading" />
+          <Row label="Trial → won conversion" value="Hold steady at 3× the trial volume - proves quality isn't degrading" />
           <Row label="SE utilization" value="Past 80%, that's the data to justify SE #3" />
         </Card>
       </section>

@@ -2,7 +2,7 @@ import type { ExternalSignal } from "./external-signals";
 
 // Conservative entity-level dedup: collapse the "same story" reported by
 // multiple newsletters without collapsing distinct stories about the same
-// entity. Pure module — no I/O.
+// entity. Pure module - no I/O.
 
 // 0.6 picked empirically: low enough that "OpenAI raises $40B" and
 // "OpenAI closes $40B round" collapse, high enough that "OpenAI raises $X"

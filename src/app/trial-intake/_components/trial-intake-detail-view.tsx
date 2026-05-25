@@ -61,7 +61,7 @@ export function TrialIntakeDetailView({
   const now = useNow();
 
   useEffect(() => {
-    // See trial-intake-list-view.tsx — same client-rehydrate seam.
+    // See trial-intake-list-view.tsx - same client-rehydrate seam.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setStoredIntakes(loadIntakes(workspaceKey));
     setHydrated(true);
@@ -158,7 +158,7 @@ export function TrialIntakeDetailView({
               {account?.name ?? intake.accountId}
             </h1>
             <p className="text-sm text-muted">
-              {opp?.name ?? intake.oppId} · {opp?.stage ?? "—"}
+              {opp?.name ?? intake.oppId} · {opp?.stage ?? "-"}
             </p>
           </div>
           <StatusBadge status={status} />
@@ -216,7 +216,7 @@ export function TrialIntakeDetailView({
               Delivered{" "}
               {intake.kpiAssessmentDeliveredAt
                 ? formatDateTime(intake.kpiAssessmentDeliveredAt)
-                : "—"}
+                : "-"}
               . No further transitions.
             </div>
           )}
@@ -286,7 +286,7 @@ export function TrialIntakeDetailView({
                 )}
               </span>
               <span className="text-[11px] text-muted shrink-0">
-                {e.by ?? "—"}
+                {e.by ?? "-"}
               </span>
             </li>
           ))}

@@ -6,7 +6,7 @@
 //
 // All magic numbers exported as named constants so the test file imports
 // the exact value rather than re-typing it. Tweaks happen here, not in
-// scattered literals — a future RevOps tuning pass adjusts one place.
+// scattered literals - a future RevOps tuning pass adjusts one place.
 //
 // Design doc: /docs/filter-design.md §5.
 
@@ -23,7 +23,7 @@ export const SENDER_ROLE_WEAK_REJECT_WORD_THRESHOLD = 400; // borderline noreply
 
 // Subject patterns that mean "this is admin, not editorial." Anchored
 // where possible to reduce false positives on real subjects that happen
-// to contain the phrase ("Welcome to the AI age" should NOT match — the
+// to contain the phrase ("Welcome to the AI age" should NOT match - the
 // regex requires `welcome` to be followed by "to your" / "to our" / "to
 // the <X> team/community/family", not generic prose).
 export const SUBJECT_REJECT_PATTERNS: Array<{ re: RegExp; tag: string }> = [
@@ -57,7 +57,7 @@ export const SUBJECT_REJECT_PATTERNS: Array<{ re: RegExp; tag: string }> = [
   },
 ];
 
-// Sender LOCAL-PART role prefixes. Match on the part before `@` only —
+// Sender LOCAL-PART role prefixes. Match on the part before `@` only -
 // `marketing@artificiallawyer.com` is fine (whole-domain newsletter),
 // `support@artificiallawyer.com` is not. Paired with body characteristics
 // below: a `noreply@` sender is a hard reject only if the body also looks
@@ -77,7 +77,7 @@ export const SENDER_ROLE_HARD_REJECT = new Set<string>([
 ]);
 
 // Sender roles that reject ONLY when paired with a weak body. These are
-// the ambiguous ones — Substack noreply@substack.com is legit; Salesforce
+// the ambiguous ones - Substack noreply@substack.com is legit; Salesforce
 // noreply@email.salesforce.com is usually trial-spam.
 export const SENDER_ROLE_WEAK_REJECT = new Set<string>([
   "no-reply",
@@ -91,11 +91,11 @@ export const SENDER_ROLE_WEAK_REJECT = new Set<string>([
 ]);
 
 // Auto-reply + bounce headers. Names are case-insensitive (matched via
-// .toLowerCase()) and presence-only — value sniffing is brittle across
+// .toLowerCase()) and presence-only - value sniffing is brittle across
 // MTAs. RFC-3834 for Auto-Submitted; X-Autoreply is the Postini/legacy
 // convention; X-Failed-Recipients is the standard bounce marker.
 //
-// Auto-Submitted is handled specially below: skip when value is "no" —
+// Auto-Submitted is handled specially below: skip when value is "no" -
 // only reject on "auto-replied" or "auto-generated" per RFC-3834. Other
 // auto-reply headers reject on presence alone.
 export const AUTO_REPLY_HEADERS = [
@@ -166,7 +166,7 @@ function onlyUnsubAndPreferenceLinks(html: string): boolean {
   while ((m = re.exec(html)) !== null) {
     matches.push({ href: m[1], text: stripHtml(m[2]) });
   }
-  if (matches.length === 0) return false; // can't tell — not "only" anything
+  if (matches.length === 0) return false; // can't tell - not "only" anything
   const unsubRe =
     /unsubscribe|preferences|email[-_ ]?settings|manage[-_ ]?subscription/i;
   return matches.every((a) => unsubRe.test(`${a.href} ${a.text}`));
@@ -257,13 +257,13 @@ export function runStage1(
     };
   }
 
-  // ── 5.3: body stats — words + link ratio + only-unsub check ────────────
+  // ── 5.3: body stats - words + link ratio + only-unsub check ────────────
   const truncated = plaintext.slice(0, BODY_TRUNCATION_FOR_STATS);
   const wordCount = countWords(truncated);
   // Truncate HTML to the same bound as `truncated` (BODY_TRUNCATION_FOR_STATS)
   // so that anchor-char count and plaintext-length share the same input bound.
   // Without this, a very large HTML body could yield more anchor chars than
-  // plaintext chars, pushing the ratio above 1.0 before Math.min caps it —
+  // plaintext chars, pushing the ratio above 1.0 before Math.min caps it -
   // making the cap meaningless and masking the actual content composition.
   const htmlTruncated = (email.html_body ?? "").slice(0, BODY_TRUNCATION_FOR_STATS);
   const linkRatio = computeLinkRatio(htmlTruncated, truncated);
@@ -291,7 +291,7 @@ export function runStage1(
     };
   }
 
-  // ── 5.2: sender role check (last — most context-dependent) ─────────────
+  // ── 5.2: sender role check (last - most context-dependent) ─────────────
   const localPart = (email.from_address.split("@")[0] ?? "").toLowerCase();
   if (SENDER_ROLE_HARD_REJECT.has(localPart)) {
     return {

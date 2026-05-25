@@ -1,10 +1,10 @@
-// Named accounts momentum card — ranks Strategic / Enterprise accounts by
+// Named accounts momentum card - ranks Strategic / Enterprise accounts by
 // recent external research-signal volume (Account.abmTrigger). The first
 // manager surface for the P6 named-accounts motion: shows which accounts are
 // heating up in the wild, who owns them, and what the obvious next step is.
 //
 // Pure server component. All inputs flow from the same in-process state the
-// rest of the manager page reads — no fetch, no localStorage.
+// rest of the manager page reads - no fetch, no localStorage.
 //
 // TODO: real-mode populates abmTrigger by aggregating external_signals from
 // Supabase (last 7d, high-relevance only), same path as the daily ingestion
@@ -51,7 +51,7 @@ export function TopAccountsCard({
         </h2>
         <p className="text-sm text-muted mt-1 max-w-2xl">
           Strategic and Enterprise accounts ranked by recent signal activity.
-          The first prompt for the named-accounts motion (P6) — proactive
+          The first prompt for the named-accounts motion (P6) - proactive
           outreach when external research clusters before a deal exists.
         </p>
       </div>
@@ -87,7 +87,7 @@ export function TopAccountsCard({
                   : undefined;
                 const nextStep = primaryOpp
                   ? `Continue ${primaryOpp.name}`
-                  : "Schedule intro — no active opp";
+                  : "Schedule intro - no active opp";
 
                 return (
                   <tr key={account.id} className="border-t border-border">

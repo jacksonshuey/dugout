@@ -1,6 +1,6 @@
 // Provider-agnostic agent loop for /ask (D1).
 //
-// One entry point — runAskAgent() — picks the right tool-use shape per
+// One entry point - runAskAgent() - picks the right tool-use shape per
 // provider and drives the same 8-tool dispatcher. The route handler in
 // /api/ask only cares about the AskResponse shape; it never branches on
 // provider internals.
@@ -113,7 +113,7 @@ export async function runAskAgent(
     return runStub(question, accountSlug);
   }
 
-  // Mismatched provider/model — defensive. The /api/ask route should
+  // Mismatched provider/model - defensive. The /api/ask route should
   // sanity-check before calling us, but if it doesn't we don't want to
   // ship a confusing wire to OpenAI.
   if (!isValidProviderModel(provider, model)) {
@@ -125,7 +125,7 @@ export async function runAskAgent(
     };
   }
 
-  // Env key missing — degrade to stub with reason, so the UI can show
+  // Env key missing - degrade to stub with reason, so the UI can show
   // "key not configured" instead of a confusing API error.
   if (provider === "openai" && !HAS_OPENAI_KEY) {
     const stub = await runStub(question, accountSlug);
@@ -479,8 +479,8 @@ async function runAnthropicLoop(args: {
 
 // ─── Stub mode ──────────────────────────────────────────────────────────
 //
-// Lifted from the original /api/ask route. Two intents — "stalling" and
-// "brief" — get bespoke narrations; everything else returns a generic
+// Lifted from the original /api/ask route. Two intents - "stalling" and
+// "brief" - get bespoke narrations; everything else returns a generic
 // pointer. The narration calls real tools to fetch real citation chips so
 // the demo still shows the citation UX.
 
@@ -526,7 +526,7 @@ async function runStub(
 
   if (!ctx.ok) {
     return {
-      answer: `I couldn't find an account matching '${slug}'. (Stub mode — set an API key to enable conversational follow-ups.)`,
+      answer: `I couldn't find an account matching '${slug}'. (Stub mode - set an API key to enable conversational follow-ups.)`,
       citations: [],
       toolCalls,
       model: "stub-deterministic",
@@ -563,7 +563,7 @@ async function runStub(
       data.signals.length > 0
         ? `Most recent signal: ${data.signals[0].summary} [citation:${data.signals[0].id}].`
         : "No recent signals.",
-      "(Stub mode — real provider integration activates when an API key is configured.)",
+      "(Stub mode - real provider integration activates when an API key is configured.)",
     ].join("\n\n");
   } else {
     answer = [
@@ -571,7 +571,7 @@ async function runStub(
       `Committee: ${summarizeCommittee(data.contactsByRole)}.`,
       `${health}.`,
       `Recent activity: ${corrLine} ${cited}`,
-      "(Stub mode — real provider integration activates when an API key is configured.)",
+      "(Stub mode - real provider integration activates when an API key is configured.)",
     ].join("\n\n");
   }
 

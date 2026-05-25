@@ -6,7 +6,7 @@ import { requireUiSession } from "@/lib/ui-auth-server";
 
 function buildSystemPrompt(workspace: WorkspaceConfig): string {
   const priorityList = workspace.priorities
-    .map((p) => `${p.id} — ${p.name}: ${p.description}`)
+    .map((p) => `${p.id} - ${p.name}: ${p.description}`)
     .join("\n");
   const priorityIds = workspace.priorities.map((p) => p.id).join(" | ");
   const assetList = workspace.assets
@@ -21,7 +21,7 @@ When a user describes a signal they want in natural language, you produce a runn
 interface SignalRule {
   id: string;            // UPPER_SNAKE
   name: string;          // human-readable, < 60 chars
-  description: string;   // one paragraph — why this exists
+  description: string;   // one paragraph - why this exists
   severity: "blocking" | "action" | "awareness";
   strategicPriority: string;  // one of: ${priorityIds}
   evaluate(ctx): Signal[];
@@ -33,7 +33,7 @@ Company: ${workspace.companyName} (${workspace.industry})
 ICP: ${workspace.icpDescription}
 Known kill point: ${workspace.killPoint}
 
-STRATEGIC PRIORITIES — pick one of these ids when assigning strategicPriority:
+STRATEGIC PRIORITIES - pick one of these ids when assigning strategicPriority:
 ${priorityList}
 
 STANDARD ASSETS available to reference in evaluators:

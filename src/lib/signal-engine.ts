@@ -13,18 +13,18 @@ import { CONTRACT_IDLE_AMOUNT_FLOOR_DEFAULT } from "./workspace";
 
 // Regex library for the Contracting-stage rules. Exported so the
 // ProcurementTracker (and tests) can reuse the same patterns when computing
-// milestone checked-state — keeps activity-match logic in one place.
+// milestone checked-state - keeps activity-match logic in one place.
 export const LEGAL_REDLINE_RE = /redline|legal review|MSA|DPA/i;
 export const SSO_SETUP_RE = /SSO|SAML|OIDC|provisioning|IT setup/i;
 export const SIGNATURE_RE = /docusign|signature requested|sent for signature/i;
 
 // ---------------------------------------------------------------------------
-// Signal Engine — deterministic rules
+// Signal Engine - deterministic rules
 //
 // Design notes worth defending in an interview:
 //
-// 1. SEVERITY IS THE PRODUCT. Every signal has a tier — blocking, action,
-//    awareness — and the tier dictates routing (Slack DM, morning digest,
+// 1. SEVERITY IS THE PRODUCT. Every signal has a tier - blocking, action,
+//    awareness - and the tier dictates routing (Slack DM, morning digest,
 //    weekly roundup). This is the answer to "how do you avoid noise."
 //    No tier = no signal ships.
 //
@@ -36,7 +36,7 @@ export const SIGNATURE_RE = /docusign|signature requested|sent for signature/i;
 // 3. RULES ARE PURE FUNCTIONS. Each rule reads the EvaluationContext and
 //    returns 0..N signals. This makes them trivial to test, A/B, and tune
 //    thresholds for. The Signal Studio (NL → rule) emits code into this
-//    shape — no special runtime needed.
+//    shape - no special runtime needed.
 //
 // 4. DETERMINISTIC FIRST, LLM SECOND. ~90% of useful signals are deterministic
 //    rules over structured CRM data. We use the LLM where it earns its keep:
@@ -146,7 +146,7 @@ export function hasTranscriptMention(
 // "Unviewed asset" check used by the Budget Approval Risk rule. An asset is
 // considered unviewed when (a) it appears in the delivery log (deliveredAt
 // populated) AND (b) the per-opp `assetsShared` view-state flag is explicitly
-// false. Returns false when the asset was never sent (different problem —
+// false. Returns false when the asset was never sent (different problem -
 // "no delivery" rather than "delivered + ignored") or when the buyer opened
 // it. Today the only supported `assetType` is `cfo_leave_behind`; other
 // assets follow the same naming convention if they're added later.
@@ -179,7 +179,7 @@ export function hasUnviewedAsset(
 // Rules
 // ---------------------------------------------------------------------------
 
-// BUDGET_APPROVAL_RISK — spec §1.4. Multi-signal synthesis rule that only
+// BUDGET_APPROVAL_RISK - spec §1.4. Multi-signal synthesis rule that only
 // fires when ALL four conditions co-occur:
 //   1. Deal is in Selected Vendor stage
 //   2. A recent call transcript explicitly mentions budget approval
@@ -276,12 +276,12 @@ const ruleSelectedVendorNoProcurement: SignalRule = {
         ruleId: "SELECTED_VENDOR_NO_PROCUREMENT",
         oppId: o.id,
         severity: "blocking",
-        // Procurement persona absent — canonical committee_gap.
+        // Procurement persona absent - canonical committee_gap.
         signalType: "committee_gap",
         title: "Procurement not engaged",
         body: "No Procurement contact on this deal. Once paperwork starts, you need a named procurement lead or you'll wait weeks for triage.",
         suggestedAction:
-          "Ask your champion for the procurement contact this week — frame as 'making the contracting phase fast for both sides.'",
+          "Ask your champion for the procurement contact this week - frame as 'making the contracting phase fast for both sides.'",
         detectedAt: TODAY.toISOString(),
       })),
 };
@@ -305,11 +305,11 @@ const ruleNoFinanceAtEvaluating: SignalRule = {
         ruleId: "NO_FINANCE_AT_EVALUATING",
         oppId: o.id,
         severity: "action",
-        // Finance persona absent earlier in the funnel — same canonical type
+        // Finance persona absent earlier in the funnel - same canonical type
         // as the Selected Vendor variant; severity is the difference.
         signalType: "committee_gap",
         title: "No Finance contact on Evaluating deal",
-        body: "You're at Evaluating with no Finance contact. We know deals die at Selected Vendor budget approval — this is when to fix it.",
+        body: "You're at Evaluating with no Finance contact. We know deals die at Selected Vendor budget approval - this is when to fix it.",
         suggestedAction: `Send the ${assetName(ctx, "finance_meeting_brief", "Finance Meeting Brief")} to your champion today and request a 30-min intro to Finance this week.`,
         assetLink: assetLink(ctx, "finance_meeting_brief", "Finance Meeting Brief"),
         detectedAt: TODAY.toISOString(),
@@ -335,7 +335,7 @@ const ruleNoITAtEvaluating: SignalRule = {
         ruleId: "NO_IT_AT_EVALUATING",
         oppId: o.id,
         severity: "action",
-        // IT/Security persona absent — canonical committee_gap.
+        // IT/Security persona absent - canonical committee_gap.
         signalType: "committee_gap",
         title: "No IT/Security contact on Evaluating deal",
         body: "IT review averages 2–4 weeks. If it hasn't started yet, you'll lose that time at Contracting.",
@@ -365,7 +365,7 @@ const ruleNoTrialBriefAtDemoSat: SignalRule = {
         oppId: o.id,
         severity: "action",
         // Awkward fit: this is a playbook-step gap, not a clean fit for any of
-        // the 12 types. Closest is momentum_change (negative direction) —
+        // the 12 types. Closest is momentum_change (negative direction) -
         // missing the trial brief stalls the deal's forward motion. Not
         // data_hygiene_gap, which is specifically about structured deal
         // metadata (MEDDPICC fields), not playbook execution.
@@ -382,7 +382,7 @@ const ruleSingleThreadRisk: SignalRule = {
   id: "SINGLE_THREAD_RISK",
   name: "Single-thread risk on Evaluating+ deal",
   description:
-    "Strategic priority #5 (sales motion maturity — multithreading is the focus area). Only one contact role attached to a meaningful-stage deal.",
+    "Strategic priority #5 (sales motion maturity - multithreading is the focus area). Only one contact role attached to a meaningful-stage deal.",
   severity: "action",
   strategicPriority: "P5",
   evaluate: (ctx) =>
@@ -399,13 +399,13 @@ const ruleSingleThreadRisk: SignalRule = {
         ruleId: "SINGLE_THREAD_RISK",
         oppId: o.id,
         severity: "action",
-        // Only one contact role on a buying-stage deal — the broader buying
+        // Only one contact role on a buying-stage deal - the broader buying
         // committee is missing. Canonical committee_gap.
         signalType: "committee_gap",
         title: "Single-thread risk",
         body: "Only one contact on this deal. If your champion leaves or goes quiet, the deal goes with them.",
         suggestedAction:
-          "Identify a second stakeholder this week — Legal Ops or GC are the highest-leverage adds.",
+          "Identify a second stakeholder this week - Legal Ops or GC are the highest-leverage adds.",
         detectedAt: TODAY.toISOString(),
       })),
 };
@@ -432,7 +432,7 @@ const ruleStageAgeExceeded: SignalRule = {
           // (negative direction in the persistent schema).
           signalType: "momentum_change" as const,
           title: `${age} days in ${o.stage} (benchmark: ${bench})`,
-          body: `This deal has been in ${o.stage} for ${age} days — ${age - bench} days past benchmark. Either there's a blocker we haven't named, or the stage is wrong.`,
+          body: `This deal has been in ${o.stage} for ${age} days - ${age - bench} days past benchmark. Either there's a blocker we haven't named, or the stage is wrong.`,
           suggestedAction:
             "Get on a 15-min call with your champion to name the specific blocker. If you can't name it, update the stage to reflect reality.",
           detectedAt: TODAY.toISOString(),
@@ -444,7 +444,7 @@ const ruleDemoNotBooked: SignalRule = {
   id: "DEMO_NOT_BOOKED",
   name: "Qualified champion without demo booked",
   description:
-    "Champion identified at Qualified but no Demo Sat activity in the last 7 days. Conversion at this hop is 37% — slippage is expensive.",
+    "Champion identified at Qualified but no Demo Sat activity in the last 7 days. Conversion at this hop is 37% - slippage is expensive.",
   severity: "action",
   strategicPriority: "P5",
   evaluate: (ctx) =>
@@ -471,7 +471,7 @@ const ruleDemoNotBooked: SignalRule = {
         // momentum_change (negative direction).
         signalType: "momentum_change" as const,
         title: "Champion identified but no demo booked",
-        body: "You have a champion but no demo on the calendar in the next 7 days. The Intro → Qualified hop is already a 37% step — don't let momentum die here.",
+        body: "You have a champion but no demo on the calendar in the next 7 days. The Intro → Qualified hop is already a 37% step - don't let momentum die here.",
         suggestedAction:
           "Send Chili Piper link directly to champion today. Offer 3 specific time windows.",
         detectedAt: TODAY.toISOString(),
@@ -482,7 +482,7 @@ const ruleAssetGapFinance: SignalRule = {
   id: "ASSET_GAP_FINANCE",
   name: "Finance contact exists but Finance brief not sent",
   description:
-    "Strategic priority #2 — the assets exist; the work is adoption. If a Finance contact is on the OCR but no Finance Meeting Brief has been delivered, we have a usage gap.",
+    "Strategic priority #2 - the assets exist; the work is adoption. If a Finance contact is on the OCR but no Finance Meeting Brief has been delivered, we have a usage gap.",
   severity: "action",
   strategicPriority: "P2",
   evaluate: (ctx) =>
@@ -497,7 +497,7 @@ const ruleAssetGapFinance: SignalRule = {
         ruleId: "ASSET_GAP_FINANCE",
         oppId: o.id,
         severity: "action" as const,
-        // Finance is on the OCR but not engaged with finance materials — this
+        // Finance is on the OCR but not engaged with finance materials - this
         // is the explicit `finance_mentioned_not_engaged` Granola subtype that
         // synthesis.md §1 maps to committee_gap.
         signalType: "committee_gap" as const,
@@ -531,7 +531,7 @@ const ruleAssetGapIT: SignalRule = {
         ruleId: "ASSET_GAP_IT",
         oppId: o.id,
         severity: "action" as const,
-        // IT was mentioned on a call but no IT-targeted asset has gone out —
+        // IT was mentioned on a call but no IT-targeted asset has gone out -
         // the `it_mentioned_not_engaged` Granola subtype that synthesis.md §1
         // maps to committee_gap.
         signalType: "committee_gap" as const,
@@ -544,7 +544,7 @@ const ruleAssetGapIT: SignalRule = {
 };
 
 // Helper: is the opportunity's champion marked as departed? CHAMPION_GHOST
-// suppresses itself in this case — we have a more specific signal that fires.
+// suppresses itself in this case - we have a more specific signal that fires.
 function championDeparted(opp: Opportunity, ctx: EvaluationContext): boolean {
   const champion = opp.contactRoleIds
     .map((cid) => ctx.contacts.find((c) => c.id === cid))
@@ -556,7 +556,7 @@ const ruleChampionGhost: SignalRule = {
   id: "CHAMPION_GHOST",
   name: "Champion silent for 7+ days",
   description:
-    "Champion hasn't replied, joined a meeting, or visited the deal room in 7+ days. Either the deal is in trouble or the champion has lost internal ground. Suppressed when CHAMPION_DEPARTED fires — that's a more specific signal.",
+    "Champion hasn't replied, joined a meeting, or visited the deal room in 7+ days. Either the deal is in trouble or the champion has lost internal ground. Suppressed when CHAMPION_DEPARTED fires - that's a more specific signal.",
   severity: "blocking",
   strategicPriority: "P5",
   evaluate: (ctx) =>
@@ -573,18 +573,18 @@ const ruleChampionGhost: SignalRule = {
           ruleId: "CHAMPION_GHOST",
           oppId: o.id,
           severity: "blocking" as const,
-          // Champion still present but going dark — textbook champion_disengagement.
+          // Champion still present but going dark - textbook champion_disengagement.
           signalType: "champion_disengagement" as const,
           title: `Champion silent for ${days} days`,
           body: "Champion hasn't responded, joined a meeting, or visited the deal room in over a week. We need to know why before this fades to closed-lost.",
           suggestedAction:
-            "Send a low-pressure check-in today: 'Want to make sure I haven't missed anything — should I pause our outreach or keep going?'",
+            "Send a low-pressure check-in today: 'Want to make sure I haven't missed anything - should I pause our outreach or keep going?'",
           detectedAt: TODAY.toISOString(),
         };
       }),
 };
 
-// Champion Departed — a more specific (and worse) version of CHAMPION_GHOST.
+// Champion Departed - a more specific (and worse) version of CHAMPION_GHOST.
 // In production this is driven by LinkedIn Sales Navigator alerts on saved
 // leads, cross-referenced with per-user CRM activity. In the demo, it's
 // triggered by the `status: 'departed'` flag on a contact.
@@ -597,7 +597,7 @@ const ruleChampionDeparted: SignalRule = {
   id: "CHAMPION_DEPARTED",
   name: "Champion has left the company",
   description:
-    "LinkedIn signal detected the champion has changed jobs. This is the highest-leverage moment for intervention — the next 14 days determine whether the deal survives.",
+    "LinkedIn signal detected the champion has changed jobs. This is the highest-leverage moment for intervention - the next 14 days determine whether the deal survives.",
   severity: "blocking",
   strategicPriority: "P5",
   evaluate: (ctx) =>
@@ -612,21 +612,21 @@ const ruleChampionDeparted: SignalRule = {
           ruleId: "CHAMPION_DEPARTED",
           oppId: o.id,
           severity: "blocking" as const,
-          // Champion left the company — canonical champion_loss.
+          // Champion left the company - canonical champion_loss.
           signalType: "champion_loss" as const,
           title: `Champion ${champion.name} has left the company`,
           body:
             champion.departureNote ??
             `${champion.name} has departed. This is the top predictor of deal loss at this stage.`,
           suggestedAction:
-            "Open the Champion Departure playbook now. First decision is risk classification — multi-threaded deals follow Rebuild; single-threaded deals follow Save Play.",
+            "Open the Champion Departure playbook now. First decision is risk classification - multi-threaded deals follow Rebuild; single-threaded deals follow Save Play.",
           playbookId: "champion-departure",
           detectedAt: TODAY.toISOString(),
         };
       }),
 };
 
-// Sentiment signal — uses precomputed riskFlags from the call transcript.
+// Sentiment signal - uses precomputed riskFlags from the call transcript.
 // In production, riskFlags would be populated by an LLM analyzing the full
 // Gong transcript (architecturally noted on the rollout page).
 const ruleCallNegativeSentiment: SignalRule = {
@@ -649,13 +649,13 @@ const ruleCallNegativeSentiment: SignalRule = {
         ruleId: "CALL_NEGATIVE_SENTIMENT",
         oppId: opp.id,
         severity: "action",
-        // Objections/pricing pushback/no-next-step surfaced on a call — these
+        // Objections/pricing pushback/no-next-step surfaced on a call - these
         // are the `objection_raised` and "no next step" Granola/Gong subtypes
         // that synthesis.md §1 maps to momentum_change (negative direction).
         // Note: a competitor mention in riskFlags would more cleanly be a
         // competitive_threat signal. Current rule emits one signal per call
         // regardless of which flags fired; splitting by flag type is a
-        // follow-up — see open questions.
+        // follow-up - see open questions.
         signalType: "momentum_change",
         title: `${latest.riskFlags.length} risk marker${latest.riskFlags.length > 1 ? "s" : ""} on last call`,
         body: `Last call (${latest.callDate}) surfaced: ${latest.riskFlags.join(", ")}.`,
@@ -693,7 +693,7 @@ function lastActivityMatchingDays(
 // Helper: most recent activity on opp from any buyer-side contact (i.e.,
 // any contact tied to a contactRoleId on the opp). Returns age in days, or
 // null when no such activity exists. Internal-only activities (no contactId)
-// don't count — the rule is specifically about buyer-side momentum.
+// don't count - the rule is specifically about buyer-side momentum.
 function lastBuyerActivityDays(
   opp: Opportunity,
   ctx: EvaluationContext,
@@ -729,7 +729,7 @@ const ruleLegalRedlineAge: SignalRule = {
         oppId: opp.id,
         severity: "action",
         // Legal review aging without progression is a negative-direction
-        // momentum_change — the deal's forward motion has stalled.
+        // momentum_change - the deal's forward motion has stalled.
         signalType: "momentum_change",
         title: `Legal redline outstanding ${days} days`,
         body: `Most recent legal-redline activity on this Contracting deal was ${days} days ago. Redlines that stop pinging back are the most common contracting kill point.`,
@@ -746,7 +746,7 @@ const ruleSsoSetupPending: SignalRule = {
   id: "SSO_SETUP_PENDING",
   name: "SSO / IT provisioning not confirmed",
   description:
-    "Stage=Contracting for 7+ days with no SSO/IT setup confirmation activity in the last 14 days. Provisioning is the surprise time-sink — getting IT on a call early prevents a last-minute slip.",
+    "Stage=Contracting for 7+ days with no SSO/IT setup confirmation activity in the last 14 days. Provisioning is the surprise time-sink - getting IT on a call early prevents a last-minute slip.",
   severity: "action",
   strategicPriority: "P4",
   evaluate: (ctx) => {
@@ -768,7 +768,7 @@ const ruleSsoSetupPending: SignalRule = {
         severity: "action",
         // The task spec called this 'deal_structure_gap', but the canonical
         // taxonomy in types.ts §SignalType doesn't include that value. Map to
-        // committee_gap instead — same shape as the existing ASSET_GAP_IT /
+        // committee_gap instead - same shape as the existing ASSET_GAP_IT /
         // NO_IT_AT_EVALUATING rules: an IT-persona engagement gap on a stage
         // that requires it. (synthesis.md §1 keeps the 12-type taxonomy
         // closed; BUILD_ALIGNMENT principle #2 forbids inventing new types.)
@@ -800,7 +800,7 @@ const ruleContractIdle: SignalRule = {
       if (opp.stage !== "Contracting") continue;
       if (opp.amount <= floor) continue;
       const days = lastBuyerActivityDays(opp, ctx);
-      // Null means no buyer activity has ever been logged — treat as idle.
+      // Null means no buyer activity has ever been logged - treat as idle.
       if (days !== null && days <= 10) continue;
       const renderDays = days ?? "10+";
       out.push({
@@ -808,7 +808,7 @@ const ruleContractIdle: SignalRule = {
         ruleId: "CONTRACT_IDLE",
         oppId: opp.id,
         severity: "blocking",
-        // Buyer side has gone dark on a contract — negative-direction
+        // Buyer side has gone dark on a contract - negative-direction
         // momentum_change. CHAMPION_GHOST also fires for champion-only
         // silence; this rule is broader (any buyer-side contact).
         signalType: "momentum_change",
@@ -838,7 +838,7 @@ const ruleAbmShadowResearch: SignalRule = {
     for (const account of ctx.accounts) {
       // Segment gate: named-accounts motion fires on Strategic or Enterprise
       // tiers only. Mid-Market accounts stay silent regardless of signal
-      // volume — different motion, different prompts.
+      // volume - different motion, different prompts.
       if (account.segment !== "Strategic" && account.segment !== "Enterprise")
         continue;
       const trigger = account.abmTrigger;
@@ -848,7 +848,7 @@ const ruleAbmShadowResearch: SignalRule = {
 
       // Attach the signal to the account's most-recently-created opp so the
       // existing oppId-keyed UI (drawer, tasks) has a target. Skip if the
-      // account has no opp on file — no surface to render against.
+      // account has no opp on file - no surface to render against.
       const accountOpps = ctx.opportunities.filter(
         (o) => o.accountId === account.id,
       );
@@ -928,11 +928,11 @@ export function sortSignals(signals: Signal[]): Signal[] {
 }
 
 // ---------------------------------------------------------------------------
-// Deal Health — compound state derived from all signals on a deal, weighted
+// Deal Health - compound state derived from all signals on a deal, weighted
 // by close-date proximity.
 //
 // Rationale (worth defending in interview): no single signal determines this
-// state. The Arphie CS scorecard framework — same author — established that
+// state. The Arphie CS scorecard framework - same author - established that
 // "signals compound; the read comes from the compound pattern." Close-date
 // weighting reflects that the same signal carries different urgency at 9
 // months out vs 30 days out.
@@ -940,7 +940,7 @@ export function sortSignals(signals: Signal[]): Signal[] {
 // Accepts any object with the three fields computeDealHealth actually reads.
 // This lets callers pass either real Signal[] (from evaluateAll) or the
 // Task-derived signal-snapshots the UI constructs from localStorage tasks.
-// Tasks don't carry `signalType` — keeping this parameter as full Signal[]
+// Tasks don't carry `signalType` - keeping this parameter as full Signal[]
 // would force every UI call site to fabricate a canonical signalType just to
 // satisfy the type checker. Pick the fields actually used instead.
 type DealHealthSignal = Pick<Signal, "oppId" | "severity" | "ruleId">;
@@ -953,9 +953,9 @@ export function computeDealHealth(
   const blocking = ownSignals.filter((s) => s.severity === "blocking");
   const action = ownSignals.filter((s) => s.severity === "action");
 
-  // Days from today to forecast close — positive = future, negative = overdue
+  // Days from today to forecast close - positive = future, negative = overdue
   // (overdue trips both < 60 and < 30 checks below, escalating health, which
-  // is intentional — past-close deals are by definition imminent).
+  // is intentional - past-close deals are by definition imminent).
   // Invalid / missing closeDate defaults to 0 so a blocking signal still
   // escalates to Critical rather than silently demoting through NaN compares.
   const closeMs = new Date(opp.closeDate).getTime();
@@ -963,7 +963,7 @@ export function computeDealHealth(
     ? Math.floor((closeMs - TODAY.getTime()) / (1000 * 60 * 60 * 24))
     : 0;
 
-  // Special case: champion departure is always Critical — losing your champion
+  // Special case: champion departure is always Critical - losing your champion
   // on a deal in flight is a category-different problem.
   if (blocking.some((s) => s.ruleId === "CHAMPION_DEPARTED")) return "Critical";
 

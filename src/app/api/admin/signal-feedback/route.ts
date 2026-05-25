@@ -18,11 +18,11 @@ import { requireUiSession } from "@/lib/ui-auth-server";
 //      `external_signals.suppressed_at = now()`. Without visible UX
 //      effect, the feedback button is dead.
 //
-// Both writes touch only Dugout-owned tables — no external-system
-// mutations — so the suppression stays inside the read-only-v1 boundary
+// Both writes touch only Dugout-owned tables - no external-system
+// mutations - so the suppression stays inside the read-only-v1 boundary
 // (BUILD_ALIGNMENT #9).
 //
-// Auth: requireUiSession() — same gate as other paid routes. The auth
+// Auth: requireUiSession() - same gate as other paid routes. The auth
 // failure short-circuits before we touch Supabase.
 
 export const runtime = "nodejs";

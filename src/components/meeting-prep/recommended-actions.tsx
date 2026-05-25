@@ -17,7 +17,7 @@ export function RecommendedActions({ brief }: { brief: MeetingBrief }) {
     // If the deal is past benchmark, flag it (cheap derived action).
     if (lead.daysInStage >= 21) {
       actions.push(
-        `Name the blocker on ${lead.name} (${lead.daysInStage} days in ${lead.stage}) — schedule a 15-min sync with the champion.`,
+        `Name the blocker on ${lead.name} (${lead.daysInStage} days in ${lead.stage}) - schedule a 15-min sync with the champion.`,
       );
     }
   }

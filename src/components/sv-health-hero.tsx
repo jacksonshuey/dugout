@@ -1,11 +1,11 @@
-// SV Health Hero — Hero Surface #0 per discovery/information-requirements.md.
+// SV Health Hero - Hero Surface #0 per discovery/information-requirements.md.
 //
 // Two component variants share a common card. Both are pure-presentation:
 // take props in, render JSX out. No fetch, no Supabase, no side effects (per
-// BUILD_ALIGNMENT principle #7 — UI components don't reach for the DB).
+// BUILD_ALIGNMENT principle #7 - UI components don't reach for the DB).
 //
-//   SVHealthHero          — single-opp, full-width. Used by /account/[slug].
-//   SVHealthHeroDashboard — three opps side-by-side. The demo opening shot.
+//   SVHealthHero          - single-opp, full-width. Used by /account/[slug].
+//   SVHealthHeroDashboard - three opps side-by-side. The demo opening shot.
 //
 // Voice rules (BUILD_ALIGNMENT principle #8): driver strings render verbatim
 // from `score.drivers`. No exclamations, no emojis added in this file. If a
@@ -26,7 +26,7 @@ import { cn, formatCurrency } from "@/lib/utils";
 
 type TierStyle = {
   label: string;
-  badge: string; // pill — background + border + text
+  badge: string; // pill - background + border + text
   border: string; // card outer border accent
   text: string; // big-number color
   bar: string; // component bar fill
@@ -153,7 +153,7 @@ export function SVHealthHero({
         </div>
       </div>
 
-      {/* Components — exactly 5 rendered, even when 0 */}
+      {/* Components - exactly 5 rendered, even when 0 */}
       <div className="px-6 pb-5">
         <div className="text-[10px] uppercase tracking-wider text-muted font-mono mb-3">
           Components
@@ -179,7 +179,7 @@ export function SVHealthHero({
         <span className="font-medium text-foreground">
           {evidenceCount} contributing signal{evidenceCount === 1 ? "" : "s"}
         </span>{" "}
-        — view evidence chain →
+        - view evidence chain →
       </Link>
     </section>
   );
@@ -349,7 +349,7 @@ function ComponentBar({
   tier: TierStyle;
   compact?: boolean;
 }): React.JSX.Element {
-  // Subtractive component (risk penalty) gets a different render — fill
+  // Subtractive component (risk penalty) gets a different render - fill
   // from the right in red, value shown as a signed integer.
   if (row.subtractive) {
     // value is 0 or -20; map to a 0-100 "penalty intensity" bar (0 = no

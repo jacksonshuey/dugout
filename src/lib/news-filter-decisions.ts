@@ -1,15 +1,15 @@
 // Supabase CRUD for `news_filter_decisions`.
 //
 // Dual-purpose audit shape: each row records EITHER a "kept" decision
-// (verdict 'newsworthy' or 'low_signal' — external_signal_id set to the
-// signal row just inserted) OR a "rejected" decision (verdict 'rejected' —
+// (verdict 'newsworthy' or 'low_signal' - external_signal_id set to the
+// signal row just inserted) OR a "rejected" decision (verdict 'rejected' -
 // external_signal_id is null, since no signal row was written). The
 // `article_url` is always populated so rejected articles are still
 // auditable end-to-end.
 //
 // Fail-soft: any write failure is logged + swallowed so a Supabase outage
 // never breaks the news adapter. Intentionally side-effectful (writes
-// Supabase) — BUILD_ALIGNMENT #7 "pure where possible" carve-out: audit
+// Supabase) - BUILD_ALIGNMENT #7 "pure where possible" carve-out: audit
 // I/O has to live somewhere, and isolating it here keeps the orchestrator
 // pure. Mirrors `email-filter-decisions.ts`.
 
@@ -56,7 +56,7 @@ export async function writeNewsFilterDecision(args: {
     sb = supabaseAdmin();
   } catch (e) {
     console.warn(
-      `[news-filter] supabase unavailable: ${e instanceof Error ? e.message : String(e)} url=${args.article_url} — continuing`,
+      `[news-filter] supabase unavailable: ${e instanceof Error ? e.message : String(e)} url=${args.article_url} - continuing`,
     );
     return;
   }
@@ -65,17 +65,17 @@ export async function writeNewsFilterDecision(args: {
     const { error } = await sb.from(TABLE).insert(toInsert(args));
     if (error) {
       console.warn(
-        `[news-filter] audit_write_failed: ${error.message} url=${args.article_url} — continuing`,
+        `[news-filter] audit_write_failed: ${error.message} url=${args.article_url} - continuing`,
       );
     }
   } catch (e) {
     console.warn(
-      `[news-filter] audit_write_failed: ${e instanceof Error ? e.message : String(e)} url=${args.article_url} — continuing`,
+      `[news-filter] audit_write_failed: ${e instanceof Error ? e.message : String(e)} url=${args.article_url} - continuing`,
     );
   }
 }
 
-/** Bulk insert — used by the news-adapter when processing a batch of
+/** Bulk insert - used by the news-adapter when processing a batch of
  *  articles from one NewsAPI call. Single round-trip per batch keeps
  *  audit I/O off the per-article hot path. */
 export async function writeNewsFilterDecisions(
@@ -93,7 +93,7 @@ export async function writeNewsFilterDecisions(
     sb = supabaseAdmin();
   } catch (e) {
     console.warn(
-      `[news-filter] supabase unavailable: ${e instanceof Error ? e.message : String(e)} count=${decisions.length} — continuing`,
+      `[news-filter] supabase unavailable: ${e instanceof Error ? e.message : String(e)} count=${decisions.length} - continuing`,
     );
     return;
   }
@@ -102,12 +102,12 @@ export async function writeNewsFilterDecisions(
     const { error } = await sb.from(TABLE).insert(decisions.map(toInsert));
     if (error) {
       console.warn(
-        `[news-filter] audit_bulk_write_failed: ${error.message} count=${decisions.length} — continuing`,
+        `[news-filter] audit_bulk_write_failed: ${error.message} count=${decisions.length} - continuing`,
       );
     }
   } catch (e) {
     console.warn(
-      `[news-filter] audit_bulk_write_failed: ${e instanceof Error ? e.message : String(e)} count=${decisions.length} — continuing`,
+      `[news-filter] audit_bulk_write_failed: ${e instanceof Error ? e.message : String(e)} count=${decisions.length} - continuing`,
     );
   }
 }

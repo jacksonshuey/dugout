@@ -4,7 +4,7 @@ import type {
   MeetingSignalType,
 } from "./granola-classifier";
 
-// Meeting signals — Granola-sourced signals stored per (account, note_id,
+// Meeting signals - Granola-sourced signals stored per (account, note_id,
 // signal_type) so a single meeting can fire multiple types and re-syncs stay
 // idempotent. Schema lives in
 // supabase/migrations/20260523_granola_integration.sql.
@@ -87,7 +87,7 @@ export async function getRecentMeetingsByWorkspace(
 }
 
 // ---------------------------------------------------------------------------
-// Writes — upsert on (account_id, note_id, signal_type) so re-classifying
+// Writes - upsert on (account_id, note_id, signal_type) so re-classifying
 // the same note updates rather than duplicates. Returns insert/update
 // counts so the sync UI can report meaningful progress.
 // ---------------------------------------------------------------------------
@@ -113,7 +113,7 @@ export async function upsertMeetingSignals(
 }
 
 // ---------------------------------------------------------------------------
-// Account overrides — manual user mappings of note → account.
+// Account overrides - manual user mappings of note → account.
 // ---------------------------------------------------------------------------
 
 export interface AccountOverrideRow {
@@ -158,7 +158,7 @@ export async function setAccountOverride(
 }
 
 // ---------------------------------------------------------------------------
-// Unassigned bucket — meetings we saw but couldn't auto-match. Stored
+// Unassigned bucket - meetings we saw but couldn't auto-match. Stored
 // inline in workspace_integrations.meta so we don't need a third table for
 // transient notes (we only keep the last sync's unassigned list).
 // ---------------------------------------------------------------------------

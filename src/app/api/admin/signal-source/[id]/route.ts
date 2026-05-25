@@ -15,7 +15,7 @@ import { requireUiSession } from "@/lib/ui-auth-server";
 // for those because the raw HTML iframe is strictly more faithful than the
 // markdown stripped from it.
 //
-// Auth: requireUiSession() — same gate as inbound-email/[id]. Single-tenant
+// Auth: requireUiSession() - same gate as inbound-email/[id]. Single-tenant
 // v1; multi-tenant adds a workspace_id check.
 
 export const runtime = "nodejs";

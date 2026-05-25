@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
-// Minimal toast — used to surface auto-resolutions (and could host other
+// Minimal toast - used to surface auto-resolutions (and could host other
 // transient confirmations later). Fixed bottom-right, auto-dismisses.
 
 export interface Toast {

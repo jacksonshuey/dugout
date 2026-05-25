@@ -12,12 +12,12 @@ import { insertSignalsDedup } from "@/lib/external-signals";
 //
 // We only run against accounts flagged trackable:true in seed (real companies
 // where NewsAPI returns useful results). Fictional accounts get their signals
-// from the demo seed only — wasting LLM + API calls on them returns nothing
+// from the demo seed only - wasting LLM + API calls on them returns nothing
 // and burns budget.
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 60; // seconds — Vercel hobby cap
+export const maxDuration = 60; // seconds - Vercel hobby cap
 
 interface AccountResult {
   accountId: string;

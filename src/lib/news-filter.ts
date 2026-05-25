@@ -3,7 +3,7 @@
 //   filterArticle(input, deps?): Promise<FilterArticleOutput>
 //
 // Orchestrates Stage 1 (deterministic) → Stage 2 (Haiku) → bullet generation.
-// Does NOT touch Supabase — the caller (news-adapter) inserts the signal and
+// Does NOT touch Supabase - the caller (news-adapter) inserts the signal and
 // writes the audit row using the returned {decision, bullet}.
 //
 // Provider: Anthropic Haiku 4.5, single tool-use round-trip for Stage 2.
@@ -13,7 +13,7 @@
 // Fail-CLOSED-but-soft posture for Stage 2: any Haiku failure (no key, 5xx,
 // timeout, schema violation, unhandled exception) collapses to verdict
 // `low_signal` + workspace_relevance `low`. We do NOT drop on infra failure
-// — that would lose signal during Anthropic incidents. The article still
+// - that would lose signal during Anthropic incidents. The article still
 // flows through with a deterministic-fallback bullet so the AE Brief filter
 // (which keeps only high/medium) just hides it; account drawer still gets it.
 
@@ -231,14 +231,14 @@ export async function filterArticle(
   input: FilterArticleInput,
   deps: FilterArticleDeps = {},
 ): Promise<FilterArticleOutput> {
-  // Outer safety net — mirrors ranker.ts. The cron + adapter must never see
+  // Outer safety net - mirrors ranker.ts. The cron + adapter must never see
   // a thrown error from the filter pipeline.
   try {
     return await filterArticleInner(input, deps);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.warn(
-      `[news-filter] stage2_failsoft: unhandled url=${input.article.url} — ${msg}`,
+      `[news-filter] stage2_failsoft: unhandled url=${input.article.url} - ${msg}`,
     );
     return failsoft(input.article, input.context, "unhandled", deps);
   }
@@ -292,7 +292,7 @@ async function filterArticleInner(
     const tagMsg = e instanceof Error ? e.message : String(e);
     const status = e instanceof Anthropic.APIError ? e.status : null;
     console.warn(
-      `[news-filter] stage2_failsoft: ${reason}${status !== null ? ` status=${status}` : ""} url=${article.url} — ${tagMsg}`,
+      `[news-filter] stage2_failsoft: ${reason}${status !== null ? ` status=${status}` : ""} url=${article.url} - ${tagMsg}`,
     );
     return failsoft(article, context, reason, deps);
   }
@@ -308,7 +308,7 @@ async function filterArticleInner(
 
   const stage2 = validated.output;
 
-  // Stage 2 reported a hard reject — honor it. No bullet needed (adapter
+  // Stage 2 reported a hard reject - honor it. No bullet needed (adapter
   // doesn't generate one for rejected verdicts).
   if (stage2.verdict === "rejected") {
     return {
@@ -326,7 +326,7 @@ async function filterArticleInner(
     };
   }
 
-  // Kept article — build decision and generate bullet.
+  // Kept article - build decision and generate bullet.
   const decision: NewsFilterDecision = {
     verdict: stage2.verdict,
     workspace_relevance: stage2.workspace_relevance,
@@ -360,7 +360,7 @@ async function runBulletGen(
     return out.bullet;
   } catch (e) {
     console.warn(
-      `[news-filter] bullet_unhandled url=${article.url} — ${e instanceof Error ? e.message : String(e)}`,
+      `[news-filter] bullet_unhandled url=${article.url} - ${e instanceof Error ? e.message : String(e)}`,
     );
     return fallbackBullet(article).bullet;
   }

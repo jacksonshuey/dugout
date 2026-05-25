@@ -1,11 +1,11 @@
-// UI session token — defends paid/side-effectful API routes from random URL
+// UI session token - defends paid/side-effectful API routes from random URL
 // probing and bot crawlers.
 //
 // Threat model: an attacker who only has the public Vercel URL. Without auth,
 // they can drain the Anthropic budget by hammering /api/digest, spam the
 // configured Slack channel via /api/slack, or enumerate account names via
 // /api/external-signals. This module makes every API call require a cookie
-// that's seeded by the proxy on the first page load — so calling the API
+// that's seeded by the proxy on the first page load - so calling the API
 // without first having loaded the UI is rejected.
 //
 // This is NOT real auth. It's the minimal gate that closes the "share the
@@ -17,7 +17,7 @@
 
 export const UI_SESSION_COOKIE_NAME = "dugout-ui-session";
 
-// Constant payload — the cookie value is just an HMAC of this string with
+// Constant payload - the cookie value is just an HMAC of this string with
 // the server secret. Anyone who has loaded a page gets the same value;
 // anyone who hasn't doesn't. Replay between browsers is fine for this
 // threat model.
@@ -56,7 +56,7 @@ function timingSafeEqual(a: string, b: string): boolean {
 }
 
 // Returns the cookie value to set, or null if the server isn't configured.
-// Proxy is the only caller — it seeds the cookie on the first page request.
+// Proxy is the only caller - it seeds the cookie on the first page request.
 export async function mintUiSessionToken(): Promise<string | null> {
   const secret = getSecret();
   if (!secret) return null;

@@ -5,10 +5,10 @@ import {
   type AccountScrapeResult,
 } from "@/lib/firecrawl-adapter";
 
-// Daily Firecrawl scrape cron — for each tracked account, discovers
+// Daily Firecrawl scrape cron - for each tracked account, discovers
 // content paths via Firecrawl /map (filtered through PREFERRED_PATH_PATTERNS
 // in firecrawl-adapter.ts) and scrapes up to MAX_PATHS_PER_ACCOUNT pages.
-// Writes raw markdown rows into `web_scrapes`. Does NOT classify inline —
+// Writes raw markdown rows into `web_scrapes`. Does NOT classify inline -
 // classify-pending sweeps the unclassified rows on its own schedule.
 //
 // Auth: CRON_SECRET (Vercel injects "Authorization: Bearer ${CRON_SECRET}").
@@ -16,7 +16,7 @@ import {
 // Scope (post-Phase-4): 11 trackable accounts × (1 /map + up to 6 /scrape)
 // per run. /map is 1 credit; /scrape is 1 credit. Worst case ≈ 11 × 7 = 77
 // credits/day → ~2310 credits/month. Up from the old 4-path hardcode at
-// 11 × 4 = 44/day (~1320/mo) — ~1.75x cost for coverage that actually
+// 11 × 4 = 44/day (~1320/mo) - ~1.75x cost for coverage that actually
 // finds /blog on Stripe and /newsroom on Boeing.
 //
 // Per-account fault isolation: a 429 on one account no longer halts the
@@ -124,7 +124,7 @@ export async function GET(req: Request) {
       const isRateLimit = /rate.?limit|429/i.test(error);
       if (isRateLimit) {
         console.warn(
-          `[cron/firecrawl] rate-limited on ${account.name} (${account.id}), skipping — next run picks up`,
+          `[cron/firecrawl] rate-limited on ${account.name} (${account.id}), skipping - next run picks up`,
           error,
         );
         accountsRateLimited++;

@@ -1,15 +1,15 @@
-// Per-Rep Coaching Brief panel — clusters CallTranscript.riskFlags across each
+// Per-Rep Coaching Brief panel - clusters CallTranscript.riskFlags across each
 // rep's calls in the last 30 days into recurring themes, surfaces the top 3
 // themes per rep with a link to the most recent call where each appeared, and
 // recommends a "review this call" CTA: the most recent call with the most
 // riskFlags.
 //
-// Pure derivation — no LLM call. The Gong-moment recommender is the highest
+// Pure derivation - no LLM call. The Gong-moment recommender is the highest
 // risk-density call by date, scoped to the rep.
 //
 // Note on the "uncoached" count: coaching notes live in the localStorage Task
 // layer (lib/tasks.ts) and aren't readable from a server component. The count
-// shown here is "recent risky calls" — the pool that needs coaching action.
+// shown here is "recent risky calls" - the pool that needs coaching action.
 // Once tasks move to Supabase, this count can subtract calls whose linked task
 // already has a coaching note.
 
@@ -225,7 +225,7 @@ function RepCard({ brief }: { brief: CoachingBrief }): React.JSX.Element {
           </div>
           {topThemes.length === 0 ? (
             <div className="text-[12px] text-muted italic">
-              No risk themes detected — clean call sheet.
+              No risk themes detected - clean call sheet.
             </div>
           ) : (
             <ul className="space-y-1.5">

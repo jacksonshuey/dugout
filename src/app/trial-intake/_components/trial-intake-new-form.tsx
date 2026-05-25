@@ -128,7 +128,7 @@ export function TrialIntakeNewForm({
     const stored = loadIntakes(workspaceKey);
     appendIntake(workspaceKey, stored, intake);
 
-    // Resolve the linked NO_TRIAL_BRIEF_AT_DEMO_SAT task — brief is in flight,
+    // Resolve the linked NO_TRIAL_BRIEF_AT_DEMO_SAT task - brief is in flight,
     // signal's behavioral premise no longer holds. No-op if there's no open
     // task (e.g. the AE hadn't loaded the Console yet).
     const tasks = loadTasks(workspaceKey);
@@ -183,7 +183,7 @@ export function TrialIntakeNewForm({
         <Field
           label="Opportunity"
           required
-          help="Demo Sat+ deals only — earlier-stage deals don't qualify for the trial motion."
+          help="Demo Sat+ deals only - earlier-stage deals don't qualify for the trial motion."
         >
           <select
             value={oppId}
@@ -223,7 +223,7 @@ export function TrialIntakeNewForm({
           <textarea
             value={kpi1}
             onChange={(e) => setKpi1(e.target.value)}
-            placeholder="Hypothesis #1 — e.g. cut contract review cycle 12d → 5d"
+            placeholder="Hypothesis #1 - e.g. cut contract review cycle 12d → 5d"
             rows={2}
             className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm leading-snug"
           />
@@ -273,7 +273,7 @@ export function TrialIntakeNewForm({
             onChange={(e) => setSeNotes(e.target.value)}
             rows={3}
             className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm leading-snug"
-            placeholder="Context the SE should know — landmines, prior calls, asset assumptions."
+            placeholder="Context the SE should know - landmines, prior calls, asset assumptions."
           />
         </Field>
 

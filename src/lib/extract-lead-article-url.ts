@@ -1,17 +1,17 @@
 // Lead-article URL extraction.
 //
 // Pure helper. Given the HTML (or text) body of a newsletter, returns the
-// first URL that is plausibly the lead article — that is, NOT a tracking
+// first URL that is plausibly the lead article - that is, NOT a tracking
 // pixel, NOT an unsubscribe link, NOT a "view in browser" / forward CTA,
 // NOT an image asset.
 //
 // Heuristic, ~95% correct. The raw-email drawer is the fallback when this
-// returns null — see design §9.
+// returns null - see design §9.
 //
 // Known limitations:
 //   - Wrapped tracking URLs are lost. Mailchimp/Beehiiv wrap real article
 //     URLs in tracker redirects. We do NOT follow redirects (would require
-//     an HTTP call per email — too slow at scale).
+//     an HTTP call per email - too slow at scale).
 //   - First-URL bias. A newsletter that puts "Forward to a friend" above
 //     the lead article would surface the forward link first. Mitigated by
 //     the unsubscribe/preferences/forward regex.
@@ -22,7 +22,7 @@
 // Tracking hosts we know wrap real URLs in opaque redirects. Add to this
 // list when a new publisher's tracking domain shows up in extraction logs
 // (the pipeline logs `extract_lead_url_returned=null from=<sender_domain>`
-// as a breadcrumb — see design §12 Q4).
+// as a breadcrumb - see design §12 Q4).
 const TRACKING_HOSTS = [
   "list-manage.com", // Mailchimp
   "track.beehiiv.com",
@@ -76,7 +76,7 @@ function extractBareUrls(source: string): string[] {
 export function extractLeadArticleUrl(htmlOrText: string): string | null {
   if (!htmlOrText) return null;
 
-  // 1. Prefer HTML anchors over bare-text URLs — the anchor text often
+  // 1. Prefer HTML anchors over bare-text URLs - the anchor text often
   //    hints at editorial vs. nav (longer anchor text → more likely the
   //    lead article).
   const anchors = extractAnchors(htmlOrText);
@@ -96,7 +96,7 @@ export function extractLeadArticleUrl(htmlOrText: string): string | null {
     if (!host) continue;
 
     // Skip tracking hosts (almost always wrappers around real URLs we
-    // can't easily resolve without making an HTTP call — accept the loss).
+    // can't easily resolve without making an HTTP call - accept the loss).
     if (TRACKING_HOSTS.some((t) => host === t || host.endsWith("." + t))) {
       continue;
     }

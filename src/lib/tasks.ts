@@ -1,4 +1,4 @@
-// Task layer — the orchestration substrate.
+// Task layer - the orchestration substrate.
 //
 // Signals (from signal-engine) DETECT things. Tasks (from this module) make
 // those signals STATEFUL: a task tracks whether the AE actually did the work,
@@ -6,7 +6,7 @@
 // who-did-what-when via a history log.
 //
 // Source of truth: the signal engine. Tasks reconcile against the current
-// signal set on every read — if the underlying signal stops firing, the task
+// signal set on every read - if the underlying signal stops firing, the task
 // auto-resolves (with a toast surfaced in the UI).
 //
 // Storage: localStorage. Production would back this with a database (one row
@@ -20,7 +20,7 @@ export type TaskStatus = "open" | "done" | "snoozed" | "muted";
 export type TaskResolutionReason =
   | "manual_done" // AE clicked "Mark done"
   | "auto_signal_resolved" // signal stopped firing; system closed it
-  | "muted"; // AE muted with a reason — no further re-fires
+  | "muted"; // AE muted with a reason - no further re-fires
 
 export interface TaskEvent {
   at: string; // ISO timestamp
@@ -40,7 +40,7 @@ export interface Task {
   id: string; // matches the signal.id that produced it (`${ruleId}:${oppId}`)
   signalRuleId: string;
   oppId: string;
-  ownerId: string; // deal owner — AE responsible
+  ownerId: string; // deal owner - AE responsible
 
   // Snapshot of the signal at the time the task was current. Refreshed on each
   // reconciliation while the task is still open. Frozen once the task closes.
@@ -56,7 +56,7 @@ export interface Task {
   status: TaskStatus;
   resolvedAt?: string;
   resolutionReason?: TaskResolutionReason;
-  snoozedUntil?: string; // ISO — when a snoozed task wakes up
+  snoozedUntil?: string; // ISO - when a snoozed task wakes up
   muteReason?: string;
 
   // Annotation
@@ -65,7 +65,7 @@ export interface Task {
 }
 
 // ---------------------------------------------------------------------------
-// Storage helpers — client-only (localStorage). Safe to call from server
+// Storage helpers - client-only (localStorage). Safe to call from server
 // components; they'll return empty arrays since `window` is undefined.
 //
 // Storage is scoped per workspace: switching presets (Checkbox → Generic SaaS)
@@ -98,7 +98,7 @@ export function saveTasks(workspaceKey: string, tasks: Task[]): void {
   try {
     window.localStorage.setItem(storageKey(workspaceKey), JSON.stringify(tasks));
   } catch {
-    // localStorage quota or disabled — fail silently. Production would alert.
+    // localStorage quota or disabled - fail silently. Production would alert.
   }
 }
 
@@ -108,11 +108,11 @@ export function clearTasks(workspaceKey: string): void {
 }
 
 // ---------------------------------------------------------------------------
-// Reconciliation — the core engine.
+// Reconciliation - the core engine.
 //
 // Given the current set of signals (computed server-side from seed + workspace
 // config) and the stored tasks (from localStorage), return:
-//   1. The merged task list — preserves user state, creates new tasks for new
+//   1. The merged task list - preserves user state, creates new tasks for new
 //      signals, auto-resolves tasks whose signal no longer fires.
 //   2. A list of task IDs that JUST auto-resolved in this reconciliation pass.
 //      The UI shows a toast for these.
@@ -245,7 +245,7 @@ function signalToTask(sig: Signal, ownerId: string, nowIso: string): Task {
 }
 
 // ---------------------------------------------------------------------------
-// Mutators — used by action buttons in the UI. Each returns the updated task
+// Mutators - used by action buttons in the UI. Each returns the updated task
 // list and persists to localStorage.
 // ---------------------------------------------------------------------------
 

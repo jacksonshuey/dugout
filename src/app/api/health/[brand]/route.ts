@@ -12,7 +12,7 @@ import {
 // (an "Integrations" settings page, a status widget on /console) can read
 // the same source of truth without re-implementing env-var logic.
 //
-// Auth: requireUiSession() — same gate as the rest of /api/*. The shape of
+// Auth: requireUiSession() - same gate as the rest of /api/*. The shape of
 // the response is benign on its own ("ANTHROPIC_API_KEY missing" doesn't
 // expose anything that's not in .env.example), but enumeration of which
 // integrations a deployment has connected is workspace-private info, so

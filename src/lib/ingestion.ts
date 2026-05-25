@@ -7,8 +7,8 @@ import { fetchSignalsForTicker, hasSecCoverage } from "./sec-adapter";
 // out across all applicable adapters in parallel and merges the results.
 //
 // Today's adapters:
-//   - news-adapter (NewsAPI + Haiku) — runs for every trackable account
-//   - sec-adapter (EDGAR 8-K) — runs only when account.ticker is set AND
+//   - news-adapter (NewsAPI + Haiku) - runs for every trackable account
+//   - sec-adapter (EDGAR 8-K) - runs only when account.ticker is set AND
 //     the ticker has a CIK mapping in sec-adapter
 //
 // Adding a new adapter is mechanical: add it to the Promise.all below, give
@@ -16,7 +16,7 @@ import { fetchSignalsForTicker, hasSecCoverage } from "./sec-adapter";
 //
 // Failure model: each adapter is wrapped in its own try; one adapter
 // failing does NOT block the others. The wrapper throws only when EVERY
-// applicable adapter fails — callers see a single error in that case.
+// applicable adapter fails - callers see a single error in that case.
 
 export interface PerSourceResult {
   newsapi?: { count: number; error?: string };

@@ -5,7 +5,7 @@ import {
   type InboundEmail,
 } from "@/lib/inbound-email";
 
-// Hidden inbox view — no nav link. Reach via /inbox direct URL.
+// Hidden inbox view - no nav link. Reach via /inbox direct URL.
 //
 // Renders the raw HTML/text bodies of inbound emails so a human can read
 // what landed (clicking newsletter confirmation links, scanning subjects)
@@ -70,7 +70,7 @@ function Header() {
       <h1 className="text-3xl font-semibold tracking-tight">Raw inbox</h1>
       <p className="text-base text-muted max-w-2xl">
         Last {INBOX_LIMIT} inbound newsletter emails.
-        Click a row to expand and view the email body — links inside open in
+        Click a row to expand and view the email body - links inside open in
         new tabs. Reached by direct URL only; no nav link.
       </p>
       <div className="text-sm pt-2">
@@ -150,7 +150,7 @@ function Meta({ email }: { email: InboundEmail }) {
     <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-xs text-muted">
       <dt>Message-ID</dt>
       <dd className="font-mono break-all text-foreground">
-        {email.message_id ?? "—"}
+        {email.message_id ?? "-"}
       </dd>
       <dt>Size</dt>
       <dd className="text-foreground">
@@ -158,7 +158,7 @@ function Meta({ email }: { email: InboundEmail }) {
       </dd>
       <dt>Classified</dt>
       <dd className="text-foreground">
-        {email.classified_at ? formatDate(email.classified_at) : "—"}
+        {email.classified_at ? formatDate(email.classified_at) : "-"}
       </dd>
     </dl>
   );

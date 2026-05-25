@@ -30,7 +30,7 @@ export function TaskCard({
 }: {
   task: Task;
   dealName?: string; // shown when this card is rendered outside a deal context (Today view)
-  isOwner: boolean; // viewer is the deal owner — controls which actions show
+  isOwner: boolean; // viewer is the deal owner - controls which actions show
   viewerName?: string;
   compact?: boolean;
   onMarkDone: () => void;
@@ -206,7 +206,7 @@ export function TaskCard({
           <textarea
             value={muteText}
             onChange={(e) => setMuteText(e.target.value)}
-            placeholder="Why are you muting this? (required — shows up in noise audits)"
+            placeholder="Why are you muting this? (required - shows up in noise audits)"
             rows={2}
             className="w-full text-sm rounded border border-border px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
           />
@@ -278,7 +278,7 @@ export function TaskCard({
                   <span className="text-foreground">{h.by ?? viewerName}</span>{" "}
                   {h.action}
                   {h.detail && (
-                    <span className="text-foreground/60"> — {h.detail}</span>
+                    <span className="text-foreground/60"> - {h.detail}</span>
                   )}
                 </span>
               </div>

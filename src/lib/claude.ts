@@ -4,11 +4,11 @@ import { join } from "node:path";
 
 // Single source of truth for the model used by Dugout. We pick Sonnet 4.6
 // because (a) the digest is reasoning-heavy synthesis where Haiku is too thin,
-// and (b) cost is negligible at this volume — 1-3k output tokens per digest
+// and (b) cost is negligible at this volume - 1-3k output tokens per digest
 // × 9 AEs × 1 run/day ≈ $0.05/day at sticker price. Worth the quality bump.
 const MODEL = "claude-sonnet-4-6";
 
-// Fallback env loader. Next.js gives process.env precedence over .env.local —
+// Fallback env loader. Next.js gives process.env precedence over .env.local -
 // so if the shell exports an empty ANTHROPIC_API_KEY (as some agentic dev
 // harnesses do), .env.local never wins. This reads .env.local directly when
 // the env var is missing or empty. No-op in production where Vercel injects
@@ -76,11 +76,11 @@ export async function chat({
     if (e instanceof Anthropic.APIError) {
       if (e.status === 529)
         throw new Error(
-          "Claude API is temporarily overloaded (their side). Retry in ~30s — the SDK already retried 4× with exponential backoff.",
+          "Claude API is temporarily overloaded (their side). Retry in ~30s - the SDK already retried 4× with exponential backoff.",
         );
       if (e.status === 429)
         throw new Error(
-          "Rate limited. Wait a minute then retry — your account may be hitting per-minute caps.",
+          "Rate limited. Wait a minute then retry - your account may be hitting per-minute caps.",
         );
       if (e.status === 401)
         throw new Error(

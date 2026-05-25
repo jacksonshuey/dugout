@@ -22,7 +22,7 @@ interface WorkspaceRow {
   workspace_key: string;
 }
 
-// Constant-time string compare. Same approach as src/lib/ui-auth.ts —
+// Constant-time string compare. Same approach as src/lib/ui-auth.ts -
 // keeps timing characteristics consistent with the rest of the codebase
 // (the granola cron is internal but Vercel cron URLs can leak via logs).
 function timingSafeEqual(a: string, b: string): boolean {
@@ -62,7 +62,7 @@ export async function GET(req: Request) {
     const workspaces = await listConnectedWorkspaces();
     // Per-workspace try/catch so a Vault read failure (or any other thrown
     // error) on one workspace doesn't reject Promise.all and abort the
-    // entire run — every workspace records its own outcome.
+    // entire run - every workspace records its own outcome.
     const results = await Promise.all(
       workspaces.map(async (workspaceKey) => {
         try {

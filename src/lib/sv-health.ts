@@ -1,11 +1,11 @@
-// Selected Vendor Health Score — the Hero metric per metrics.md and
+// Selected Vendor Health Score - the Hero metric per metrics.md and
 // discovery/information-requirements.md (Hero Surface #0).
 //
 // Formula (per metrics.md "The hero metric"):
 //
 //   finalScore = round(
 //       0.20 × timeInStageScore
-//     + 0.30 × committeeCoverageScore   (heaviest — Priority #4)
+//     + 0.30 × committeeCoverageScore   (heaviest - Priority #4)
 //     + 0.20 × enablementDeploymentScore (Priority #2)
 //     + 0.20 × championEngagementScore
 //     - riskPenalty                      (0 or 20, subtractive)
@@ -15,11 +15,11 @@
 //   80+ healthy, 60-79 watch, 40-59 at_risk, <40 critical
 //
 // Design rules (per orgs/_default/BUILD_ALIGNMENT.md):
-//   1. Pure function. No I/O, no Supabase, no fetch — testable closed-form.
+//   1. Pure function. No I/O, no Supabase, no fetch - testable closed-form.
 //   2. No `confidence` field anywhere (principle #5).
-//   3. Severity values respected — `blocking | action | awareness`.
+//   3. Severity values respected - `blocking | action | awareness`.
 //   4. Signal types from the canonical 12 only.
-//   5. Evidence chain mandatory — every signal that contributed to a
+//   5. Evidence chain mandatory - every signal that contributed to a
 //      component must be cited in evidenceSignalIds[].
 //   6. Driver strings are plain language, no exclamations, no emojis.
 
@@ -40,7 +40,7 @@ export type SVHealthComponents = {
   committeeCoverage: number; // 0-100
   enablementDeployment: number; // 0-100
   championEngagement: number; // 0-100
-  riskPenalty: number; // 0 or negative — subtracted from running total
+  riskPenalty: number; // 0 or negative - subtracted from running total
 };
 
 export type SVHealthScore = {
@@ -53,9 +53,9 @@ export type SVHealthScore = {
 
 // ─── Constants ──────────────────────────────────────────────────────────
 //
-// p75 SV stage age (days) — v1 placeholder per metrics.md §"Time-in-stage
+// p75 SV stage age (days) - v1 placeholder per metrics.md §"Time-in-stage
 // score". Real p75 comes from SFDC OpportunityHistory once wired. Documented
-// in metrics.md as "need ~30 days of SFDC history to compute" — using 30 as
+// in metrics.md as "need ~30 days of SFDC history to compute" - using 30 as
 // the conservative placeholder. Tuning knob.
 const SV_STAGE_AGE_P75_DAYS = 30;
 
@@ -113,7 +113,7 @@ function slotForRole(role: ContactRole): RoleSlot | null {
 // metrics.md §"Enablement-asset deployment score" requires checking whether
 // the 3 standard assets (CFO Leave-Behind, IT Zero-Lift, Finance Brief) have
 // been shared on the opp. The current `Opportunity` type does NOT carry an
-// `assetsShared` field — asset delivery lives in the separate
+// `assetsShared` field - asset delivery lives in the separate
 // `AssetDelivery[]` collection on `EvaluationContext`. The shared contract
 // for this function takes only the opp itself (no deliveries[]), so:
 //
@@ -122,7 +122,7 @@ function slotForRole(role: ContactRole): RoleSlot | null {
 //   - If the field is missing (current v1 state), we return 0 and surface
 //     the gap in drivers
 //
-// Schema proposal (per BUILD_ALIGNMENT principle #1 — "propose, don't
+// Schema proposal (per BUILD_ALIGNMENT principle #1 - "propose, don't
 // silently invent"): add an `assetsShared` field to Opportunity, OR have
 // Agent B3 compute it from AssetDelivery[] and pass it through. Flagged in
 // the return report as an "install-time discovery."
@@ -185,7 +185,7 @@ type EnablementResult = {
 function computeEnablementDeployment(
   opportunity: Opportunity,
 ): EnablementResult {
-  // Read `assetsShared` if present on the opp (permissive cast — see schema
+  // Read `assetsShared` if present on the opp (permissive cast - see schema
   // note above). v1 fixture data does not populate it, so this returns 0 in
   // practice today.
   const shared =
@@ -234,7 +234,7 @@ function computeChampionEngagement(
   // Note this is a deliberate v1 simplification: a champion-disengagement
   // signal firing actually means the champion has gone QUIET, so using it
   // as a "touch" would be backwards. We therefore prefer signals that
-  // reflect activity rather than absence — but in the seed-data world we
+  // reflect activity rather than absence - but in the seed-data world we
   // don't have a clean "champion activity" signal type. The cleanest v1
   // path: if there are no signals at all on this opp, treat as fresh
   // (use enteredStageAt as the floor); else use the most recent signal as
@@ -292,7 +292,7 @@ function computeRiskPenalty(signals: Signal[]): RiskResult {
 // ─── Driver strings (plain language, no emojis, no exclamations) ───────
 //
 // Surface the 1-3 worst-performing components. Each string explains the
-// component in human terms — never reads as marketing copy. The voice
+// component in human terms - never reads as marketing copy. The voice
 // matches existing drawer/console copy (see BUILD_ALIGNMENT principle #8).
 
 function driverForCommittee(missing: RoleSlot[]): string | null {
@@ -383,7 +383,7 @@ function pickDrivers(args: {
 
   const riskText = driverForRisk(args.components.riskPenalty);
   if (riskText) {
-    // Risk penalty is the strongest negative signal — give it a low weightScore
+    // Risk penalty is the strongest negative signal - give it a low weightScore
     // so it surfaces first when present.
     candidates.push({ weightScore: -1, text: riskText });
   }
@@ -406,8 +406,8 @@ export function computeSVHealthScore(args: {
   externalSignals: ExternalSignal[];
 }): SVHealthScore {
   const { opportunity, contacts, signals } = args;
-  // externalSignals is accepted for future use (account-level context — news,
-  // SEC filings — will eventually contribute to the risk penalty as a
+  // externalSignals is accepted for future use (account-level context - news,
+  // SEC filings - will eventually contribute to the risk penalty as a
   // "vertical_context" / "account_context" multiplier). v1 doesn't read it
   // yet; keeping it on the signature so Agent B3's call site doesn't churn.
   void args.externalSignals;

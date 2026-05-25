@@ -7,25 +7,25 @@
 // ranker.ts shape: single forced tool-use round-trip with a deterministic
 // fail-soft to the article title (truncated) on every error path.
 //
-// The orchestrator (L1.c) MUST NEVER see a thrown error from this module —
+// The orchestrator (L1.c) MUST NEVER see a thrown error from this module -
 // the outer try/catch is the safety net. For low_signal verdicts the
 // orchestrator should bypass us entirely and call `fallbackBullet` directly.
 //
 // Provider: Anthropic Haiku 4.5, single forced tool call. We do NOT reuse
-// anthropic-ask.ts (multi-turn chat) — this is single-shot like ranker.ts.
+// anthropic-ask.ts (multi-turn chat) - this is single-shot like ranker.ts.
 
 import Anthropic from "@anthropic-ai/sdk";
 
 import { HAS_ANTHROPIC_KEY, getAnthropicClient } from "./anthropic-ask";
 import type { ArticleInput, WorkspaceRelevance } from "./news-filter-types";
 
-// Haiku model id — centralized so a model bump is one line.
+// Haiku model id - centralized so a model bump is one line.
 const HAIKU_MODEL = "claude-haiku-4-5";
 
 // Hard request timeout (ms). Bullet generation is cheap; 8s is generous.
 const HAIKU_TIMEOUT_MS = 8_000;
 
-// Bullet length cap — also enforced in the tool schema and post-validated.
+// Bullet length cap - also enforced in the tool schema and post-validated.
 const BULLET_MAX_CHARS = 100;
 const BULLET_MIN_CHARS = 12;
 
@@ -145,7 +145,7 @@ export async function generateBullet(
   input: BulletGenInput,
   deps: BulletGenDeps = {},
 ): Promise<BulletGenOutput> {
-  // Outer safety net — orchestrator must never see a throw from us.
+  // Outer safety net - orchestrator must never see a throw from us.
   try {
     return await generateBulletInner(input, deps);
   } catch (e) {
@@ -182,9 +182,9 @@ async function generateBulletInner(
     const tagMsg = e instanceof Error ? e.message : String(e);
     if (reason === "haiku_5xx") {
       const status = e instanceof Anthropic.APIError ? e.status : "n/a";
-      console.warn(`[news-bullet] haiku_5xx status=${status} — fallback: ${tagMsg}`);
+      console.warn(`[news-bullet] haiku_5xx status=${status} - fallback: ${tagMsg}`);
     } else {
-      console.warn(`[news-bullet] ${reason} after ${HAIKU_TIMEOUT_MS / 1000}s — fallback: ${tagMsg}`);
+      console.warn(`[news-bullet] ${reason} after ${HAIKU_TIMEOUT_MS / 1000}s - fallback: ${tagMsg}`);
     }
     return { ...fallbackBullet(input.article), fallbackReason: reason };
   }

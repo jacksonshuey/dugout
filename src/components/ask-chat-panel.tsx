@@ -8,16 +8,16 @@ import {
   useAskChoice,
 } from "@/components/ask-provider-picker";
 
-// AskChatPanel — drawer / account-page surface for the /ask agent
+// AskChatPanel - drawer / account-page surface for the /ask agent
 // (D1 update).
 //
 // Two surfaces per synthesis.md "The AI query layer":
-//   - /ask (full page) — deep-work surface
-//   - drawer chat panel — pre-scoped to the open account
+//   - /ask (full page) - deep-work surface
+//   - drawer chat panel - pre-scoped to the open account
 //
 // D1 additions match the /ask page: a provider picker (sticky via
 // useAskChoice) and a clear 429 message when the rate-limit cap is hit.
-// We intentionally keep this surface small — no tool-call trace — so the
+// We intentionally keep this surface small - no tool-call trace - so the
 // drawer stays focused on quick in-flow answers.
 
 type Citation = {
@@ -148,7 +148,7 @@ export function AskChatPanel({
             <p className="text-[10px] text-amber-700">
               {response.stubReason
                 ? `Demo response (${response.stubReason}).`
-                : "Demo response — pick a provider above for live answers."}
+                : "Demo response - pick a provider above for live answers."}
             </p>
           )}
           <p className="text-xs leading-relaxed whitespace-pre-wrap">

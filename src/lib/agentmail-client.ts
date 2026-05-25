@@ -1,4 +1,4 @@
-// AgentMail REST API client — thin typed wrapper around the inbox + lists
+// AgentMail REST API client - thin typed wrapper around the inbox + lists
 // endpoints. Used by scripts/provision-agentmail-inbox.ts today; any future
 // outbound / management work (sending replies, polling messages as a
 // webhook fallback) lands here too.
@@ -44,7 +44,7 @@ export interface InboxDetails {
   address: string;
   /**
    * AgentMail does not surface a "webhook URL" field on the inbox resource
-   * (webhooks are configured at the workspace level — one endpoint fans
+   * (webhooks are configured at the workspace level - one endpoint fans
    * out to many inboxes). Surfaced here as `null` for a stable caller shape.
    */
   webhookUrl: string | null;
@@ -56,7 +56,7 @@ function getApiKey(): string {
   const key = process.env.AGENTMAIL_API_KEY;
   if (!key || key.trim().length === 0) {
     throw new Error(
-      "AGENTMAIL_API_KEY not set — required for src/lib/agentmail-client.ts. " +
+      "AGENTMAIL_API_KEY not set - required for src/lib/agentmail-client.ts. " +
         "Get one at console.agentmail.to → API Keys.",
     );
   }
@@ -95,7 +95,7 @@ async function agentmailFetch<T>(args: RequestArgs): Promise<T> {
   }
   clearTimeout(timer);
 
-  // Read the body once — even on error, AgentMail typically returns JSON
+  // Read the body once - even on error, AgentMail typically returns JSON
   // with `{ "error": "...", "message": "..." }`.
   const rawText = await res.text();
   let parsed: unknown = null;
@@ -174,7 +174,7 @@ export async function createInbox(
 
   if (!inboxId || !address) {
     throw new Error(
-      `createInbox: response missing inbox_id/email — got keys [${Object.keys(raw ?? {}).join(",")}]`,
+      `createInbox: response missing inbox_id/email - got keys [${Object.keys(raw ?? {}).join(",")}]`,
     );
   }
 
@@ -212,7 +212,7 @@ export async function subscribeNewsletter(
 }
 
 /**
- * Fetch the inbox resource — used as a health check by the provisioning
+ * Fetch the inbox resource - used as a health check by the provisioning
  * script and as a future debugging primitive.
  *
  * Per GET /v0/inboxes/{inbox_id}.
@@ -240,7 +240,7 @@ export async function getInbox(inboxId: string): Promise<InboxDetails> {
 
   if (!id || !address) {
     throw new Error(
-      `getInbox: response missing id/email — got keys [${Object.keys(raw ?? {}).join(",")}]`,
+      `getInbox: response missing id/email - got keys [${Object.keys(raw ?? {}).join(",")}]`,
     );
   }
 

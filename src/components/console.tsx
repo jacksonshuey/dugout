@@ -52,7 +52,7 @@ export interface ConsoleData {
 export function Console(props: ConsoleData & { basePath?: string }) {
   const router = useRouter();
   const params = useSearchParams();
-  // basePath lets the Console live at any route — /console for the
+  // basePath lets the Console live at any route - /console for the
   // standalone surface, / for the landing-page embed. URL state writes
   // respect this so internal filter changes don't bounce the user out
   // of the page they're on.
@@ -104,7 +104,7 @@ export function Console(props: ConsoleData & { basePath?: string }) {
     for (const o of props.opportunities) ownerLookup[o.id] = o.ownerId;
     const result = reconcile(workspaceKey, props.signals, props.reps, ownerLookup);
     // Reconciliation reads localStorage (client-only) and must rehydrate
-    // after mount — the React 19 "derive in render" alternative requires
+    // after mount - the React 19 "derive in render" alternative requires
     // splitting reconcile() into pure + side-effecting paths and tracking
     // user mutations separately. Deferred.
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -125,8 +125,8 @@ export function Console(props: ConsoleData & { basePath?: string }) {
         message: `✓ ${result.autoResolved.length} task${result.autoResolved.length === 1 ? "" : "s"} auto-resolved`,
         detail:
           extra > 0
-            ? `${names}, +${extra} more — signal no longer firing.`
-            : `${names} — signal no longer firing.`,
+            ? `${names}, +${extra} more - signal no longer firing.`
+            : `${names} - signal no longer firing.`,
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -436,7 +436,7 @@ function PipelineView({
     };
   });
 
-  // Free-text search filter — matches against account name, owner name, and
+  // Free-text search filter - matches against account name, owner name, and
   // opportunity name (case-insensitive substring). Applies before sort.
   const q = query.trim().toLowerCase();
   const filtered = q
@@ -581,7 +581,7 @@ function PipelineView({
                         )}
                       </span>
                     ) : (
-                      <span className="text-muted text-xs italic">—</span>
+                      <span className="text-muted text-xs italic">-</span>
                     )}
                   </td>
                 </tr>

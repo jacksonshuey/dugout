@@ -7,7 +7,7 @@ import {
 import { getWorkspaceConfig } from "@/lib/workspace-server";
 import { TrialIntakeListView } from "./_components/trial-intake-list-view";
 
-// Trial Orchestrator landing — active intakes list. Server shell fetches the
+// Trial Orchestrator landing - active intakes list. Server shell fetches the
 // canonical seed snapshot + workspace config (for the localStorage scope key)
 // and hands them to the client view, which merges with any locally-created
 // intakes and runs the SLA countdowns.

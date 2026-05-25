@@ -8,7 +8,7 @@
 //
 // Provider: Anthropic Haiku 4.5, single tool-use round-trip. We do NOT
 // reuse anthropic-ask.ts because the /ask agent loop is a multi-turn
-// chat-tool dance — this ranker is single-shot with one forced tool call,
+// chat-tool dance - this ranker is single-shot with one forced tool call,
 // closer in shape to the newsletter-adapter classifier than to /ask.
 //
 // Design doc: /docs/ranker-design.md §5 + §8.
@@ -31,7 +31,7 @@ import type {
   StubReason,
 } from "./ranker-types";
 
-// Haiku model id — centralized here so a model bump is one line.
+// Haiku model id - centralized here so a model bump is one line.
 const HAIKU_MODEL = "claude-haiku-4-5";
 
 // Hard request timeout (ms). The SDK retries 5xx with backoff; this is the
@@ -147,7 +147,7 @@ function validateItems(
   if (rawItems.length > topN) {
     return { ok: false, reason: `items.length=${rawItems.length} > topN=${topN}` };
   }
-  // Items cannot exceed signals count — Q7 resolution (folded into
+  // Items cannot exceed signals count - Q7 resolution (folded into
   // haiku_schema_violation, not a new StubReason).
   if (rawItems.length > inputSignals.length) {
     return {
@@ -242,7 +242,7 @@ function classifyError(e: unknown): StubReason {
   if (msg.includes("timeout") || msg.includes("timed out") || msg.includes("aborted")) {
     return "haiku_timeout";
   }
-  // Any other API error (4xx, network) — treat as 5xx category for fail-soft
+  // Any other API error (4xx, network) - treat as 5xx category for fail-soft
   // purposes. The /ask path special-cases 401/429 with user-facing copy;
   // the ranker is invisible plumbing so we collapse to "degraded."
   return "haiku_5xx";
@@ -263,11 +263,11 @@ export interface RankSignalsDeps {
   // to workspaceKey when not supplied so the prompt always has SOMETHING.
   workspaceName?: string;
   workspaceContext?: string;
-  // Primary vertical — gates the AI-topic relevance bonus in the prompt.
+  // Primary vertical - gates the AI-topic relevance bonus in the prompt.
   // Defaults to "tech_ai" since that's Checkbox's primary lens; callers
   // for other verticals should pass their slug explicitly.
   primaryVertical?: string;
-  // Test seam for HAS_ANTHROPIC_KEY — defaults to the env-derived value.
+  // Test seam for HAS_ANTHROPIC_KEY - defaults to the env-derived value.
   hasApiKey?: boolean;
 }
 
@@ -275,7 +275,7 @@ export async function rankSignals(
   input: RankerInput,
   deps: RankSignalsDeps = {},
 ): Promise<RankerResult> {
-  // Outer safety net — see design §8 final paragraph. The market-intel
+  // Outer safety net - see design §8 final paragraph. The market-intel
   // page must never 500 on a ranker bug.
   try {
     return await rankSignalsInner(input, deps);
@@ -293,7 +293,7 @@ async function rankSignalsInner(
 ): Promise<RankerResult> {
   // Short-circuit: empty input. No Haiku, no cache write.
   if (input.signals.length === 0) {
-    console.warn(`[ranker] empty_input — short-circuit`);
+    console.warn(`[ranker] empty_input - short-circuit`);
     return {
       items: [],
       generated_at: input.now.toISOString(),
@@ -312,7 +312,7 @@ async function rankSignalsInner(
 
   const key = buildCacheKey(workspaceName, input.now);
 
-  // Cache check — failures return null and proceed to compute path.
+  // Cache check - failures return null and proceed to compute path.
   const cached = await getCachedRanking(key, deps.cache);
   if (cached) {
     return { ...cached, cache_hit: true };
@@ -321,13 +321,13 @@ async function rankSignalsInner(
   const hasKey = deps.hasApiKey ?? HAS_ANTHROPIC_KEY;
   if (!hasKey) {
     const result = rankStub(input, "no_api_key");
-    console.warn(`[ranker] no_api_key — stub serving ${result.items.length} items`);
+    console.warn(`[ranker] no_api_key - stub serving ${result.items.length} items`);
     return result;
   }
 
   const systemPrompt = getRankerSystemPrompt({
     workspaceContext:
-      deps.workspaceContext ?? `Workspace: ${workspaceName}. Industry, ICP, and strategic priorities omitted from this prompt — see Dugout workspace config.`,
+      deps.workspaceContext ?? `Workspace: ${workspaceName}. Industry, ICP, and strategic priorities omitted from this prompt - see Dugout workspace config.`,
     topN,
     primaryVertical: deps.primaryVertical ?? "tech_ai",
   });
@@ -351,10 +351,10 @@ async function rankSignalsInner(
     if (reason === "haiku_5xx") {
       const status = e instanceof Anthropic.APIError ? e.status : "n/a";
       console.warn(
-        `[ranker] haiku_5xx status=${status} — stub serving (input ${input.signals.length} signals): ${tagMsg}`,
+        `[ranker] haiku_5xx status=${status} - stub serving (input ${input.signals.length} signals): ${tagMsg}`,
       );
     } else {
-      console.warn(`[ranker] ${reason} after ${HAIKU_TIMEOUT_MS / 1000}s — stub: ${tagMsg}`);
+      console.warn(`[ranker] ${reason} after ${HAIKU_TIMEOUT_MS / 1000}s - stub: ${tagMsg}`);
     }
     return rankStub(input, reason);
   }

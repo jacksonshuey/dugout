@@ -1,6 +1,6 @@
 // Slack webhook poster. We support two modes:
-//   1. Live mode  — posts to the SLACK_WEBHOOK_URL configured in env
-//   2. Demo mode  — returns a preview payload without posting, so the UI can
+//   1. Live mode  - posts to the SLACK_WEBHOOK_URL configured in env
+//   2. Demo mode  - returns a preview payload without posting, so the UI can
 //                    show "this is what would be sent" if no webhook is set.
 
 export interface SlackBlock {
@@ -51,7 +51,7 @@ export async function postToSlack(payload: SlackPayload): Promise<{
 }
 
 // Format a list of signals into a Slack Block Kit payload. Designed to match
-// what the production system would actually send — readable, with one-click
+// what the production system would actually send - readable, with one-click
 // links and a clear severity prefix.
 export function signalsToSlackPayload(
   repName: string,
@@ -64,7 +64,7 @@ export function signalsToSlackPayload(
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `*Dugout — ${repName}'s morning digest*`,
+          text: `*Dugout - ${repName}'s morning digest*`,
         },
       },
       {
@@ -79,7 +79,7 @@ export function signalsToSlackPayload(
         elements: [
           {
             type: "mrkdwn",
-            text: "Dugout — the intelligence layer for sales teams",
+            text: "Dugout - the intelligence layer for sales teams",
           },
         ],
       },

@@ -9,7 +9,7 @@
 //
 // System prompt for the market-intel Haiku ranker.
 //
-// Single function, deterministic output, no state — mirrors the
+// Single function, deterministic output, no state - mirrors the
 // ask-system-prompt.ts pattern. Both `topN` and `workspaceContext` are
 // injected at call time so the prompt always reflects the live workspace.
 //
@@ -22,13 +22,13 @@
 //      pattern-match, per BUILD_ALIGNMENT principle #2)
 //
 // Both lists are enumerated verbatim because the test suite asserts every
-// type literal appears in the rendered prompt — guards against silent
+// type literal appears in the rendered prompt - guards against silent
 // drift when either taxonomy changes.
 
 export interface RankerSystemPromptArgs {
   workspaceContext: string;
   topN: number;
-  // Workspace primary vertical — drives the AI-topic bonus. Optional
+  // Workspace primary vertical - drives the AI-topic bonus. Optional
   // so existing call sites that didn't pass it keep compiling; the
   // bonus only fires when this equals "tech_ai".
   primaryVertical?: string;
@@ -43,25 +43,25 @@ each with a one-sentence rationale tied to a specific signal id.
 
 # What you are looking at
 The user message will contain a JSON array of \`signals\`. Each signal has:
-  - id (string, the citation key — never alter)
+  - id (string, the citation key - never alter)
   - source (one of: "newsapi" | "sec_edgar" | "newsletter" | "web_scrape" | "manual" | "demo")
-  - type (the legacy 12-value newsletter taxonomy — see below)
+  - type (the legacy 12-value newsletter taxonomy - see below)
   - summary (≤500 chars of factual prose)
-  - occurred_at (ISO timestamp — when the underlying event happened)
-  - received_at (ISO timestamp — when Dugout ingested the signal, present on newsletter sources)
-  - workspace_relevance (one of: "high" | "medium" | "low" | "none" — set by the content filter)
+  - occurred_at (ISO timestamp - when the underlying event happened)
+  - received_at (ISO timestamp - when Dugout ingested the signal, present on newsletter sources)
+  - workspace_relevance (one of: "high" | "medium" | "low" | "none" - set by the content filter)
   - mention (account/entity name as it appeared in the source, or null)
 
-You will also receive \`accountKeywords\` — the list of accounts this workspace
+You will also receive \`accountKeywords\` - the list of accounts this workspace
 tracks. Treat a signal as account-relevant when its \`mention\` or \`summary\`
 unambiguously names one of these accounts (by name, ticker, or domain slug).
 
-You will also receive \`now\` — the current UTC ISO timestamp. Use this to
+You will also receive \`now\` - the current UTC ISO timestamp. Use this to
 compute the recency tier for every signal.
 
 # Legacy signal_type values you will see in the data
 The market-intel feed pre-dates Dugout's canonical taxonomy. You will see
-these 12 newsletter-era types — use them as-is, do not invent new ones:
+these 12 newsletter-era types - use them as-is, do not invent new ones:
 
   leadership_change, champion_job_change, ma_acquisition, funding_round,
   layoff, earnings, product_launch, press_release, competitor_mention,
@@ -69,7 +69,7 @@ these 12 newsletter-era types — use them as-is, do not invent new ones:
 
 # Dugout's canonical taxonomy (use only for rationale wording)
 When you write a rationale, you may reference Dugout's 12 canonical signal
-categories where they help an AE pattern-match. These are the ONLY 12 — do
+categories where they help an AE pattern-match. These are the ONLY 12 - do
 not invent a 13th:
 
   champion_loss, champion_disengagement, committee_gap, committee_expansion,
@@ -77,23 +77,23 @@ not invent a 13th:
   account_health_decline, lifecycle_milestone, account_context,
   vertical_context, data_hygiene_gap
 
-# Ranking rubric — apply in this order
+# Ranking rubric - apply in this order
 
 1. **Account-named items first.** A signal whose mention/summary names one
-   of \`accountKeywords\` outranks any non-named signal — full stop. Within
+   of \`accountKeywords\` outranks any non-named signal - full stop. Within
    account-named, fall through to rule 2 (date) then rule 3 (tier).
 
 2. **Date is the primary axis.** All else equal, fresher wins by a large
    margin. Compute the gap between \`now\` and \`occurred_at\` (or
    \`received_at\` for newsletter signals when newer) and bucket:
-     - **<24h ago** — large boost. An item from the last day beats almost
+     - **<24h ago** - large boost. An item from the last day beats almost
        anything older. This is THE differentiator for cutting-edge coverage
-       (frontier model drops, M&A breaks, exec departures) — a 6-hour-old
+       (frontier model drops, M&A breaks, exec departures) - a 6-hour-old
        story is fundamentally more actionable than a 5-day-old story even
        on the same topic.
-     - **24h to 72h** — moderate boost. Still current; AE can lead with it.
-     - **72h to 7d** — small boost. Useful context but not the headline.
-     - **>7d** — penalty. Background only; do not surface in the top half
+     - **24h to 72h** - moderate boost. Still current; AE can lead with it.
+     - **72h to 7d** - small boost. Useful context but not the headline.
+     - **>7d** - penalty. Background only; do not surface in the top half
        unless the topic itself is high-severity AND account-named.
 
 3. **AI-topic relevance bonus.**${
@@ -105,31 +105,31 @@ not invent a 13th:
    stack", "AI Act", "model card", "MoE", "RAG", "agentic"), apply an
    EXPLICIT bonus that elevates the item above tier-2 awareness items and
    tied with tier-1 blocking items. Cutting-edge AI is THE workspace
-   priority — when in doubt between an AI-topic awareness item and a
+   priority - when in doubt between an AI-topic awareness item and a
    non-AI blocking item, prefer the AI item if it is also fresh (<72h).`
-      : ` Not applicable — this workspace
+      : ` Not applicable - this workspace
    is not tech_ai, so no topic bonus. Apply tier and date neutrally
    across signals.`
   }
 
-4. **Tier by signal type — three tiers.** Among signals tied on date +
+4. **Tier by signal type - three tiers.** Among signals tied on date +
    AI-topic, rank by tier. Tier weight has been **downgraded** relative
    to date when an AI-topic bonus is in play; outside tech_ai, tier
    continues to be the second axis after account-named.
 
-   **Tier 1 (blocking — surface when present):**
+   **Tier 1 (blocking - surface when present):**
      - leadership_change (champion_loss exposure)
-     - ma_acquisition (account_context BLOCKING — buying committee likely changes)
+     - ma_acquisition (account_context BLOCKING - buying committee likely changes)
      - layoff (account_health_decline)
-     - regulatory_action (vertical_context — shifts buyer priorities)
+     - regulatory_action (vertical_context - shifts buyer priorities)
 
-   **Tier 2 (action — surface when fresh or account-adjacent):**
-     - funding_round (especially ≥$50M — momentum signal)
-     - earnings (deal velocity signal — beat/miss shifts buying cycles)
+   **Tier 2 (action - surface when fresh or account-adjacent):**
+     - funding_round (especially ≥$50M - momentum signal)
+     - earnings (deal velocity signal - beat/miss shifts buying cycles)
      - champion_job_change (champion at a different account now)
      - competitor_mention (competitive_threat)
 
-   **Tier 3 (awareness — surface only when slot remains):**
+   **Tier 3 (awareness - surface only when slot remains):**
      - partnership
      - product_launch
      - press_release
@@ -141,7 +141,7 @@ not invent a 13th:
    account-named or fresh-date ordering on relevance alone.
 
 6. **Diversity tiebreaker.** Avoid stacking 5 items about the same
-   \`mention\` in the top 10 — prefer one per entity in the upper half.
+   \`mention\` in the top 10 - prefer one per entity in the upper half.
 
 # Hard constraints
 - Output AT MOST ${topN} items. Fewer is fine if input is small.

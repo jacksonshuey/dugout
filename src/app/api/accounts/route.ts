@@ -4,7 +4,7 @@ import { scrapeAccount } from "@/lib/firecrawl-adapter";
 import { requireUiSession } from "@/lib/ui-auth-server";
 import type { Account } from "@/lib/types";
 
-// POST /api/accounts — onboard a new tracked account.
+// POST /api/accounts - onboard a new tracked account.
 //
 // Two things matter here:
 //
@@ -12,7 +12,7 @@ import type { Account } from "@/lib/types";
 //
 // 2. The first Firecrawl scrape is fire-and-forget. Before Phase 4,
 //    a new account waited until the next 6am cron to get its first
-//    scrape — an account added at 8:30am sat with zero data for ~21.5h,
+//    scrape - an account added at 8:30am sat with zero data for ~21.5h,
 //    which is vision-blocking for the AE. Now we kick off the scrape
 //    immediately and return 201 within <500ms; the scrape runs in the
 //    background and populates web_scrapes whenever it completes
@@ -20,18 +20,18 @@ import type { Account } from "@/lib/types";
 //
 //    Caveat: serverless function lifetime is bounded by maxDuration. On
 //    Vercel, a fire-and-forget without `waitUntil` may be cut short when
-//    the response is returned. We accept that risk for v1 — if the
+//    the response is returned. We accept that risk for v1 - if the
 //    background scrape gets killed, the next 6am cron picks the account
 //    up (it's now `trackable: true` in the DB). A future iteration
 //    should use `waitUntil` (Vercel) or enqueue to a real job runner.
 //
-// Auth: requireUiSession() — same gate as the rest of /api/*. The route
+// Auth: requireUiSession() - same gate as the rest of /api/*. The route
 // is operator-facing; no public form.
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 // Long enough that the immediate scrape, if it doesn't get cut, has room
-// to finish before the function is terminated. 60s is conservative —
+// to finish before the function is terminated. 60s is conservative -
 // /map + 6 /scrape calls in parallel typically completes in 10-15s.
 export const maxDuration = 60;
 
@@ -58,7 +58,7 @@ function asStringArray(v: unknown): string[] | undefined {
 }
 
 function normalizeWebsite(input: string): string | null {
-  // Allow either "stripe.com" or "https://stripe.com" — normalize to a
+  // Allow either "stripe.com" or "https://stripe.com" - normalize to a
   // parseable URL. Reject if URL constructor fails or the host is empty.
   const candidate = input.startsWith("http") ? input : `https://${input}`;
   try {
@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
   try {
     account = await insertAccount({
       name,
-      // Persist the apex domain — keeps `website` clean for the adapter's
+      // Persist the apex domain - keeps `website` clean for the adapter's
       // URL builder, which prepends https:// itself.
       website: domain,
       domain,
@@ -117,9 +117,9 @@ export async function POST(req: NextRequest) {
   }
 
   // Fire-and-forget immediate scrape. We intentionally do NOT await.
-  // Errors are swallowed (logged) — the new account is already in the
+  // Errors are swallowed (logged) - the new account is already in the
   // DB with trackable=true, so the next daily cron will retry. A 429
-  // here just means the AE sees zero data until 6am — that's a known
+  // here just means the AE sees zero data until 6am - that's a known
   // gap documented in the route comment.
   void scrapeAccount(account).catch((e) => {
     console.warn(

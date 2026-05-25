@@ -9,16 +9,16 @@ import { scrapeAccount } from "@/lib/firecrawl-adapter";
 // GET /api/firecrawl/company-scope?accountId=<id>
 //
 // Returns the structured MeetingBrief shape consumed by:
-//   - the /account/[slug]/prep server-rendered page (in-process — the page
+//   - the /account/[slug]/prep server-rendered page (in-process - the page
 //     calls buildMeetingBrief directly per BUILD_ALIGNMENT principle #7;
 //     this route is the HTTP boundary for external callers)
 //   - the Phase 6 Claude Code skill (.claude/skills/) that surfaces the
 //     brief to AEs from outside the web UI
 //
 // Auth: dual-path.
-//   1. UI session cookie (requireUiSession) — same gate as every other
+//   1. UI session cookie (requireUiSession) - same gate as every other
 //      /api route. This covers the in-product /account/[slug]/prep page.
-//   2. Bearer token (Authorization: Bearer <DUGOUT_SKILL_TOKEN>) — used
+//   2. Bearer token (Authorization: Bearer <DUGOUT_SKILL_TOKEN>) - used
 //      by the Phase 6 Claude Code skill (.claude/skills/firecrawl-company-
 //      scope/SKILL.md) so an AE can pull the same brief from the CLI
 //      without a browser session. If DUGOUT_SKILL_TOKEN is unset in env,
@@ -36,7 +36,7 @@ import { scrapeAccount } from "@/lib/firecrawl-adapter";
 // Vercel serverless caveat: a plain `void scrapeAccount(...)` may be
 // killed mid-flight when the function returns. The recommended fix is
 // `waitUntil(scrapeAccount(...))` from `@vercel/functions`, but that
-// package is NOT currently in package.json — flagged in the Phase 5
+// package is NOT currently in package.json - flagged in the Phase 5
 // report. Until it's added, we use the void-call pattern and rely on
 // the next cron sweep (src/app/api/cron/firecrawl/route.ts) to pick up
 // any accounts that haven't been scraped yet. This is acceptable for
@@ -105,7 +105,7 @@ export async function GET(req: NextRequest) {
     if (brief.scrapeStatus === "missing") {
       return NextResponse.json(
         {
-          error: "account has no website on file — cannot build a meeting brief",
+          error: "account has no website on file - cannot build a meeting brief",
           accountId,
         },
         { status: 404 },
@@ -122,7 +122,7 @@ export async function GET(req: NextRequest) {
           const dbAccounts = await listTrackableAccounts();
           account = dbAccounts.find((a) => a.id === accountId) ?? null;
         } catch {
-          // ignore — fall through and skip the kick
+          // ignore - fall through and skip the kick
         }
       }
       if (account && account.website) {

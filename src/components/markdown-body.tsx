@@ -4,8 +4,8 @@ import { marked } from "marked";
 // non-email signals (NewsAPI articles, Firecrawl scrapes, SEC filings) whose
 // derivation source is persisted as `external_signals.source_content_md`.
 //
-// Sanitization: marked itself emits HTML from a fixed grammar — no script
-// tags, no inline event handlers — so dangerouslySetInnerHTML is safe within
+// Sanitization: marked itself emits HTML from a fixed grammar - no script
+// tags, no inline event handlers - so dangerouslySetInnerHTML is safe within
 // our content boundary. We don't pass raw user-controlled HTML through here.
 // If we ever ingest publisher HTML into source_content_md directly (today we
 // only persist markdown), add DOMPurify before this render.

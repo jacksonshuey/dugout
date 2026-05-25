@@ -5,7 +5,7 @@ import {
   type NormalizedInboundEmail,
 } from "@/lib/inbound-pipeline";
 
-// AgentMail webhook receiver — paired with a webhook endpoint configured in
+// AgentMail webhook receiver - paired with a webhook endpoint configured in
 // the AgentMail console (https://console.agentmail.to → Webhooks) that POSTs
 // `message.received` events here.
 //
@@ -14,7 +14,7 @@ import {
 // the signature: svix-id, svix-timestamp, svix-signature. The svix library
 // verifies all three against the raw body in one call.
 //
-// Replay protection is built into Svix — timestamps older than 5 minutes
+// Replay protection is built into Svix - timestamps older than 5 minutes
 // fail verification, no extra check needed here.
 //
 // Event payload shape (from agentmail-docs/fern/definition/messages.yml):
@@ -41,7 +41,7 @@ interface AgentMailMessage {
   text?: string;
   html?: string;
   // AgentMail forwards the original RFC822 headers (when available) under
-  // `headers`. Shape is loose across providers — sometimes a flat map,
+  // `headers`. Shape is loose across providers - sometimes a flat map,
   // sometimes a list of {name, value} pairs. We normalize below.
   headers?: Record<string, unknown> | Array<{ name?: string; value?: string }>;
 }
@@ -77,7 +77,7 @@ function normalizeHeaders(
   return out;
 }
 
-// Extract the inner List-ID token per RFC-2919 — strip optional angle
+// Extract the inner List-ID token per RFC-2919 - strip optional angle
 // brackets + description. Returns null when no header is present.
 function extractListId(headers: Record<string, string>): string | null {
   const raw = headers["list-id"];
@@ -91,7 +91,7 @@ function extractListId(headers: Record<string, string>): string | null {
 // endpoint (sent, delivered, bounced, complained, rejected, domain.verified)
 // don't carry a `message` object and aren't relevant to the newsletter pipeline.
 // `.spam` / `.blocked` / `.unauthenticated` are kept in case the inbox ever
-// receives mail flagged by AgentMail's filters — the sender allowlist in
+// receives mail flagged by AgentMail's filters - the sender allowlist in
 // inbound-pipeline.ts is the second line of defense.
 const RECEIVED_EVENTS = new Set([
   "message.received",
@@ -103,7 +103,7 @@ const RECEIVED_EVENTS = new Set([
 export async function POST(req: Request) {
   const secret = process.env.AGENTMAIL_WEBHOOK_SECRET;
   if (!secret || secret.length < 16) {
-    // Misconfiguration — log server-side so it shows up in Vercel logs, but
+    // Misconfiguration - log server-side so it shows up in Vercel logs, but
     // return 202 (not 500). Svix treats 5xx as transient and retries forever;
     // 202 signals "received, not processed" and stops the retry storm.
     // We deliberately omit the env-var name from the response body to avoid

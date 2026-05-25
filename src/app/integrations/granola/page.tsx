@@ -11,7 +11,7 @@ import {
 } from "@/lib/meeting-signals";
 import { UnassignedMeetingsList } from "@/components/unassigned-meetings-list";
 
-// /integrations/granola — manual-mapping UI for meetings the auto-matcher
+// /integrations/granola - manual-mapping UI for meetings the auto-matcher
 // couldn't place + a roll-up of recently classified meetings per account.
 // Renders disconnected-state if Granola isn't configured yet.
 
@@ -63,7 +63,7 @@ export default async function GranolaIntegrationPage() {
     <div className="max-w-5xl mx-auto px-6 py-8 space-y-8">
       <header className="space-y-2">
         <h1 className="text-2xl font-semibold tracking-tight">
-          Granola — meeting intelligence
+          Granola - meeting intelligence
         </h1>
         <p className="text-sm text-muted max-w-2xl">
           Auto-matches Granola meetings to your accounts via attendee email
@@ -141,7 +141,7 @@ function SyncSummary({ status }: { status: WorkspaceIntegrationStatus }) {
   const summary = (status.lastSyncSummary ?? {}) as Record<string, unknown>;
   const item = (key: string): string => {
     const v = summary[key];
-    return typeof v === "number" ? String(v) : "—";
+    return typeof v === "number" ? String(v) : "-";
   };
   return (
     <section className="rounded-2xl border border-border bg-background p-5 space-y-2">
@@ -264,7 +264,7 @@ function RecentMeetingsTable({
                 <td className="px-4 py-3 align-top text-muted text-xs font-mono">
                   {first.meeting_date
                     ? new Date(first.meeting_date).toLocaleDateString('en-US', { timeZone: 'UTC', year: 'numeric', month: 'short', day: 'numeric' })
-                    : "—"}
+                    : "-"}
                 </td>
               </tr>
             );

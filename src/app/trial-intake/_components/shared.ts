@@ -11,7 +11,7 @@ export function buildWorkspaceKey(
   return `${presetName ?? "custom"}::${companyName}`;
 }
 
-// Merge stored + seed intakes. Stored wins on id collision — once an AE
+// Merge stored + seed intakes. Stored wins on id collision - once an AE
 // modifies a seed intake the local copy is authoritative for that browser.
 export function mergeIntakes(
   seed: TrialIntake[],

@@ -14,7 +14,7 @@ import {
   type WorkspaceRelevance,
 } from "./workspace-relevance";
 
-// Web-scrape classifier — takes a stored web_scrapes row (markdown content
+// Web-scrape classifier - takes a stored web_scrapes row (markdown content
 // from a tracked account's site) and extracts material business signals
 // via Haiku. In addition to signal classification it extracts STRUCTURED
 // AE-BRIEF FIELDS (company_one_liner, exec_change, recent_funding,
@@ -27,7 +27,7 @@ import {
 //   - The classifier sees the source URL up front, so it can attach
 //     deep-link URLs from the page when present (e.g. press-release pages
 //     linked from /news) rather than always re-using the scraped URL.
-//   - We cap at 5 signals per page — homepages rarely have more than 1-2
+//   - We cap at 5 signals per page - homepages rarely have more than 1-2
 //     newsworthy items; news index pages may have a few more.
 //   - Workspace relevance + structured AE-brief fields are emitted via
 //     forced tool-use, no free-text JSON.
@@ -48,7 +48,7 @@ const HAIKU_TIMEOUT_MS = 15_000;
 const MAX_MARKDOWN_CHARS = 15_000;
 
 // ---------------------------------------------------------------------------
-// Env loading — same fallback as news-adapter.ts.
+// Env loading - same fallback as news-adapter.ts.
 // ---------------------------------------------------------------------------
 
 function getEnvOrFile(name: string): string | null {
@@ -94,7 +94,7 @@ const VALID_TYPES: ExternalSignalType[] = [
 const VALID_EXEC_CHANGES = ["joined", "left", "promoted"] as const;
 type ExecChangeKind = (typeof VALID_EXEC_CHANGES)[number];
 
-// Structured AE-brief fields — persisted under
+// Structured AE-brief fields - persisted under
 // external_signals.meta.brief_fields (JSONB) so we don't have to migrate
 // columns every time the AE Brief surface needs another structured field.
 // The /accounts/:id surface reads these to populate pre-call context.
@@ -107,7 +107,7 @@ export interface BriefFields {
     date: string | null;                   // ISO date if present in markdown
   } | null;
   recent_funding: {
-    amount: string;                         // free-text — "$50M", "Series B", etc.
+    amount: string;                         // free-text - "$50M", "Series B", etc.
     lead_investor: string | null;
     date: string | null;                    // ISO date if present
   } | null;
@@ -125,9 +125,9 @@ interface RawExtraction {
 
 // ---------------------------------------------------------------------------
 // Forced tool-use schema. Schema models two top-level fields:
-//   1. items[] — the same per-event extractions newsletter-adapter
+//   1. items[] - the same per-event extractions newsletter-adapter
 //      produces, capped at 5 per page.
-//   2. brief_fields — structured AE-brief metadata extracted from the
+//   2. brief_fields - structured AE-brief metadata extracted from the
 //      same markdown in the same Haiku call. One extraction shared across
 //      every signal we write from this page.
 // ---------------------------------------------------------------------------
@@ -252,12 +252,12 @@ ${markdown}
 
 YOUR JOB
 1. Extract every material business event mentioned about ${account.name} that the sales team should know about. For each event, populate items[] with type, summary, workspace_relevance, and optional url + occurred_at.
-2. Extract STRUCTURED AE-BRIEF FIELDS for the AE pre-call context surface — company_one_liner, exec_change, recent_funding, key_risks, strategic_focus. These are populated ONCE per page (not per event). Use null/[] when the page does not state the field.
+2. Extract STRUCTURED AE-BRIEF FIELDS for the AE pre-call context surface - company_one_liner, exec_change, recent_funding, key_risks, strategic_focus. These are populated ONCE per page (not per event). Use null/[] when the page does not state the field.
 
 EVENT EXTRACTION RULES
 - Classify the type using one of: leadership_change, champion_job_change, ma_acquisition, funding_round, layoff, earnings, product_launch, press_release, competitor_mention, regulatory_action, partnership, other.
 - Write a 1-2 sentence factual summary (≤200 chars, no markdown).
-- Tag workspace_relevance per the rubric below — REQUIRED on every event.
+- Tag workspace_relevance per the rubric below - REQUIRED on every event.
 - If a specific URL is referenced in the markdown for that event (e.g. a press-release link), capture it. Otherwise omit url and the row will be tied to the source page above.
 - If a date is mentioned for the event (e.g. "March 12, 2026"), include it as ISO YYYY-MM-DD in occurred_at. Otherwise omit.
 
@@ -266,19 +266,19 @@ EVENT SKIP RULES
 - Stale items that have clearly been on the site for years (foundational bio copy, generic "about us")
 - Items that are about a different company unless they directly involve ${account.name} (acquisition, partnership, competitor mention)
 - Listicles, opinion pieces, blog posts that aren't tied to a concrete event
-- At most 5 events — the most material first.
+- At most 5 events - the most material first.
 
 BRIEF-FIELD RULES
 - company_one_liner: one sentence describing what ${account.name} does (≤120 chars). Pull from a hero tagline, "about" section, or product description. Null if the page doesn't say.
 - exec_change: ONE recent exec change (joined/left/promoted) with name, role, and an ISO date if present. Null when not on this page.
-- recent_funding: most recent round mentioned with amount (free-text — "$50M Series B" is fine), lead_investor (or null), and date (ISO if present). Null when not mentioned.
+- recent_funding: most recent round mentioned with amount (free-text - "$50M Series B" is fine), lead_investor (or null), and date (ISO if present). Null when not mentioned.
 - key_risks: up to 3 risks an AE should know (lawsuit, regulatory inquiry, customer concentration, layoff, exec departure). Empty array allowed.
 - strategic_focus: ONE current strategic priority if explicitly stated. Null otherwise.
 
 ${WORKSPACE_RELEVANCE_DEFINITION}
 
-# Output format — forced tool-use, mandatory
-You MUST emit your answer via the \`${TOOL_NAME}\` tool. Free-text replies are invalid. Do not invent facts — null/empty is correct when the page does not state a field.`;
+# Output format - forced tool-use, mandatory
+You MUST emit your answer via the \`${TOOL_NAME}\` tool. Free-text replies are invalid. Do not invent facts - null/empty is correct when the page does not state a field.`;
 }
 
 // Test seam.
@@ -478,7 +478,7 @@ export interface WebScrapeClassification {
   classifier_used: "haiku" | "none";
   // Structured AE-brief metadata extracted from this page. Persisted on
   // every signal's meta.brief_fields; surfaces read it from the first
-  // signal in a per-account batch. Empty/null fields are normal — they
+  // signal in a per-account batch. Empty/null fields are normal - they
   // mean the page didn't state the field.
   brief_fields: BriefFields;
 }
@@ -494,7 +494,7 @@ export async function classifyWebScrape(
 ): Promise<WebScrapeClassification> {
   // Let Haiku failures (529 overload, transient network) propagate. The
   // caller (classifyScrape in classify-pending) catches them and skips
-  // markWebScrapeClassified, leaving the row for the next sweep —
+  // markWebScrapeClassified, leaving the row for the next sweep -
   // mirrors the newsletter-adapter flow. Swallowing the error here would
   // stamp the row permanently classified with zero signals.
   const { extractions, brief_fields } = await classifyWithHaiku(

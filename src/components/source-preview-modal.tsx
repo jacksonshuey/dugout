@@ -13,7 +13,7 @@ import { MarkdownBody } from "./markdown-body";
 //     a sandboxed <iframe srcdoc>. Most faithful for publisher-styled emails.
 //   - Non-email: fetch /api/admin/signal-source/<signalId>, render
 //     source_content_md via MarkdownBody. Used for NewsAPI articles, Firecrawl
-//     scrapes, SEC filings — the principle is universal source verification.
+//     scrapes, SEC filings - the principle is universal source verification.
 
 interface RawEmail {
   id: string;

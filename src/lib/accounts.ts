@@ -10,14 +10,14 @@ import type { Account, AccountSegment, Industry } from "./types";
 // Design notes:
 // - We keep the seed.ts vs DB split deliberate. The signal engine,
 //   metrics.md SV Health assertions, and demo-verification script all
-//   read seed.ts — moving those into the DB would force every test +
+//   read seed.ts - moving those into the DB would force every test +
 //   demo run to maintain DB state. Production additions (AE adds Cisco
 //   mid-quarter) need to live somewhere persistent, hence this table.
 // - listTrackableAccounts() returns ONLY DB rows. Callers that want the
-//   combined view (seed + DB) merge in the seed list themselves — keeps
+//   combined view (seed + DB) merge in the seed list themselves - keeps
 //   the seam clean and avoids importing seed.ts from server lib code.
 // - id is a uuid, generated server-side by Postgres. seed.ts uses the
-//   `acc_<name>` slug convention — those won't collide with uuids.
+//   `acc_<name>` slug convention - those won't collide with uuids.
 
 export interface NewAccountInput {
   name: string;
@@ -45,11 +45,11 @@ interface AccountRow {
 
 // Best-effort cast back to the shared Account interface. Industry +
 // segment are stored as freeform text in Postgres but the in-memory
-// Account type narrows them — we cast through `unknown` so callers don't
+// Account type narrows them - we cast through `unknown` so callers don't
 // have to widen. If a DB row has a value outside the narrowed unions,
 // downstream consumers either render it as-is or fall through to "Other".
 function rowToAccount(row: AccountRow): Account {
-  // Derive hqLocation/legalTeamSize as empty values — DB-added accounts
+  // Derive hqLocation/legalTeamSize as empty values - DB-added accounts
   // don't yet carry these (Phase 4 keeps onboarding minimal). The signal
   // engine's stage-age + complexity rules are tolerant of zero values.
   return {
@@ -100,7 +100,7 @@ export async function insertAccount(input: NewAccountInput): Promise<Account> {
 }
 
 // Returns trackable accounts from the DB only. Callers that want the
-// combined seed + DB view merge `accounts` from seed.ts themselves —
+// combined seed + DB view merge `accounts` from seed.ts themselves -
 // keeps server-lib code free of import cycles into the seed fixtures.
 export async function listTrackableAccounts(): Promise<Account[]> {
   const sb = supabaseAdmin();

@@ -10,7 +10,7 @@
 // adjudicates the borderline cases.
 //
 // The blacklists below are STARTER SETS sourced from the production
-// diagnostic sample. They will grow as we observe more noise in production —
+// diagnostic sample. They will grow as we observe more noise in production -
 // add new entries here rather than scattering them across the codebase.
 //
 // All constants exported so tests + RevOps tuning passes import the exact
@@ -24,36 +24,36 @@ import type { ArticleInput, Stage1Result } from "./news-filter-types";
 // mode so the reasons are auditable and the list is easy to grow.
 
 export const DOMAIN_BLACKLIST: ReadonlySet<string> = new Set<string>([
-  // Fashion / lifestyle — pure consumer noise, never sales-intel relevant
+  // Fashion / lifestyle - pure consumer noise, never sales-intel relevant
   "stylebyemilyhenderson.com",
 
-  // Sports — match results, line-ups, transfer rumors
+  // Sports - match results, line-ups, transfer rumors
   "football-italia.net",
   "espn.com",
   "cnn.com/sport",
 
-  // General-interest junk — photo galleries, "weekend reads"
+  // General-interest junk - photo galleries, "weekend reads"
   "streetartutopia.com",
 
-  // Payments-trade noise — high-volume "weekender" digests + sponsor blurbs
+  // Payments-trade noise - high-volume "weekender" digests + sponsor blurbs
   // that mention companies in passing but carry no signal
   "pymnts.com",
   "businessnewsthisweek.com",
 
-  // Regional / general news — too broad; rarely tied to the account
+  // Regional / general news - too broad; rarely tied to the account
   "abc.net.au",
 
-  // Developer-content farms — auto-generated, no editorial weight
+  // Developer-content farms - auto-generated, no editorial weight
   "c-sharpcorner.com",
 
-  // Weather — never sales-relevant
+  // Weather - never sales-relevant
   "weather.com",
 
   // Entertainment / celebrity tabloid
   "eonline.com",
   "tmz.com",
 
-  // Auto-generated stock blurbs — high recall on tickers, near-zero signal
+  // Auto-generated stock blurbs - high recall on tickers, near-zero signal
   "marketwatch.com",
   "nasdaq.com",
 ]);
@@ -73,7 +73,7 @@ export const TITLE_REJECT_PATTERNS: Array<{ re: RegExp; tag: string }> = [
     tag: "lifestyle",
   },
 
-  // Sports league prefixes — match results, fixtures
+  // Sports league prefixes - match results, fixtures
   {
     re: /^(?:nfl|nba|nhl|mlb|fifa|uefa|premier league|serie a|champions league)\b/i,
     tag: "sports_league",
@@ -112,7 +112,7 @@ export const MIN_TITLE_LENGTH = 12;
 
 // If a title is ≤ 3 words AND contains none of these verbs, it is rejected
 // as "entity name only" (e.g. "Acme Corporation", "Microsoft Bing"). The
-// verb list is intentionally tight — these are the verbs that signal an
+// verb list is intentionally tight - these are the verbs that signal an
 // actual news event vs. a passing mention. Grow with production data.
 export const NEWS_EVENT_VERBS: ReadonlySet<string> = new Set<string>([
   "raises",
@@ -137,7 +137,7 @@ export function stage1Filter(article: ArticleInput): Stage1Result {
   const sourceDomain = (article.source_domain ?? "").trim().toLowerCase();
   const sourceName = (article.source_name ?? "").trim();
 
-  // ── No source identity — malformed NewsAPI row ─────────────────────────
+  // ── No source identity - malformed NewsAPI row ─────────────────────────
   if (sourceName.length === 0 && sourceDomain.length === 0) {
     return {
       verdict: "rejected",

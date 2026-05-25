@@ -9,7 +9,7 @@ import { supabaseAdmin } from "./supabase";
 // "unclassified content queues."
 //
 // Dedup at the row level is enforced by the (account_id, url, scraped_date)
-// unique constraint on the table — re-scraping the same page on the same
+// unique constraint on the table - re-scraping the same page on the same
 // day is a silent no-op.
 
 export interface WebScrape {

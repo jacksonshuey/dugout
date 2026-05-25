@@ -9,10 +9,10 @@ import {
   useAskChoice,
 } from "@/components/ask-provider-picker";
 
-// /ask — chat-style natural-language query layer (D2 rewrite).
+// /ask - chat-style natural-language query layer (D2 rewrite).
 //
 // Conversational thread renders each turn as a bubble (user) + answer card
-// (assistant). Visual multi-turn only — each backend /api/ask call is still
+// (assistant). Visual multi-turn only - each backend /api/ask call is still
 // independent for now; conversational memory across turns lands in a
 // follow-up when the agent accepts a message-history parameter.
 
@@ -199,7 +199,7 @@ export default function AskPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Ask Dugout</h1>
           <p className="text-sm text-muted mt-1">
             Natural-language queries across your unified signal store. Every
-            claim cites the underlying signal — click a chip for the source.
+            claim cites the underlying signal - click a chip for the source.
           </p>
         </div>
         {!isEmpty && (
@@ -394,7 +394,7 @@ function AssistantCard({ turn }: { turn: AssistantTurn }) {
         <p className="text-xs text-amber-700">
           {response.stubReason
             ? `Demo response (${response.stubReason}).`
-            : "Demo response — pick a provider above for live answers."}
+            : "Demo response - pick a provider above for live answers."}
         </p>
       )}
       <Card className="p-4 space-y-3">

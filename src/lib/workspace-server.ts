@@ -8,7 +8,7 @@ import {
 // by the settings page server actions; falls back to DEFAULT_CONFIG when
 // no cookie or invalid JSON.
 //
-// Next 16 makes cookies() async — must be awaited.
+// Next 16 makes cookies() async - must be awaited.
 
 const COOKIE_NAME = "dugout-workspace";
 
@@ -18,7 +18,7 @@ export async function getWorkspaceConfig(): Promise<WorkspaceConfig> {
   if (!stored) return DEFAULT_CONFIG;
   try {
     const parsed = JSON.parse(stored) as WorkspaceConfig;
-    // Light validation — if the shape is corrupted, fall back to default.
+    // Light validation - if the shape is corrupted, fall back to default.
     if (!parsed.companyName || !Array.isArray(parsed.priorities)) {
       return DEFAULT_CONFIG;
     }

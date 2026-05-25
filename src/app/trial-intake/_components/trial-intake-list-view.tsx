@@ -27,7 +27,7 @@ interface Props {
   workspacePresetName: string | undefined;
 }
 
-// SLA countdowns need to tick — useState + setInterval keeps the bucket color
+// SLA countdowns need to tick - useState + setInterval keeps the bucket color
 // and remaining-time string fresh without doing a full server roundtrip.
 function useNow(intervalMs = 60_000): Date {
   const [now, setNow] = useState(() => new Date());
@@ -80,7 +80,7 @@ export function TrialIntakeListView({
   );
   const repById = useMemo(() => new Map(reps.map((r) => [r.id, r])), [reps]);
 
-  // Counts for the eyebrow row. Stable buckets — overdue is derived so the
+  // Counts for the eyebrow row. Stable buckets - overdue is derived so the
   // ribbon refreshes alongside the timers.
   const counts = useMemo(() => {
     const out: Record<TrialIntakeStatus, number> = {
@@ -106,7 +106,7 @@ export function TrialIntakeListView({
             </h1>
             <p className="text-sm text-muted mt-1 max-w-2xl">
               48-hour SLA from AE submission to KPI Assessment + pre-seeded demo
-              delivered into the deal room. Companion to the signal engine —
+              delivered into the deal room. Companion to the signal engine -
               every submitted intake also resolves the linked Demo Sat
               trial-brief task on the AE Console.
             </p>
@@ -196,7 +196,7 @@ export function TrialIntakeListView({
                       {ae?.name ?? intake.submittedBy}
                     </td>
                     <td className="px-4 py-3 text-muted">
-                      {opp?.stage ?? "—"}
+                      {opp?.stage ?? "-"}
                     </td>
                     <td className="px-4 py-3 text-muted text-xs">
                       {formatShortDateTime(intake.submittedAt)}
@@ -227,7 +227,7 @@ export function TrialIntakeListView({
         <span className="font-semibold text-foreground">Where this lives:</span>{" "}
         intakes persist to <code className="font-mono">localStorage</code> on
         this browser. Production swaps to a Postgres table with a real
-        overdue-watchdog cron — the state machine on{" "}
+        overdue-watchdog cron - the state machine on{" "}
         <code className="font-mono">TrialIntake</code> survives that migration
         unchanged.
       </div>
@@ -236,7 +236,7 @@ export function TrialIntakeListView({
 }
 
 // ---------------------------------------------------------------------------
-// Pieces — kept local to this view so the file reads top-to-bottom.
+// Pieces - kept local to this view so the file reads top-to-bottom.
 // ---------------------------------------------------------------------------
 
 function StatTile({

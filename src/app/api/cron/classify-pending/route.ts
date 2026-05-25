@@ -14,13 +14,13 @@ import { insertSignalsDedup } from "@/lib/external-signals";
 import { resolvePublisher } from "@/lib/inbound-publishers";
 import { filterEmail } from "@/lib/email-filter";
 
-// Backfill sweeper — drains TWO unclassified queues on the same schedule:
+// Backfill sweeper - drains TWO unclassified queues on the same schedule:
 //   1. inbound_emails (newsletters arriving via the AgentMail webhook).
 //      Webhook attempts inline Haiku classification on every POST; this
 //      cron catches rows where that failed (Anthropic 529, parse error,
 //      Supabase blip).
 //   2. web_scrapes (per-account markdown blobs from the Firecrawl cron).
-//      Firecrawl cron only fills the queue — all classification happens
+//      Firecrawl cron only fills the queue - all classification happens
 //      here, by explicit design (resilience + re-classify-as-prompt-evolves).
 //
 // Auth: CRON_SECRET (Vercel injects "Authorization: Bearer ${CRON_SECRET}").
@@ -76,7 +76,7 @@ async function classifyInbound(
   const t0 = Date.now();
   try {
     // Same filter + classify pipeline as the inline webhook path. The
-    // sweeper has no raw headers to forward — Stage 1's auto-reply /
+    // sweeper has no raw headers to forward - Stage 1's auto-reply /
     // bounce / calendar checks degrade to "no headers, no header-based
     // rejection." Subject + body rules still apply.
     const publisherInfo = resolvePublisher({
@@ -199,7 +199,7 @@ export async function GET(req: Request) {
   const accountsById = new Map(accounts.map((a) => [a.id, a]));
 
   // Sequential per row (Haiku rate limits + dedup queries serialize cleanly).
-  // Drain inbound first, then scrapes — inbound is push-driven and more
+  // Drain inbound first, then scrapes - inbound is push-driven and more
   // latency-sensitive (workspace-wide market intel).
   const results: RowResult[] = [];
   for (const row of inboundPending) {

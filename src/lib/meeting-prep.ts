@@ -7,7 +7,7 @@
 // - Server-only. Pulls from lib helpers (signal engine, sv-health,
 //   external_signals, accounts) and the seed data fallback. Never imports
 //   client-only modules.
-// - Failsoft on every external dependency — if Supabase is unreachable, the
+// - Failsoft on every external dependency - if Supabase is unreachable, the
 //   brief still renders with whatever data is available; the scrapeStatus
 //   field tells the caller how complete the picture is.
 // - brief_fields is the structured AE-context shape persisted on
@@ -115,7 +115,7 @@ export interface MeetingBrief {
   lastCrawledAt: string | null;
   scrapeStatus: ScrapeStatus;
 
-  // Optional helpful context for the UI (industry / hq) — not part of the
+  // Optional helpful context for the UI (industry / hq) - not part of the
   // skill contract proper but cheap to include so /prep doesn't need a
   // second account lookup.
   industry?: string;
@@ -123,7 +123,7 @@ export interface MeetingBrief {
 }
 
 // ---------------------------------------------------------------------------
-// brief_fields shape (mirrors web-scrape-classifier.ts BriefFields — kept
+// brief_fields shape (mirrors web-scrape-classifier.ts BriefFields - kept
 // independent here so this module doesn't take a dependency on the
 // classifier file ownership boundary).
 // ---------------------------------------------------------------------------
@@ -222,7 +222,7 @@ function determineScrapeStatus(
   const hours = hoursBetween(lastCrawledAt, now);
   if (hours < FRESH_HOURS) return "fresh";
   if (hours < STALE_HOURS) return "stale";
-  return "stale"; // older than 7d still classified stale (not pending) —
+  return "stale"; // older than 7d still classified stale (not pending) -
   // pending means "no scrape ever happened"; stale means "we have one but
   // it's old."
 }
@@ -269,7 +269,7 @@ function mergeBriefFields(
 }
 
 // Collect all exec changes from the scrape signals (not just the most
-// recent — the AE wants the whole picture). Dedup by name+role+change.
+// recent - the AE wants the whole picture). Dedup by name+role+change.
 function collectExecChanges(
   signals: ExternalSignal[],
 ): MeetingBrief["recentExecChanges"] {
@@ -302,7 +302,7 @@ function buildRecentMoves(
     .filter((s) => {
       const days = daysBetween(s.occurred_at, now);
       if (days > RECENT_MOVES_LOOKBACK_DAYS) return false;
-      // Treat null/undefined workspace_relevance as eligible — most
+      // Treat null/undefined workspace_relevance as eligible - most
       // per-account web_scrape signals aren't relevance-tagged. The
       // `getSignalsForAccount` query already strips low-quality
       // NewsAPI rows.
@@ -362,7 +362,7 @@ function buildBuyingCommittee(
 }
 
 // ---------------------------------------------------------------------------
-// Account resolution (seed first, then DB) — keeps the synthesizer free of
+// Account resolution (seed first, then DB) - keeps the synthesizer free of
 // DB calls when the slug matches a seed account.
 // ---------------------------------------------------------------------------
 
@@ -408,7 +408,7 @@ export async function buildMeetingBrief(
     };
   }
 
-  // ── Opportunities (seed-only — production CRM not wired) ──────────────
+  // ── Opportunities (seed-only - production CRM not wired) ──────────────
   const accountOpps = opportunities
     .filter((o) => o.accountId === account.id)
     .sort((a, b) => (STAGE_RANK[b.stage] ?? 0) - (STAGE_RANK[a.stage] ?? 0));
@@ -450,12 +450,12 @@ export async function buildMeetingBrief(
     // signal engine still runs with no config fallback values.
   }
 
-  // ── External signals — failsoft ───────────────────────────────────────
+  // ── External signals - failsoft ───────────────────────────────────────
   let externalSignals: ExternalSignal[] = [];
   try {
     externalSignals = await getSignalsForAccount(account.id, 100);
   } catch {
-    // Supabase down or migrations not applied — proceed with empty list.
+    // Supabase down or migrations not applied - proceed with empty list.
   }
 
   // ── SV Health ──────────────────────────────────────────────────────────
@@ -478,7 +478,7 @@ export async function buildMeetingBrief(
         tier: tierLabel(score.score),
       };
     } catch {
-      // computation failed — leave svHealth null rather than crashing the brief.
+      // computation failed - leave svHealth null rather than crashing the brief.
     }
   }
 
@@ -496,7 +496,7 @@ export async function buildMeetingBrief(
   // ── Recent moves (all sources, 30d) ───────────────────────────────────
   const recentMoves = buildRecentMoves(externalSignals, now);
 
-  // ── Blocking signals — surface engine + demo blocking only ────────────
+  // ── Blocking signals - surface engine + demo blocking only ────────────
   const blockingSignals = engineSignals
     .filter((s) => s.severity === "blocking")
     .map((s) => ({
@@ -510,7 +510,7 @@ export async function buildMeetingBrief(
   // ── Committee model ───────────────────────────────────────────────────
   const buyingCommittee = buildBuyingCommittee(leadOpp, accountContacts);
 
-  // ── Open opportunities — strip CRM internals, keep what the brief needs ─
+  // ── Open opportunities - strip CRM internals, keep what the brief needs ─
   const openOpportunities = accountOpps.map((o) => ({
     id: o.id,
     name: o.name,
@@ -547,7 +547,7 @@ export async function buildMeetingBrief(
   };
 }
 
-// Re-exported helpers for tests / the API route. Internal use only —
+// Re-exported helpers for tests / the API route. Internal use only -
 // production callers should always go through buildMeetingBrief.
 export const _internal = {
   mergeBriefFields,

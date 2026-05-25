@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui";
 import type { MeetingBrief } from "@/lib/meeting-prep";
 
-// Blocking signals — shown first in the brief so the AE walks into the
+// Blocking signals - shown first in the brief so the AE walks into the
 // meeting knowing what's on fire before anything else. Red border + the
 // suggested action verbatim from the signal engine.
 
@@ -27,7 +27,7 @@ export function BlockingSignals({
     <section className="space-y-2">
       <SectionHeading
         label="Blocking signals"
-        sub={`${signals.length} active — address before the meeting`}
+        sub={`${signals.length} active - address before the meeting`}
       />
       <div className="space-y-3">
         {signals.map((s) => (

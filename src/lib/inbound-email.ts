@@ -8,7 +8,7 @@ import { supabaseAdmin } from "./supabase";
 // We keep both text_body and html_body so the classifier can re-run as the
 // prompt evolves without re-fetching from the original sender.
 //
-// message_id is the email's RFC822 Message-ID header — unique so AgentMail's
+// message_id is the email's RFC822 Message-ID header - unique so AgentMail's
 // retry window can't double-store a message.
 
 export interface InboundEmail {
@@ -28,7 +28,7 @@ export interface InboundEmail {
   // when the header is present. See docs/filter-design.md §9.
   list_id?: string | null;
   // Resolved publisher canonical name (see src/lib/inbound-publishers.ts).
-  // Optional for the same reason as list_id — old rows are NULL.
+  // Optional for the same reason as list_id - old rows are NULL.
   publisher_canonical_name?: string | null;
   created_at: string;
 }
@@ -47,7 +47,7 @@ export interface NewInboundEmail {
 }
 
 // Returns the persisted row, or null if a row with the same message_id
-// already exists (dedup hit — AgentMail/Svix retried a webhook). Throws on
+// already exists (dedup hit - AgentMail/Svix retried a webhook). Throws on
 // any other Supabase error so the webhook can return 5xx and let Svix retry.
 export async function insertInboundEmail(
   email: NewInboundEmail,
@@ -108,7 +108,7 @@ export async function getRecentInboundEmails(
   return (data ?? []) as InboundEmail[];
 }
 
-// Pull rows that haven't been classified yet — the work queue for the
+// Pull rows that haven't been classified yet - the work queue for the
 // backfill sweeper cron. Inline classification in the webhook covers the
 // happy path; this catches Haiku outages, Supabase blips, and any other
 // transient failure that left a row with classified_at IS NULL.
@@ -167,7 +167,7 @@ export async function getInboundStats(): Promise<InboundStats> {
 }
 
 // Snapshot used by the Market Intel empty state when external_signals is
-// empty but inbound_emails is not — i.e. newsletters have arrived but the
+// empty but inbound_emails is not - i.e. newsletters have arrived but the
 // classifier hasn't emitted signals for them yet. Lets the page say
 // "X newsletters waiting to be parsed" instead of the misleading "no
 // market intel yet."

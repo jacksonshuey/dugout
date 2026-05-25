@@ -1,6 +1,6 @@
 // Types for the news content filter (Stage 1 deterministic + Stage 2 Haiku).
 //
-// Pure type module — no imports. Keeps the filter dependency graph shallow:
+// Pure type module - no imports. Keeps the filter dependency graph shallow:
 // stage1, stage2 prompt, audit CRUD, and the news-adapter all import from
 // here and nowhere else for shared shapes.
 //
@@ -51,7 +51,7 @@ export interface NewsFilterDecision {
   prompt_version: string;      // bump when prompt changes
 }
 
-// Article shape we receive from news-adapter — minimal projection of
+// Article shape we receive from news-adapter - minimal projection of
 // NewsAPI's Article type. The filter doesn't need the full payload.
 export interface ArticleInput {
   url: string;
@@ -65,7 +65,7 @@ export interface ArticleInput {
 
 // Context for the stage 2 call. The orchestrator builds this from the
 // account/workspace config. primary_vertical is hardcoded to "tech_ai" in
-// v1 — Checkbox's primary lens. Future: per-workspace.
+// v1 - Checkbox's primary lens. Future: per-workspace.
 export interface FilterContext {
   account_name: string;
   account_industry: string | null;
@@ -74,7 +74,7 @@ export interface FilterContext {
   primary_vertical: string;
 }
 
-// Bump version when prompt semantics change. Forward-apply only — new version
+// Bump version when prompt semantics change. Forward-apply only - new version
 // invalidates any cached decisions so next cron run re-classifies fresh articles.
 // v1.1: tightened Stage 2 to reject-by-default + explicit reject keyword list.
 export const PROMPT_VERSION = "news-filter-v1.1";

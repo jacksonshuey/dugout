@@ -6,7 +6,7 @@ import type { StubReason } from "@/lib/ranker-types";
 // deterministic stub (any non-empty stubReason). The banner copy matches
 // the /ask 429 amber card style (see ask-chat-panel.tsx) so a reader who
 // already knows what an /ask amber card means recognises this one
-// instantly — same visual, different surface.
+// instantly - same visual, different surface.
 //
 // Renders null on `empty_input` and when no stubReason is set: the page's
 // existing empty state covers the no-signals case, and a successful Haiku
@@ -14,15 +14,15 @@ import type { StubReason } from "@/lib/ranker-types";
 
 const REASON_COPY: Record<Exclude<StubReason, "empty_input">, string> = {
   no_api_key:
-    "Live ranking unavailable — ANTHROPIC_API_KEY not configured. Showing deterministic fallback ordering by severity tier.",
+    "Live ranking unavailable - ANTHROPIC_API_KEY not configured. Showing deterministic fallback ordering by severity tier.",
   haiku_5xx:
-    "Live ranking unavailable — Haiku returned a server error. Showing deterministic fallback ordering by severity tier.",
+    "Live ranking unavailable - Haiku returned a server error. Showing deterministic fallback ordering by severity tier.",
   haiku_timeout:
-    "Live ranking unavailable — Haiku exceeded the 15s response budget. Showing deterministic fallback ordering by severity tier.",
+    "Live ranking unavailable - Haiku exceeded the 15s response budget. Showing deterministic fallback ordering by severity tier.",
   haiku_malformed_json:
-    "Live ranking unavailable — Haiku returned an unparseable response. Showing deterministic fallback ordering by severity tier.",
+    "Live ranking unavailable - Haiku returned an unparseable response. Showing deterministic fallback ordering by severity tier.",
   haiku_schema_violation:
-    "Live ranking unavailable — Haiku response failed schema validation. Showing deterministic fallback ordering by severity tier.",
+    "Live ranking unavailable - Haiku response failed schema validation. Showing deterministic fallback ordering by severity tier.",
 };
 
 export function RankerBanner({ stubReason }: { stubReason?: StubReason }) {

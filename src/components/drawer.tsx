@@ -100,7 +100,7 @@ export function Drawer({
   // Lazy-loaded when the drawer opens; not part of the seed data.
   const [externalSignals, setExternalSignals] = useState<ExternalSignal[]>([]);
   const [signalsLoading, setSignalsLoading] = useState(true);
-  // Granola meeting signals — same lazy-load pattern. Independent of
+  // Granola meeting signals - same lazy-load pattern. Independent of
   // external signals so one query failing doesn't blank the other.
   const [meetingSignals, setMeetingSignals] = useState<MeetingSignalRow[]>([]);
   const [meetingsLoading, setMeetingsLoading] = useState(true);
@@ -191,7 +191,7 @@ export function Drawer({
 
   return (
     <>
-      {/* Backdrop — pointer-events-none so users can click Pipeline rows
+      {/* Backdrop - pointer-events-none so users can click Pipeline rows
           behind the dimmer to switch deals without closing the drawer.
           Esc + the X button still dismiss. */}
       <div
@@ -236,7 +236,7 @@ export function Drawer({
               {account.isDemoScenario && (
                 <span
                   className="text-[10px] font-semibold tracking-wider uppercase px-1.5 py-0.5 rounded bg-slate-100 text-muted border border-border cursor-help"
-                  title={`Demo scenario — ${account.name} is a real company, but the CRM data shown here (deal stage, contacts, transcripts, activity) is illustrative. Live signals (NewsAPI, SEC EDGAR, LinkedIn deep-links) run against the real underlying company.`}
+                  title={`Demo scenario - ${account.name} is a real company, but the CRM data shown here (deal stage, contacts, transcripts, activity) is illustrative. Live signals (NewsAPI, SEC EDGAR, LinkedIn deep-links) run against the real underlying company.`}
                   aria-label="This is a demo scenario layered on a real company"
                 >
                   Demo scenario
@@ -342,7 +342,7 @@ export function Drawer({
             )}
           </Section>
 
-          {/* Tasks — open */}
+          {/* Tasks - open */}
           <Section
             title="Open tasks"
             sub={`${openTasks.length} active · ${closedTasks.length} resolved`}
@@ -381,7 +381,7 @@ export function Drawer({
             )}
           </Section>
 
-          {/* Tasks — resolved */}
+          {/* Tasks - resolved */}
           {closedTasks.length > 0 && (
             <Section title="Resolved" sub={`${closedTasks.length} closed`}>
               <div className="space-y-2">
@@ -405,13 +405,13 @@ export function Drawer({
             </Section>
           )}
 
-          {/* External signals — what the outside world is saying about this account */}
+          {/* External signals - what the outside world is saying about this account */}
           <ExternalSignalsSection
             signals={externalSignals}
             loading={signalsLoading}
           />
 
-          {/* Meeting signals — Granola-sourced buying-process signals */}
+          {/* Meeting signals - Granola-sourced buying-process signals */}
           <MeetingSignalsSection
             signals={meetingSignals}
             loading={meetingsLoading}
@@ -504,7 +504,7 @@ export function Drawer({
   );
 }
 
-// External signals section — pulled from Supabase, sourced from Claude's
+// External signals section - pulled from Supabase, sourced from Claude's
 // web_search (real news) for trackable accounts, or seed/demo data for
 // fictional accounts. Each signal is tagged with its source so the UI is
 // transparent about what's real.
@@ -604,7 +604,7 @@ function ExternalSignalsSection({
   const sub = loading
     ? "Loading…"
     : signals.length === 0
-      ? "No signals yet — daily cron runs at 8am UTC"
+      ? "No signals yet - daily cron runs at 8am UTC"
       : `${signals.length} event${signals.length === 1 ? "" : "s"} on record`;
   return (
     <Section title="External signals" sub={sub}>
@@ -749,7 +749,7 @@ function Section({
   );
 }
 
-// Meeting signals — Granola-sourced buying-process signals extracted from
+// Meeting signals - Granola-sourced buying-process signals extracted from
 // meeting summaries. Same visual language as external signals so they read
 // as part of the same "what's happening on this deal" surface.
 
@@ -773,7 +773,7 @@ function MeetingSignalsSection({
   const sub = loading
     ? "Loading…"
     : signals.length === 0
-      ? "No meeting signals yet — Granola not connected"
+      ? "No meeting signals yet - Granola not connected"
       : `${signals.length} signal${signals.length === 1 ? "" : "s"} across ${
           new Set(signals.map((s) => s.note_id)).size
         } meeting${new Set(signals.map((s) => s.note_id)).size === 1 ? "" : "s"}`;

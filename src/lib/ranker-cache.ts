@@ -92,11 +92,11 @@ export async function getCachedRanking(
     const ageMs = Date.now() - createdAtMs;
     if (ageMs > CACHE_TTL_MS) {
       const ageMin = Math.round(ageMs / 60_000);
-      console.warn(`[ranker] cache_stale age=${ageMin}m — recompute`);
+      console.warn(`[ranker] cache_stale age=${ageMin}m - recompute`);
       return null;
     }
 
-    // Light shape validation. We don't validate every nested field — the
+    // Light shape validation. We don't validate every nested field - the
     // writer (us) controls the shape, and a malformed row should be rare.
     const result = row.result_json;
     if (

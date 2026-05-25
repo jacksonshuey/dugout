@@ -7,7 +7,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 // Fixed "today" so stage-age math is deterministic across demo runs.
-// In production this would be `new Date()` — fixed here so the seed data
+// In production this would be `new Date()` - fixed here so the seed data
 // always reflects the same signal state for the demo.
 export const TODAY = new Date("2026-05-21T09:00:00Z");
 
@@ -33,7 +33,7 @@ export function formatDate(iso: string): string {
 }
 
 // Lookup a record by id, throwing a useful error if it's missing. Replaces the
-// `list.find(...)!` pattern in joins — a typo in the id field now produces a
+// `list.find(...)!` pattern in joins - a typo in the id field now produces a
 // named error at the point of failure instead of a downstream `Cannot read
 // property of undefined`. Throws are fine here: every call site is a join
 // against in-process seed data where a missing id is a programming error,

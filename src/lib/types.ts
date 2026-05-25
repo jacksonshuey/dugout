@@ -62,13 +62,13 @@ export interface Account {
   legalTeamSize: number; // proxy for buyer complexity
   // Whether the daily ingestion cron should run live news + EDGAR for this
   // account. Every seeded account today is a real company, so this is true
-  // across the board — the flag is retained for the future case of a private
+  // across the board - the flag is retained for the future case of a private
   // / pre-launch account where live sources would return nothing useful.
   trackable?: boolean;
   // LinkedIn company slug (e.g. "stripe" → linkedin.com/company/stripe/).
   // Undefined → UI falls back to a LinkedIn company search.
   linkedinSlug?: string;
-  // Buyer website — fallback link target and scope for future enrichment.
+  // Buyer website - fallback link target and scope for future enrichment.
   website?: string;
   // Bare apex domain (e.g. "stripe.com"). Used by the Granola adapter to
   // match meetings → accounts via attendee email domain. Distinct from
@@ -89,7 +89,7 @@ export interface Account {
   // on a specific account. Leave undefined → adapter uses dynamic discovery
   // (Firecrawl /map → preferred-pattern filter → fallback to ACCOUNT_PAGES).
   paths?: string[];
-  // ABM research-cluster trigger snapshot — populated in demo mode from a
+  // ABM research-cluster trigger snapshot - populated in demo mode from a
   // hand-curated seed value, in real mode by aggregating the external_signals
   // table (news + EDGAR + newsletter mentions) over the last 7 days. Drives
   // the ABM_SHADOW_RESEARCH rule (P6) and the Top Accounts manager card.
@@ -102,7 +102,7 @@ export interface Account {
 }
 
 // Contact roles map to Salesforce OpportunityContactRole. The presence/absence
-// of these roles on an opportunity is THE primary signal source — e.g., no
+// of these roles on an opportunity is THE primary signal source - e.g., no
 // "Finance/CFO" contact on an Evaluating+ deal triggers the wedge signal.
 export type ContactRole =
   | "Champion"
@@ -114,7 +114,7 @@ export type ContactRole =
   | "Executive Sponsor"
   | "End User";
 
-// Contact status — defaults to 'active'. 'departed' lets us model the
+// Contact status - defaults to 'active'. 'departed' lets us model the
 // LinkedIn-detected job-change case that Jackson's CS framework identified
 // as a top churn/deal-loss predictor.
 export type ContactStatus = "active" | "departed";
@@ -137,7 +137,7 @@ export interface Contact {
 // (metrics.md §"Enablement-asset deployment score"). "Shared" means the asset
 // exists in the deal room; "Viewed" means a non-Checkbox email opened it at
 // least once. Both flags are needed because Helios's worked example fails
-// specifically on `cfoLeaveBehindViewed: false` — sent but never opened.
+// specifically on `cfoLeaveBehindViewed: false` - sent but never opened.
 //
 // Optional throughout so existing fixtures don't need updates. When absent the
 // SV Health calculator treats every asset as unshared (worst-case), which is
@@ -158,14 +158,14 @@ export interface Opportunity {
   ownerId: string; // Rep.id
   stage: Stage;
   amount: number; // ACV USD
-  enteredStageAt: string; // ISO date — drives stage-age signals
+  enteredStageAt: string; // ISO date - drives stage-age signals
   createdAt: string;
   closeDate: string; // forecasted close
-  contactRoleIds: string[]; // Contact.id list — OpportunityContactRole join
+  contactRoleIds: string[]; // Contact.id list - OpportunityContactRole join
   // SV Health Score field (metrics.md §"Enablement-asset deployment score").
   // Distinct from `assetDeliveries` which is the AE-action log; this is the
   // buyer-side view-state telemetry the score actually reads. Optional so the
-  // existing 11 fixtures don't need backfill — only the three labeled demo
+  // existing 11 fixtures don't need backfill - only the three labeled demo
   // scenarios in DEMO_SCENARIO_ACCOUNTS populate it today.
   assetsShared?: OpportunityAssetsShared;
 }
@@ -177,7 +177,7 @@ export type ActivityType =
   | "meeting"
   | "dock_visit"
   | "sequence_enrolled"
-  | "external_signal"; // LinkedIn job changes, M&A news, layoff reports — see architecture for sources
+  | "external_signal"; // LinkedIn job changes, M&A news, layoff reports - see architecture for sources
 
 export interface Activity {
   id: string;
@@ -188,7 +188,7 @@ export interface Activity {
   summary: string;
 }
 
-// Gong-shaped call transcript. We store excerpts (not full transcripts) — the
+// Gong-shaped call transcript. We store excerpts (not full transcripts) - the
 // signal engine reasons over excerpts + summary, not the raw audio.
 export interface CallTranscript {
   id: string;
@@ -202,7 +202,7 @@ export interface CallTranscript {
 }
 
 // Track which standard assets have been delivered per opportunity.
-// This is how we detect "AE has the Finance brief but hasn't sent it" — the
+// This is how we detect "AE has the Finance brief but hasn't sent it" - the
 // adoption-not-content problem called out in the case context.
 export type StandardAsset =
   | "outcome_first_trial_brief"
@@ -224,7 +224,7 @@ export interface AssetDelivery {
 // awareness -> weekly summary. This tiering is the core "noise vs signal" answer.
 export type SignalSeverity = "blocking" | "action" | "awareness";
 
-// Canonical signal taxonomy — the 12 types every source-signal across every
+// Canonical signal taxonomy - the 12 types every source-signal across every
 // integration collapses into. Definitions live in
 // `orgs/_default/synthesis.md §1`. The signal_type is the join key that makes
 // cross-source correlation possible: different tools observing the same
@@ -232,11 +232,11 @@ export type SignalSeverity = "blocking" | "action" | "awareness";
 // payloads differ.
 //
 // Polarity (good vs bad news) is carried on a separate `direction` column on
-// the persistent `signal_instances` table — NOT on this in-memory Signal
+// the persistent `signal_instances` table - NOT on this in-memory Signal
 // today. When a rule's polarity matters, document it in a comment near the
 // rule rather than adding a field here.
 //
-// `data_hygiene_gap` is future-state — no current rule emits it. It's defined
+// `data_hygiene_gap` is future-state - no current rule emits it. It's defined
 // for when Swyft (MEDDPICC field staleness) is wired.
 export type SignalType =
   | "champion_loss"
@@ -253,17 +253,17 @@ export type SignalType =
   | "data_hygiene_gap";
 
 export interface Signal {
-  id: string; // unique per firing — `${ruleId}:${oppId}`
+  id: string; // unique per firing - `${ruleId}:${oppId}`
   ruleId: string;
   oppId: string;
   severity: SignalSeverity;
-  // Canonical signal taxonomy — required. One of the 12 values in synthesis.md §1.
+  // Canonical signal taxonomy - required. One of the 12 values in synthesis.md §1.
   // Source-specific subtypes (e.g., 'finance_mentioned_not_engaged') belong in
   // a `derived` JSONB column on the persistent row, not in `signalType`.
   signalType: SignalType;
   title: string; // short, scannable
   body: string; // 1-2 sentences of context
-  suggestedAction: string; // imperative — what the AE should do next
+  suggestedAction: string; // imperative - what the AE should do next
   assetLink?: string; // asset name + URL (mocked) for one-click access
   detectedAt: string;
   playbookId?: string; // when set, the UI shows a "View playbook" expander
@@ -285,7 +285,7 @@ export interface Signal {
   sourceEventId?: string; // idempotency key from the source system
 }
 
-// Deal Health — compound state derived from all signals on a deal, weighted
+// Deal Health - compound state derived from all signals on a deal, weighted
 // by close-date proximity. The single-glance answer to "how is this deal."
 // Per the design philosophy: no single signal determines this; the read comes
 // from the compound pattern.
@@ -308,7 +308,7 @@ export interface SignalRule {
 // The signal engine emits NO_TRIAL_BRIEF_AT_DEMO_SAT when a Demo Sat+ opp
 // is missing an outcome-first trial brief. The orchestrator is the workflow
 // that takes that signal from "we should run a trial" to "the brief is in
-// flight" — captured as a TrialIntake submitted by the AE and worked by an SE
+// flight" - captured as a TrialIntake submitted by the AE and worked by an SE
 // against a 48-hour SLA.
 //
 // Persistence is localStorage, mirroring the task layer in tasks.ts. The
@@ -317,7 +317,7 @@ export interface SignalRule {
 // part that survives that migration unchanged.
 // ---------------------------------------------------------------------------
 
-// 48 hours, expressed in ms. The single SLA window for every intake — kept
+// 48 hours, expressed in ms. The single SLA window for every intake - kept
 // generic on purpose so the test suite + the timer component read the same
 // number and can't drift.
 export const TRIAL_INTAKE_SLA_MS = 48 * 60 * 60 * 1000;
@@ -326,7 +326,7 @@ export type TrialIntakeStatus =
   | "pending_se_assignment" // AE submitted; round-robin hasn't picked an SE yet
   | "in_progress" // SE assigned; KPI assessment in flight
   | "delivered" // KPI assessment + pre-seeded demo dropped in the deal room
-  | "overdue"; // derived, not stored — surfaced when now > slaDeadline and !delivered
+  | "overdue"; // derived, not stored - surfaced when now > slaDeadline and !delivered
 
 export interface TrialIntakeEvent {
   at: string; // ISO timestamp
@@ -336,14 +336,14 @@ export interface TrialIntakeEvent {
 }
 
 export interface TrialIntake {
-  id: string; // `intake_<oppId>_<submittedAt epoch>` — stable per-submission
+  id: string; // `intake_<oppId>_<submittedAt epoch>` - stable per-submission
   oppId: string;
   accountId: string;
   submittedBy: string; // Rep.id of the AE
   submittedAt: string; // ISO
-  slaDeadline: string; // ISO — submittedAt + TRIAL_INTAKE_SLA_MS
+  slaDeadline: string; // ISO - submittedAt + TRIAL_INTAKE_SLA_MS
 
-  // Intake fields — captured at submission, immutable thereafter.
+  // Intake fields - captured at submission, immutable thereafter.
   kpiHypotheses: string[]; // up to 3
   buyerSuccessCriteria: string;
   datasetRequirements: string;
@@ -351,8 +351,8 @@ export interface TrialIntake {
 
   // Assignment + delivery state.
   status: Exclude<TrialIntakeStatus, "overdue">; // overdue is derived
-  assignedSeId?: string; // Rep.id (role: SE) — set when status moves off pending
-  kpiAssessmentDeliveredAt?: string; // ISO — set when status moves to delivered
+  assignedSeId?: string; // Rep.id (role: SE) - set when status moves off pending
+  kpiAssessmentDeliveredAt?: string; // ISO - set when status moves to delivered
   demoSeededAt?: string; // ISO
 
   history: TrialIntakeEvent[];
@@ -373,7 +373,7 @@ export interface EvaluationContext {
     companyName: string;
     assets: { id: string; name: string }[];
     stack: { dealRooms: string; conversationIntelligence: string };
-    // Optional ACV floor read by the CONTRACT_IDLE rule — see
+    // Optional ACV floor read by the CONTRACT_IDLE rule - see
     // workspace.ts §CONTRACT_IDLE_AMOUNT_FLOOR_DEFAULT.
     contractIdleAmountFloor?: number;
   };

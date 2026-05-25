@@ -11,7 +11,7 @@
 //   3. Sender-domain suffix match (subdomains)
 //   4. Fallback: { is_known: false, canonical = sender_domain }
 //
-// Pure module — no I/O. Adding a new publisher = one entry in the map.
+// Pure module - no I/O. Adding a new publisher = one entry in the map.
 // Design doc: /docs/filter-design.md §9 + §11.
 //
 // v1 catalog covers the Phase 0/1 newsletters from
@@ -38,7 +38,7 @@ const PUBLISHERS: PublisherEntry[] = [
     canonical: "ai_snake_oil",
     display: "AI Snake Oil",
     source_url_origin: "https://www.aisnakeoil.com",
-    // TODO(jackson): confirm List-ID via headers when first email arrives —
+    // TODO(jackson): confirm List-ID via headers when first email arrives -
     // Substack publications usually expose "<slug>.substack.com" but the
     // AI Snake Oil archive is also published on aisnakeoil.com. Sender
     // domain scoped to the publisher-specific substack subdomain so it
@@ -63,7 +63,7 @@ const PUBLISHERS: PublisherEntry[] = [
     canonical: "bens_bites",
     display: "Ben's Bites",
     source_url_origin: "https://bensbites.beehiiv.com",
-    // TODO(jackson): confirm List-ID via headers when first email arrives —
+    // TODO(jackson): confirm List-ID via headers when first email arrives -
     // beehiiv typically ships "<slug>.beehiiv.com" but some publishers
     // use a custom domain in the List-ID. The sender_domains entry is
     // scoped to the publisher-specific beehiiv subdomain so multiple
@@ -148,7 +148,7 @@ const PUBLISHERS: PublisherEntry[] = [
     canonical: "the_rundown_ai",
     display: "The Rundown AI",
     source_url_origin: "https://www.therundown.ai",
-    // TODO(jackson): confirm List-ID via headers when first email arrives —
+    // TODO(jackson): confirm List-ID via headers when first email arrives -
     // beehiiv publishers commonly use "<slug>.beehiiv.com". Sender_domains
     // is scoped to the specific subdomain to avoid colliding with other
     // beehiiv-hosted publishers (e.g. bens_bites, brainyacts).
@@ -158,7 +158,7 @@ const PUBLISHERS: PublisherEntry[] = [
 ];
 
 // Normalize a List-ID header value. RFC-2919 format is
-// "Optional description <list-id-text>" — we want the inner token,
+// "Optional description <list-id-text>" - we want the inner token,
 // lowercased.
 function normalizeListId(raw: string | null | undefined): string | null {
   if (!raw) return null;

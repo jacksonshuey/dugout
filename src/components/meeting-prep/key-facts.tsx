@@ -2,7 +2,7 @@ import { Card } from "@/components/ui";
 import type { MeetingBrief } from "@/lib/meeting-prep";
 
 // Skimmable key facts: strategic focus, recent funding, industry/HQ.
-// Each card is a single line — the AE shouldn't be reading paragraphs
+// Each card is a single line - the AE shouldn't be reading paragraphs
 // 30 seconds before a meeting.
 
 export function KeyFacts({ brief }: { brief: MeetingBrief }) {
@@ -56,7 +56,7 @@ export function KeyFacts({ brief }: { brief: MeetingBrief }) {
               {brief.recentExecChanges.map((ec, i) => (
                 <li key={`${ec.name}-${i}`}>
                   <span className="font-medium">{ec.name}</span>
-                  <span className="text-muted"> — {ec.role}</span>
+                  <span className="text-muted"> - {ec.role}</span>
                   <span className="text-muted"> ({ec.change}</span>
                   {ec.date && (
                     <span className="text-muted">, {ec.date.slice(0, 10)}</span>

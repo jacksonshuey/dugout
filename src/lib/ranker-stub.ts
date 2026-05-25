@@ -1,6 +1,6 @@
 // Deterministic stub ranker for /market-intel.
 //
-// Pure function — no I/O, no clock (Date), no random. The caller passes
+// Pure function - no I/O, no clock (Date), no random. The caller passes
 // `now` on RankerInput so the result is fully reproducible.
 //
 // Design doc: /docs/ranker-design.md §7. Comparator order matches the
@@ -47,7 +47,7 @@ export function severityTierFor(type: ExternalSignalType): 0 | 1 | 2 {
 // Match a signal against the workspace's tracked-account keywords. Returns
 // the account_ids whose name/ticker/domain_slug appears in the signal's
 // `meta.mention` (when present) or summary. Case-insensitive, word-boundary
-// match — same shape as newsletter-adapter's matcher so the two paths agree
+// match - same shape as newsletter-adapter's matcher so the two paths agree
 // on what counts as "this signal names an account."
 function normalize(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
@@ -57,7 +57,7 @@ function mentionTextFor(signal: ExternalSignal): string {
   const meta = (signal.meta ?? {}) as { mention?: unknown };
   const mention =
     typeof meta.mention === "string" ? meta.mention : "";
-  // Concatenate the mention and the summary — both are fair game for a
+  // Concatenate the mention and the summary - both are fair game for a
   // name match. The summary catches cases where the newsletter classifier
   // didn't populate meta.mention (older rows, web_scrape source, etc.).
   return normalize(`${mention} ${signal.summary}`);

@@ -12,7 +12,7 @@ import { supabaseAdmin } from "./supabase";
 import { DEFAULT_CONFIG } from "./workspace";
 import { scrapeUrl } from "./firecrawl-client";
 
-// News adapter — fetches recent articles per company from NewsAPI, runs the
+// News adapter - fetches recent articles per company from NewsAPI, runs the
 // Stage 1 + Stage 2 content filter (src/lib/news-filter.ts), generates a
 // Haiku bullet (src/lib/news-bullet-generator.ts), and persists kept signals
 // + every audit decision (kept and rejected).
@@ -25,7 +25,7 @@ import { scrapeUrl } from "./firecrawl-client";
 //   4. Per-article Haiku bullet rewriter for kept articles (~1s, parallel)
 //   5. Direct insert + audit write (kept) OR audit write only (rejected)
 //
-// Writes happen in this module — not in the cron route — so that the
+// Writes happen in this module - not in the cron route - so that the
 // audit row can be tied to the inserted signal's id. The signals are also
 // returned to the caller so the existing cron-route bookkeeping continues
 // to work; the cron's downstream insertSignalsDedup call no-ops on them via
@@ -42,7 +42,7 @@ const LOOKBACK_DAYS = 30;
 const CLASSIFIER_TAG = "news-filter-v1.0";
 
 // ---------------------------------------------------------------------------
-// Env loading — same fallback as src/lib/claude.ts. Some dev harnesses export
+// Env loading - same fallback as src/lib/claude.ts. Some dev harnesses export
 // an empty key into the shell, which would otherwise win over .env.local.
 // ---------------------------------------------------------------------------
 
@@ -111,7 +111,7 @@ async function fetchArticles(companyName: string): Promise<NewsApiArticle[]> {
     const data = (await res.json()) as NewsApiResponse;
     if (data.status !== "ok") {
       throw new Error(
-        `NewsAPI error: ${data.code ?? "unknown"} — ${data.message ?? "no message"}`,
+        `NewsAPI error: ${data.code ?? "unknown"} - ${data.message ?? "no message"}`,
       );
     }
     return data.articles ?? [];
@@ -126,7 +126,7 @@ async function fetchArticles(companyName: string): Promise<NewsApiArticle[]> {
 // Maps an article to one of the 12 canonical ExternalSignalType values via
 // keyword regex on title + description. Used to populate `external_signals.type`
 // after the new content filter has decided the article is keepable. The
-// keyword set is the same one the old fallback path used — preserving
+// keyword set is the same one the old fallback path used - preserving
 // BUILD_ALIGNMENT #2 (canonical signal_type only) without re-spending a
 // Haiku call.
 // ---------------------------------------------------------------------------
@@ -145,7 +145,7 @@ function heuristicType(article: NewsApiArticle): ExternalSignalType {
 }
 
 // ---------------------------------------------------------------------------
-// Article projection — NewsAPI shape → filter input shape
+// Article projection - NewsAPI shape → filter input shape
 // ---------------------------------------------------------------------------
 
 function deriveDomain(article: NewsApiArticle): string {
@@ -169,13 +169,13 @@ function toArticleInput(article: NewsApiArticle): ArticleInput {
 }
 
 // ---------------------------------------------------------------------------
-// Public API — same shape as the prior adapter so the cron route doesn't
+// Public API - same shape as the prior adapter so the cron route doesn't
 // have to change.
 // ---------------------------------------------------------------------------
 
 export interface AdapterResult {
   signals: NewExternalSignal[];
-  rawResponseLength: number; // diagnostic — number of articles seen
+  rawResponseLength: number; // diagnostic - number of articles seen
 }
 
 export async function fetchSignalsForCompany(
@@ -199,7 +199,7 @@ export async function fetchSignalsForCompany(
     primary_vertical: "tech_ai",
   };
 
-  // Process articles in parallel — Stage 1 is pure, Stage 2 + bullet are
+  // Process articles in parallel - Stage 1 is pure, Stage 2 + bullet are
   // independent per-article Haiku calls. Concurrency cap = ARTICLES_PER_QUERY
   // so we never have more than ~10 in-flight Anthropic requests per account.
   const processed = await Promise.all(
@@ -249,7 +249,7 @@ export async function fetchSignalsForCompany(
       continue;
     }
 
-    // Universal source-content persistence — Firecrawl-scrape the article
+    // Universal source-content persistence - Firecrawl-scrape the article
     // body before building the signal so the SourcePreviewModal can render
     // the exact text the AE Brief surfaced. Skip the signal entirely on
     // scrape failure: principle is "every signal verifiable against its
@@ -263,7 +263,7 @@ export async function fetchSignalsForCompany(
         scrapedMd = scrape.markdown;
       } else {
         console.warn(
-          `[news-adapter] scrape failed url=${article.url} status=${scrape.ok ? "empty_body" : scrape.statusCode ?? "err"} — skipping signal`,
+          `[news-adapter] scrape failed url=${article.url} status=${scrape.ok ? "empty_body" : scrape.statusCode ?? "err"} - skipping signal`,
         );
       }
     } catch (e) {
@@ -294,7 +294,7 @@ export async function fetchSignalsForCompany(
       summary: (bullet ?? articleInput.title).slice(0, 500),
       occurred_at: article.publishedAt,
       url: article.url,
-      // Origin of the article URL — matches newsletter-adapter convention so
+      // Origin of the article URL - matches newsletter-adapter convention so
       // SignalSourceChip can render a "View source" link.
       source_url: article.url,
       meta: {
@@ -328,10 +328,10 @@ export async function fetchSignalsForCompany(
           .single();
         if (error) {
           // Most likely a unique-violation race or RLS misconfig. We still
-          // want the audit row even if the insert failed — record it with
+          // want the audit row even if the insert failed - record it with
           // external_signal_id=null and continue.
           console.warn(
-            `[news-adapter] account=${accountId}: insert failed url=${article.url} — ${error.message}`,
+            `[news-adapter] account=${accountId}: insert failed url=${article.url} - ${error.message}`,
           );
         } else {
           insertedId =
@@ -341,7 +341,7 @@ export async function fetchSignalsForCompany(
         }
       } catch (e) {
         console.warn(
-          `[news-adapter] account=${accountId}: insert threw url=${article.url} — ${e instanceof Error ? e.message : String(e)}`,
+          `[news-adapter] account=${accountId}: insert threw url=${article.url} - ${e instanceof Error ? e.message : String(e)}`,
         );
       }
 

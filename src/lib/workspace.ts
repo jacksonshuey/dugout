@@ -1,4 +1,4 @@
-// Workspace configuration — the runtime values that make Dugout a
+// Workspace configuration - the runtime values that make Dugout a
 // platform rather than a Checkbox-specific demo.
 //
 // Architecture choice: the SHAPE of the system (signal engine, severity
@@ -36,23 +36,23 @@ export interface WorkspaceConfig {
   companyName: string;
   industry: string;
   region: string;
-  icpDescription: string; // 1-2 sentence ICP — feeds the digest synthesis prompt
-  killPoint: string; // 1-sentence "this is where deals die at this company" — the wedge
+  icpDescription: string; // 1-2 sentence ICP - feeds the digest synthesis prompt
+  killPoint: string; // 1-sentence "this is where deals die at this company" - the wedge
 
-  // Strategic priorities — rules tag themselves with one of these IDs
+  // Strategic priorities - rules tag themselves with one of these IDs
   priorities: StrategicPriority[];
 
-  // Standard sales assets — referenced by signal rules ("send the X asset")
+  // Standard sales assets - referenced by signal rules ("send the X asset")
   assets: StandardAsset[];
 
-  // Stack — display names only (no real integrations); flows to digest prompt
+  // Stack - display names only (no real integrations); flows to digest prompt
   // and architecture data-layer copy
   stack: IntegrationStack;
 
-  // Slack — optional webhook for the live digest demo
+  // Slack - optional webhook for the live digest demo
   slackWebhookUrl?: string;
 
-  // ACV floor for the CONTRACT_IDLE signal — opps below this don't fire the
+  // ACV floor for the CONTRACT_IDLE signal - opps below this don't fire the
   // blocking-tier "buyer-side activity is silent" rule because the cost of
   // chasing a low-ACV deal at Contracting isn't worth the false-positive risk.
   // Defaults to 50000 (USD) via CONTRACT_IDLE_AMOUNT_FLOOR_DEFAULT.
@@ -62,7 +62,7 @@ export interface WorkspaceConfig {
   presetName?: string; // "Checkbox" / "Generic B2B SaaS" / "Custom"
 }
 
-// Default ACV floor for CONTRACT_IDLE — $50k. Workspace config can raise this
+// Default ACV floor for CONTRACT_IDLE - $50k. Workspace config can raise this
 // per preset; the signal rule reads ctx.config?.contractIdleAmountFloor and
 // falls back to this constant when unset.
 export const CONTRACT_IDLE_AMOUNT_FLOOR_DEFAULT = 50000;
@@ -168,7 +168,7 @@ export const CHECKBOX_PRESET: WorkspaceConfig = {
 
 // ---------------------------------------------------------------------------
 // Preset: Generic B2B SaaS
-// A different shape — different priorities, different assets, different
+// A different shape - different priorities, different assets, different
 // integrations. Proves the system isn't Checkbox-specific.
 // ---------------------------------------------------------------------------
 export const GENERIC_SAAS_PRESET: WorkspaceConfig = {
@@ -238,7 +238,7 @@ export const DEFAULT_CONFIG = CHECKBOX_PRESET;
 //
 // Rules: lowercase, replace any non-alphanumeric run with a single "-",
 // trim leading/trailing dashes. Returns "workspace" when the input
-// collapses to an empty string (defensive — should never happen in
+// collapses to an empty string (defensive - should never happen in
 // practice since companyName has a fallback in DEFAULT_CONFIG).
 //
 // Examples:

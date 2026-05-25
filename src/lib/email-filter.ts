@@ -7,14 +7,14 @@
 // the routing decision is honored).
 //
 // Provider: Anthropic Haiku 4.5, single tool-use round-trip. Mirrors the
-// ranker's pattern — single-shot, forced tool_choice, schema-validated
+// ranker's pattern - single-shot, forced tool_choice, schema-validated
 // post-hoc. We do NOT reuse anthropic-ask.ts directly because the
 // HAS_ANTHROPIC_KEY + getAnthropicClient() pair from there is already the
 // right surface; we just import it.
 //
 // Fail-CLOSED at the gate: any Haiku failure (5xx, timeout, malformed,
 // schema violation, low-confidence, no-api-key) routes to `needs_review`.
-// Opposite to the ranker's fail-OPEN posture — false positives in
+// Opposite to the ranker's fail-OPEN posture - false positives in
 // /market-intel are worse than missed items per design §0.
 //
 // Design doc: /docs/filter-design.md §6 + §8.
@@ -46,7 +46,7 @@ import {
   type WorkspaceRelevance,
 } from "./workspace-relevance";
 
-// Haiku model id — centralized here so a model bump is one line.
+// Haiku model id - centralized here so a model bump is one line.
 const HAIKU_MODEL = "claude-haiku-4-5";
 
 // Hard request timeout (ms). The SDK retries 5xx with backoff; this is the
@@ -84,7 +84,7 @@ function buildToolSchema() {
           type: "string",
           enum: VALID_VERDICTS as unknown as string[],
         },
-        // Added in the Phase 3 unification — every email decision now
+        // Added in the Phase 3 unification - every email decision now
         // carries one of the four workspace-relevance tiers so downstream
         // ranker code has a consistent hint regardless of source.
         workspace_relevance: WORKSPACE_RELEVANCE_TOOL_PROPERTY,
@@ -183,7 +183,7 @@ function validateStage2Output(raw: unknown): ValidationOk | ValidationErr {
   // The prompt asks for ≤200 chars but Haiku 4.5 routinely overshoots to
   // 200-300. The validator's job is to catch malformed output (truncated,
   // wrong type), not to fail-close on minor stylistic overshoot. Cap at 500
-  // — generous enough for natural variance, bounded enough to detect a
+  // - generous enough for natural variance, bounded enough to detect a
   // runaway response.
   if (
     typeof reasoning !== "string" ||
@@ -240,7 +240,7 @@ function classifyError(e: unknown): Stage2FailureReason {
   if (msg.includes("no tool_use block")) {
     return "haiku_malformed_json";
   }
-  // Any other API error (4xx, network) — treat as 5xx category for fail-
+  // Any other API error (4xx, network) - treat as 5xx category for fail-
   // closed purposes. Matches the ranker's collapse.
   return "haiku_5xx";
 }
@@ -256,7 +256,7 @@ export interface FilterEmailDeps {
     toolSchema: ReturnType<typeof buildToolSchema>;
     timeoutMs: number;
   }) => Promise<unknown>;
-  // Test seam for HAS_ANTHROPIC_KEY — defaults to the env-derived value.
+  // Test seam for HAS_ANTHROPIC_KEY - defaults to the env-derived value.
   hasApiKey?: boolean;
   // Test seam for the audit table.
   audit?: EmailFilterDecisionsDeps;
@@ -266,7 +266,7 @@ export async function filterEmail(
   input: FilterInput,
   deps: FilterEmailDeps = {},
 ): Promise<FilterResult> {
-  // Outer safety net — see design §8 final paragraph. The cron sweeper
+  // Outer safety net - see design §8 final paragraph. The cron sweeper
   // and webhook must never 500 on a filter bug.
   try {
     return await filterEmailInner(input, deps);
@@ -340,7 +340,7 @@ async function filterEmailInner(
         stage: 2,
         verdict: "other",
         confidence: 0,
-        reasoning: "no_api_key — Stage 2 skipped",
+        reasoning: "no_api_key - Stage 2 skipped",
         model: null,
         prompt_version: STAGE2_PROMPT_VERSION,
       },
@@ -377,11 +377,11 @@ async function filterEmailInner(
     const status = e instanceof Anthropic.APIError ? e.status : null;
     if (reason === "haiku_5xx") {
       console.warn(
-        `[email-filter] needs_review stage2_failure=haiku_5xx status=${status ?? "n/a"} id=${email.id} — ${tagMsg}`,
+        `[email-filter] needs_review stage2_failure=haiku_5xx status=${status ?? "n/a"} id=${email.id} - ${tagMsg}`,
       );
     } else {
       console.warn(
-        `[email-filter] needs_review stage2_failure=${reason} id=${email.id} — ${tagMsg}`,
+        `[email-filter] needs_review stage2_failure=${reason} id=${email.id} - ${tagMsg}`,
       );
     }
     const decision_id = await writeDecision(
@@ -439,7 +439,7 @@ async function filterEmailInner(
 
   // Always write the audit row with the model's actual verdict + reasoning,
   // even when low-confidence routes to needs_review. The audit preserves
-  // "what would the gate have said if we'd trusted it?" — important for
+  // "what would the gate have said if we'd trusted it?" - important for
   // tuning the threshold later.
   const decision_id = await writeDecision(
     {
