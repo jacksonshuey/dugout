@@ -279,6 +279,80 @@ export const accounts: Account[] = [
     ticker: "CIVI",
     isDemoScenario: true,
   },
+
+  // Checkbox-customer accounts. Real customers Checkbox publicly trumpets
+  // (per their /customers page + Series A press release). Surfaced in the
+  // Dugout pipeline so the demo lands authentically for a Checkbox audience:
+  // these are the deals YOUR AE team would actually be working.
+  {
+    id: "acc_sap",
+    name: "SAP",
+    industry: "SaaS",
+    segment: "Enterprise",
+    hqLocation: "Walldorf, Germany",
+    legalTeamSize: 400,
+    trackable: true,
+    linkedinSlug: "sap",
+    website: "sap.com",
+    domain: "sap.com",
+    ticker: "SAP",
+    isDemoScenario: false,
+  },
+  {
+    id: "acc_adi",
+    name: "Analog Devices",
+    industry: "Manufacturing",
+    segment: "Enterprise",
+    hqLocation: "Wilmington, MA",
+    legalTeamSize: 120,
+    trackable: true,
+    linkedinSlug: "analog-devices",
+    website: "analog.com",
+    domain: "analog.com",
+    ticker: "ADI",
+    isDemoScenario: false,
+  },
+  {
+    id: "acc_ccep",
+    name: "Coca-Cola Europacific Partners",
+    industry: "Manufacturing",
+    segment: "Enterprise",
+    hqLocation: "Uxbridge, UK",
+    legalTeamSize: 90,
+    trackable: true,
+    linkedinSlug: "coca-cola-europacific-partners",
+    website: "cocacolaep.com",
+    domain: "cocacolaep.com",
+    ticker: "CCEP",
+    isDemoScenario: false,
+  },
+  {
+    id: "acc_woolworths",
+    name: "Woolworths Group",
+    industry: "Retail",
+    segment: "Enterprise",
+    hqLocation: "Bella Vista, Australia",
+    legalTeamSize: 60,
+    trackable: true,
+    linkedinSlug: "woolworths-group",
+    website: "woolworthsgroup.com.au",
+    domain: "woolworthsgroup.com.au",
+    ticker: "WOW.AX",
+    isDemoScenario: false,
+  },
+  {
+    id: "acc_hitachi",
+    name: "Hitachi Digital",
+    industry: "SaaS",
+    segment: "Enterprise",
+    hqLocation: "Santa Clara, CA",
+    legalTeamSize: 200,
+    trackable: true,
+    linkedinSlug: "hitachi-digital",
+    website: "hitachi.com",
+    domain: "hitachi.com",
+    isDemoScenario: false,
+  },
 ];
 
 // Minimal {slug, name} pairs used by the /ask list_accounts tool and the
@@ -376,6 +450,26 @@ export const contacts: Contact[] = [
 
   // Civitas (Jenna) - Qualified, stalled
   { id: "c_str_1", accountId: "acc_stratos", name: "Tracy Bell", title: "Legal Manager", role: "Champion" },
+
+  // SAP (Sara) - Qualified, healthy. Champion + GC engaged.
+  { id: "c_sap_1", accountId: "acc_sap", name: "Lena Schroeder", title: "VP, Global Contracting", role: "Champion" },
+  { id: "c_sap_2", accountId: "acc_sap", name: "Tomas Berg", title: "Deputy General Counsel", role: "GC" },
+
+  // Analog Devices (Marcus) - Demo Sat. Champion only so far; expansion incoming.
+  { id: "c_adi_1", accountId: "acc_adi", name: "Hari Iyer", title: "Senior Counsel, Commercial", role: "Champion" },
+
+  // Coca-Cola Europacific Partners (Sara) - Evaluating. Champion + Finance + IT
+  // (Evaluating stage benefits from full committee coverage to suppress wedge signals).
+  { id: "c_ccep_1", accountId: "acc_ccep", name: "Sasha Lindgren", title: "Deputy GC, Europacific", role: "Champion" },
+  { id: "c_ccep_2", accountId: "acc_ccep", name: "Aoife Walsh", title: "Finance Director, Procurement", role: "Finance/CFO" },
+  { id: "c_ccep_3", accountId: "acc_ccep", name: "Marcus Penn", title: "Head of IT Risk", role: "IT/Security" },
+
+  // Woolworths Group (Jenna) - Qualified, early engagement.
+  { id: "c_wow_1", accountId: "acc_woolworths", name: "Cate Donovan", title: "Head of Legal Operations", role: "Champion" },
+
+  // Hitachi Digital (Marcus) - Demo Sat. Champion + Legal Ops.
+  { id: "c_hit_1", accountId: "acc_hitachi", name: "Yumi Takeda", title: "Director, Legal Operations", role: "Champion" },
+  { id: "c_hit_2", accountId: "acc_hitachi", name: "Devon Reid", title: "Senior Counsel, Commercial", role: "GC" },
 ];
 
 // Opportunities - engineered with deliberate stage-ages and contact attachments
@@ -592,10 +686,78 @@ export const opportunities: Opportunity[] = [
     closeDate: "2026-06-30",
     contactRoleIds: ["c_atl_1", "c_atl_3", "c_atl_4"],
   },
+
+  // Checkbox-customer pipeline opportunities. Stages chosen to avoid
+  // triggering the wedge signal rules - early-mid pipeline with the
+  // committee coverage each stage needs.
+  {
+    id: "opp_sap",
+    accountId: "acc_sap",
+    name: "SAP - Global Legal Front Door",
+    ownerId: "rep_sc",
+    stage: "Qualified",
+    amount: 250000,
+    enteredStageAt: "2026-05-18",
+    createdAt: "2026-04-30",
+    closeDate: "2026-08-15",
+    contactRoleIds: ["c_sap_1", "c_sap_2"],
+  },
+  {
+    id: "opp_adi",
+    accountId: "acc_adi",
+    name: "Analog Devices - Ask LRO Expansion",
+    ownerId: "rep_mw",
+    stage: "Demo Sat",
+    amount: 180000,
+    enteredStageAt: "2026-05-19",
+    createdAt: "2026-04-22",
+    closeDate: "2026-07-20",
+    contactRoleIds: ["c_adi_1"],
+  },
+  {
+    id: "opp_ccep",
+    accountId: "acc_ccep",
+    name: "CCEP - NDA + Low-Risk Contract Automation",
+    ownerId: "rep_sc",
+    stage: "Evaluating",
+    amount: 220000,
+    enteredStageAt: "2026-05-12",
+    createdAt: "2026-04-10",
+    closeDate: "2026-07-10",
+    contactRoleIds: ["c_ccep_1", "c_ccep_2", "c_ccep_3"],
+  },
+  {
+    id: "opp_woolworths",
+    accountId: "acc_woolworths",
+    name: "Woolworths - Legal Intake Front Door",
+    ownerId: "rep_jp",
+    stage: "Qualified",
+    amount: 140000,
+    enteredStageAt: "2026-05-20",
+    createdAt: "2026-05-02",
+    closeDate: "2026-08-30",
+    contactRoleIds: ["c_wow_1"],
+  },
+  {
+    id: "opp_hitachi",
+    accountId: "acc_hitachi",
+    name: "Hitachi Digital - Single Front Door Global",
+    ownerId: "rep_mw",
+    stage: "Demo Sat",
+    amount: 300000,
+    enteredStageAt: "2026-05-15",
+    createdAt: "2026-04-05",
+    closeDate: "2026-08-01",
+    contactRoleIds: ["c_hit_1", "c_hit_2"],
+  },
 ];
 
 // Activities - recent enough to drive ghost/engagement signals. We focus on
 // the last 14 days where signals decide what's "happening now."
+//
+// Checkbox-customer activities (SAP / ADI / CCEP / Woolworths / Hitachi) sit
+// at the end of this array. Each has 2-3 recent touches so the pipeline
+// surface treats them as live deals rather than stale rows.
 export const activities: Activity[] = [
   // Moderna - quiet for 11 days (champion not ghosting but no momentum)
   { id: "a_apex_1", oppId: "opp_apex", contactId: "c_apex_1", type: "email_sent", occurredAt: "2026-05-10", summary: "Sent follow-up on POC scope" },
@@ -678,6 +840,27 @@ export const activities: Activity[] = [
   //   - No SSO/IT activity at all → SSO_SETUP_PENDING (12d in stage > 7d)
   { id: "a_atl2_1", oppId: "opp_atlas_2", contactId: "c_atl_3", type: "email_received", occurredAt: "2026-05-09", summary: "Procurement Marcus Lee sent over the initial paperwork bundle" },
   { id: "a_atl2_2", oppId: "opp_atlas_2", type: "email_sent", occurredAt: "2026-05-15", summary: "Sent our redline pass on the MSA back to buyer counsel - awaiting their next round" },
+
+  // SAP - healthy Qualified momentum
+  { id: "a_sap_1", oppId: "opp_sap", contactId: "c_sap_1", type: "meeting", occurredAt: "2026-05-19", summary: "Discovery 2 - Lena walked through the global intake volume + current pain points" },
+  { id: "a_sap_2", oppId: "opp_sap", contactId: "c_sap_2", type: "email_received", occurredAt: "2026-05-21", summary: "Tomas confirmed Deputy GC sign-off on running a 4-week POC across two regions" },
+
+  // Analog Devices - post-demo, single-thread (champion only)
+  { id: "a_adi_1", oppId: "opp_adi", contactId: "c_adi_1", type: "meeting", occurredAt: "2026-05-19", summary: "Demo delivered - Hari liked the auto-triage flow; wants to scope a tighter POC on commercial contracts" },
+  { id: "a_adi_2", oppId: "opp_adi", contactId: "c_adi_1", type: "email_received", occurredAt: "2026-05-22", summary: "Hari asked for 1-pager on how we'd handle export-controlled contract clauses" },
+
+  // CCEP - active Evaluating with full committee
+  { id: "a_ccep_1", oppId: "opp_ccep", contactId: "c_ccep_1", type: "meeting", occurredAt: "2026-05-18", summary: "Eval kickoff with Sasha + Aoife - aligned on success criteria (NDA turnaround + low-risk MSA pre-approval)" },
+  { id: "a_ccep_2", oppId: "opp_ccep", contactId: "c_ccep_3", type: "meeting", occurredAt: "2026-05-21", summary: "IT security review session - Marcus walked us through their SOC 2 + ISO 27001 requirements" },
+  { id: "a_ccep_3", oppId: "opp_ccep", contactId: "c_ccep_2", type: "email_sent", occurredAt: "2026-05-22", summary: "Sent finance brief over to Aoife with the 4-region rollout cost model" },
+
+  // Woolworths - early Qualified, single touch so far
+  { id: "a_wow_1", oppId: "opp_woolworths", contactId: "c_wow_1", type: "meeting", occurredAt: "2026-05-21", summary: "Discovery call with Cate - matter volume reduction is the headline KPI" },
+  { id: "a_wow_2", oppId: "opp_woolworths", contactId: "c_wow_1", type: "email_received", occurredAt: "2026-05-22", summary: "Cate looped in 2 SE folks to the next session" },
+
+  // Hitachi Digital - post-demo, active
+  { id: "a_hit_1", oppId: "opp_hitachi", contactId: "c_hit_1", type: "meeting", occurredAt: "2026-05-16", summary: "Demo delivered to Yumi + Devon - asked about multi-language intake (40+ country footprint)" },
+  { id: "a_hit_2", oppId: "opp_hitachi", contactId: "c_hit_2", type: "email_received", occurredAt: "2026-05-20", summary: "Devon shared their current intake routing logic doc for our SE to review" },
 ];
 
 // Gong-shaped call transcripts. The signal engine reasons over summary +
