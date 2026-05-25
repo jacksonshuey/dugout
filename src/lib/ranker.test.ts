@@ -262,6 +262,67 @@ describe("rationale citations", () => {
   });
 });
 
+// ─── 8b. citation_regex_lastindex_regression ────────────────────────────
+// Regression for CITATION_RE global-flag lastIndex bug (ISSUES_FOR_NIGHT_LOOP P0).
+// When CITATION_RE.exec() is used in a loop without resetting lastIndex,
+// the second call to validateItems starts from the previous match position
+// and returns a subset of citations. matchAll() fixes this by creating a
+// fresh iterator each call. Assert that two sequential rankSignals calls
+// with identical input return identical citation lists.
+
+describe("ranker · citation regex lastIndex regression", () => {
+  test("two sequential haiku calls with same input return identical citation counts", async () => {
+    const signals = [
+      mkSignal({ id: "s_a", type: "leadership_change" }),
+      mkSignal({ id: "s_b", type: "earnings" }),
+      mkSignal({ id: "s_c", type: "funding_round" }),
+    ];
+    const haikuResponse = {
+      items: [
+        {
+          signal_id: "s_a",
+          rank: 1,
+          rationale: "Leadership change. [citation:s_a] See also [citation:s_a].",
+        },
+        {
+          signal_id: "s_b",
+          rank: 2,
+          rationale: "Earnings report. [citation:s_b]",
+        },
+        {
+          signal_id: "s_c",
+          rank: 3,
+          rationale: "Funding round. [citation:s_c]",
+        },
+      ],
+    };
+    const input = mkInput(signals);
+    const deps = {
+      hasApiKey: true,
+      haikuCall: async () => haikuResponse,
+      cache: { supabase: noCacheSupabase() },
+    };
+
+    const r1 = await rankSignals(input, deps);
+    const r2 = await rankSignals(input, deps);
+
+    // Both calls must succeed via haiku (not fall back to stub).
+    expect(r1.source).toBe("haiku");
+    expect(r2.source).toBe("haiku");
+
+    // Citation lists must be identical across both calls.
+    const cites1 = r1.items.map((item) => [
+      ...item.rationale.matchAll(/\[citation:([^\]\s]+)\]/g),
+    ].map((m) => m[1]));
+    const cites2 = r2.items.map((item) => [
+      ...item.rationale.matchAll(/\[citation:([^\]\s]+)\]/g),
+    ].map((m) => m[1]));
+
+    expect(cites1).toEqual(cites2);
+    expect(cites1.every((list) => list.length > 0)).toBe(true);
+  });
+});
+
 // ─── 9. schema_rejects_more_than_20_items ───────────────────────────────
 
 describe("rankSignals · schema enforcement", () => {

@@ -195,10 +195,9 @@ function validateItems(
     seenRanks.add(rank);
 
     // Citation present + id matches signal_id.
-    const matches: string[] = [];
-    let m: RegExpExecArray | null;
-    CITATION_RE.lastIndex = 0;
-    while ((m = CITATION_RE.exec(rationale)) !== null) matches.push(m[1]);
+    // Use matchAll instead of exec() so the global regex's lastIndex is not
+    // retained across loop iterations or successive validateItems calls.
+    const matches = [...rationale.matchAll(CITATION_RE)].map((m) => m[1]);
     if (matches.length === 0) {
       return {
         ok: false,
