@@ -28,7 +28,7 @@ import type {
  * assessColumnRouting without any `as unknown as Anthropic` cast here.
  */
 function makeFakeClient(verdictInput: HaikuRoutingVerdict): Anthropic {
-  const fakeResponse: Anthropic.Message = {
+  const fakeResponse = {
     id: "msg_fake",
     type: "message",
     role: "assistant",
@@ -38,13 +38,13 @@ function makeFakeClient(verdictInput: HaikuRoutingVerdict): Anthropic {
         id: "tool_fake",
         name: "zippering_routing_verdict",
         input: verdictInput as unknown as Record<string, unknown>,
-      } satisfies Anthropic.ToolUseBlock,
+      },
     ],
     model: "claude-haiku-4-5",
     stop_reason: "tool_use",
     stop_sequence: null,
     usage: { input_tokens: 100, output_tokens: 50 },
-  };
+  } as unknown as Anthropic.Message;
 
   // Only create() needs to be present; everything else is unused.
   return {
