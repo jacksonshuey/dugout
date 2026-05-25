@@ -30,10 +30,11 @@ import {
   type ExternalSignal,
 } from "@/lib/external-signals";
 
-// 5-minute ISR window keeps the live newsfeed section fresh without
-// hitting Supabase on every visitor request. Static seed-driven sections
-// (Console demo, integrations) ride along on the same cache cycle.
-export const revalidate = 300;
+// 60-second ISR window. Tight enough that the workspace inbox + transform
+// visual feel fresh on each visit; loose enough that Supabase isn't hit on
+// every individual page load. The ticker is additionally polled client-side
+// every 30s so it visibly updates between ISR cycles.
+export const revalidate = 60;
 
 const CONTACT_MAILTO =
   "mailto:jacksonshuey@gmail.com?subject=Dugout%20walkthrough";
@@ -211,18 +212,6 @@ function Hero() {
           >
             See the live demo ↓
           </Link>
-          <Link
-            href="/spec"
-            className="inline-flex items-center px-5 h-11 rounded-lg border border-background/20 text-background text-sm font-medium hover:bg-background/5 transition-colors"
-          >
-            Read the spec
-          </Link>
-          <a
-            href={CONTACT_MAILTO}
-            className="inline-flex items-center px-5 h-11 rounded-lg border border-background/20 text-background text-sm font-medium hover:bg-background/5 transition-colors"
-          >
-            Talk to Jackson →
-          </a>
         </div>
       </div>
     </section>
