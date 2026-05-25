@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 // session 5 decision to keep the marketing experience uncluttered (only the
 // logo + "Jump to demo" CTA remain). On every other route we render a
 // discrete row of links to the operator surfaces - Console, Manager, Ask,
-// Market Intel, Spec, Settings - so the demo audience can click between
+// Market Intel, Settings - so the demo audience can click between
 // surfaces without typing URLs. The current route is highlighted in the
 // brand color.
 
@@ -17,7 +17,6 @@ const APP_LINKS: { href: string; label: string }[] = [
   { href: "/manager", label: "Manager" },
   { href: "/ask", label: "Ask" },
   { href: "/market-intel", label: "Market Intel" },
-  { href: "/spec", label: "Spec" },
   { href: "/settings", label: "Settings" },
 ];
 
