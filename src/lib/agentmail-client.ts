@@ -14,17 +14,8 @@
 // Failure mode mirrors firecrawl-client.ts: 4xx → thrown Error tagged with
 // the status, 5xx → thrown Error, network/abort → thrown Error. Callers
 // (provisioning scripts, future cron jobs) decide whether to retry.
-//
-// TODO(agentmail): confirm endpoint shape against latest API docs. The
-// constants block at the top is the only spot to change if the path moves
-// (e.g. /v0 → /v1) or the response keys rename.
 
 const AGENTMAIL_BASE = "https://api.agentmail.to";
-
-// Path prefix per the llms-full.txt reference page. The curl example in the
-// docs uses `/inboxes` (no prefix) while the api-reference paths use
-// `/v0/inboxes` — we go with the versioned form as the safer default.
-// TODO(agentmail): if requests 404, drop the /v0 prefix.
 const INBOXES_PATH = "/v0/inboxes";
 
 const REQUEST_TIMEOUT_MS = 25_000;
@@ -52,11 +43,9 @@ export interface InboxDetails {
   id: string;
   address: string;
   /**
-   * AgentMail does not currently surface a "webhook URL" field on the
-   * inbox resource (webhooks are configured at the workspace level, one
-   * endpoint can fan out to many inboxes). Surfaced here as `null` so the
-   * caller still has a stable shape if AgentMail adds it later.
-   * TODO(agentmail): replace with the real field if/when added.
+   * AgentMail does not surface a "webhook URL" field on the inbox resource
+   * (webhooks are configured at the workspace level — one endpoint fans
+   * out to many inboxes). Surfaced here as `null` for a stable caller shape.
    */
   webhookUrl: string | null;
 }
@@ -162,9 +151,8 @@ export async function createInbox(
   };
   if (opts.clientId) body.client_id = opts.clientId;
 
-  // Per llms-full.txt the response carries `inbox_id` + `email`. We accept
-  // a couple of plausible field names defensively in case the API has
-  // since renamed them — flagged with TODO(agentmail).
+  // Response carries `inbox_id` + `email` per api-reference/inboxes/create.mdx;
+  // accept `id` / `address` defensively in case the API renames them.
   const raw = await agentmailFetch<Record<string, unknown>>({
     method: "POST",
     path: INBOXES_PATH,
