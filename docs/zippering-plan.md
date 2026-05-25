@@ -216,8 +216,10 @@ Rules:
   (timestamp vs timestamp; identifier vs identifier; free text vs free text).
 - "append" when the column is new in kind.
 - "unclear" when sample values are inconsistent or ambiguous; do not guess.
-- canonical_name is null on "unclear", echoes existing column on "join", and
-  suggests a new column name on "append".
+- canonical_name is always set: echoes existing column on "join", suggests
+  a new column name on "append", and on "unclear" suggests a new column
+  name (the unclear case is appended into its own canonical column AND
+  flagged for human review — see Ingest Flow §5).
 ```
 
 ### Output shape
@@ -262,10 +264,12 @@ build wide row:
   canonical_columns = {}
   for each column in rawRow:
     decision = ... (already loaded)
-    if decision.verdict == 'join' or 'append':
-      canonical_columns[decision.canonical_name] = value
-    else: ('unclear')
-      canonical_columns['_unmatched_' + column] = value  // park, mark for review
+    # 'unclear' is treated identically to 'append' on the write path — the
+    # column gets a real canonical_name and a real value. The decision row
+    # carries needs_review = true so an operator can later promote it to a
+    # 'join' against an existing canonical column (or confirm the append).
+    # No data is parked under special prefixes; nothing is dropped.
+    canonical_columns[decision.canonical_name] = value
   ↓
 zippered_signals.upsert(
   pkey, source, external_id,
@@ -284,6 +288,27 @@ Supabase upsert.
 ---
 
 ## 6. Reads
+
+### Operator review of unclear decisions
+
+Every `unclear` verdict creates a real canonical column AND sets
+`needs_review = true` on the decision row. The values flow into the zippered
+store immediately — nothing is parked or dropped. A reviewer surface (`/zippering/review`,
+shipped in Phase 5 below) lists every `needs_review = true` decision so an
+operator can promote it to a `join` against an existing column, confirm the
+append as-is, or override the canonical name.
+
+When an operator promotes an `unclear` to a `join`:
+1. The decision row updates: `verdict='join'`, `needs_review=false`,
+   `decision_override_by=<rep_id>`, `canonical_name=<target>`.
+2. A one-shot backfill walks `zippered_signals` for that pkey + source,
+   renaming the key inside the `columns` JSONB from the old canonical name to
+   the new one (`UPDATE ... SET columns = jsonb_set(columns - 'old', '{new}', columns->'old')`).
+3. Subsequent ingests honor the new verdict via the cache — no re-Haiku.
+
+Until Phase 5 ships the UI, `needs_review` rows are queryable via direct SQL.
+Aim is to keep the queue small: §12 success criteria say ≥90% of decisions
+are confident; unclear is the long-tail bucket, not the default.
 
 ### Per-account wide row
 ```ts
@@ -398,7 +423,7 @@ Three-phase migration so we never have a flag day.
 | 2 | Wrap ONE adapter (newsletter) in dual-write | 2 | Behind feature flag; shadow reads validate |
 | 3 | Migrate remaining 5 adapters (sec, newsapi, firecrawl, granola, web-scrape) | 3 | All sources zippered |
 | 4 | Read path migration | 3 | UIs read from `zippered_signals`; compat view backs legacy callers |
-| 5 | Conflict UI + reviewer surface | open-ended | `/zippering/conflicts` + manual resolution flow |
+| 5 | Conflict UI + reviewer surface | open-ended | `/zippering/conflicts` (value disagreements) + `/zippering/review` (unclear-decision promotion to join) + manual resolution flow |
 
 Phase 0-3 is the path to "zippering is real and writing." Phase 4 is when it
 becomes visible to operators. Phase 5 is the long tail of operator tooling.
@@ -426,7 +451,12 @@ Worth resolving before Phase 1 starts:
    trust.
 4. **Operator override.** If Haiku gets a verdict wrong, can a human re-map?
    Add `decision_override_by` + `decision_override_at` columns to
-   `zippering_decisions` + an admin UI. Deferred to Phase 5.
+   `zippering_decisions` + an admin UI. The most common case is promoting
+   `unclear` verdicts to `join` (see §6 "Operator review of unclear
+   decisions"); the same surface also handles correcting wrong `join`
+   verdicts to `append` and vice versa. Backfill on promotion uses
+   `jsonb_set` to rename keys inside `zippered_signals.columns`. Deferred
+   to Phase 5 (UI); the columns + behavior are baked in from Phase 0.
 5. **Multi-tenancy.** If we ever serve multiple Checkbox-style workspaces,
    all four tables need a `workspace_key` column. Cheap to add now (one
    migration); painful to retrofit later. Plan recommends adding it from
