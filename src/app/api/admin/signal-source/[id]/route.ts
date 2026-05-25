@@ -38,7 +38,7 @@ export async function GET(
     const { data, error } = await sb
       .from("external_signals")
       .select(
-        "id, source_content_md, source_content_kind, source_url, publisher_canonical_name, email_subject, occurred_at, summary",
+        "id, source_content_md, source_content_kind, source_url, publisher_canonical_name, email_subject, occurred_at, summary, source",
       )
       .eq("id", id)
       .maybeSingle();
