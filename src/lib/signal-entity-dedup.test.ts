@@ -98,6 +98,53 @@ describe("dedupByEntity", () => {
     expect(sim).toBeLessThan(HEADLINE_SIMILARITY_THRESHOLD);
   });
 
+  it("(positive) keeps newer signal when both occurred_at are valid ISO strings", () => {
+    // Both sides are proper ISO strings — the newer one should win.
+    const older = mkSignal({
+      id: "older",
+      summary: "OpenAI raises 5B Series F round led by SoftBank",
+      occurred_at: "2026-05-20T00:00:00.000Z",
+    });
+    const newer = mkSignal({
+      id: "newer",
+      summary: "OpenAI closes 5B Series F round led by SoftBank",
+      occurred_at: "2026-05-21T00:00:00.000Z",
+    });
+    const out = dedupByEntity([older, newer]);
+    expect(out).toHaveLength(1);
+    expect(out[0].id).toBe("newer");
+  });
+
+  it("(negative) keeps incumbent when incoming signal has undefined occurred_at", () => {
+    // If occurred_at is missing on the incoming signal, the prior string
+    // comparison would coerce undefined to "undefined" which sorts after ISO
+    // timestamps, wrongly replacing the incumbent. The guard must prevent this.
+    //
+    // Note: mkSignal applies a default for occurred_at via ??, so we build the
+    // signal object directly to ensure occurred_at is truly undefined.
+    const incumbent = mkSignal({
+      id: "incumbent",
+      summary: "OpenAI raises 5B Series F round led by SoftBank",
+      occurred_at: "2026-05-20T00:00:00.000Z",
+    });
+    const missingDate: ExternalSignal = {
+      id: "missing-date",
+      account_id: "__workspace__",
+      source: "newsletter",
+      type: "other",
+      summary: "OpenAI closes 5B Series F round led by SoftBank",
+      occurred_at: undefined as unknown as string,
+      url: null,
+      meta: null,
+      is_demo: false,
+      created_at: "2026-05-20T00:00:00.000Z",
+    };
+    const out = dedupByEntity([incumbent, missingDate]);
+    expect(out).toHaveLength(1);
+    // Must NOT have been replaced by the undefined-dated signal.
+    expect(out[0].id).toBe("incumbent");
+  });
+
   it("does not collapse signals where normalizeEntity returns null", () => {
     // Both summaries lead with a lowercase word so the entity regex finds
     // nothing → normalizeEntity returns null → conservative dedup keeps
