@@ -130,6 +130,11 @@ export const accounts: Account[] = [
     domain: "kkr.com",
     ticker: "KKR",
     isDemoScenario: true,
+    abmTrigger: {
+      highRelevanceSignalsLast7d: 3,
+      sources: ["news", "sec_edgar"],
+      lastSignalAt: "2026-05-23T14:00:00Z", // 1d ago
+    },
   },
   {
     id: "acc_cobalt",
@@ -143,6 +148,13 @@ export const accounts: Account[] = [
     website: "stripe.com",
     domain: "stripe.com",
     isDemoScenario: true,
+    // Below the firing threshold — only 1 signal from 1 source. Proves the
+    // rule is selective; surfaces in the manager card but doesn't emit.
+    abmTrigger: {
+      highRelevanceSignalsLast7d: 1,
+      sources: ["news"],
+      lastSignalAt: "2026-05-21T09:00:00Z",
+    },
   },
   {
     id: "acc_northwind",
@@ -171,6 +183,11 @@ export const accounts: Account[] = [
     domain: "unitedhealthgroup.com",
     ticker: "UNH",
     isDemoScenario: true,
+    abmTrigger: {
+      highRelevanceSignalsLast7d: 2,
+      sources: ["news", "newsletter"],
+      lastSignalAt: "2026-05-22T11:30:00Z", // 2d ago
+    },
   },
   {
     id: "acc_sentinel",
@@ -213,6 +230,13 @@ export const accounts: Account[] = [
     domain: "snowflake.com",
     ticker: "SNOW",
     isDemoScenario: true,
+    // Top of the named-accounts list: 4 signals across 3 distinct sources in
+    // the last week. Trips ABM_SHADOW_RESEARCH and leads the manager card.
+    abmTrigger: {
+      highRelevanceSignalsLast7d: 4,
+      sources: ["news", "sec_edgar", "newsletter"],
+      lastSignalAt: "2026-05-22T16:00:00Z", // 2d ago
+    },
   },
   {
     id: "acc_quantum",

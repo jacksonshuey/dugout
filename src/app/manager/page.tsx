@@ -25,6 +25,7 @@ import {
   CoachingBriefPanel,
   buildCoachingBriefs,
 } from "@/components/manager/coaching-brief";
+import { TopAccountsCard } from "@/components/manager/top-accounts";
 
 // Manager view. Derived entirely from the signal engine — same source as the
 // AE Console, just aggregated by owner. Server-rendered (no localStorage,
@@ -343,6 +344,15 @@ export default async function ManagerPage() {
          recurring themes per rep, recommends the highest-density risky call
          as a "review this" CTA. */}
       <CoachingBriefPanel briefs={coachingBriefs} />
+
+      {/* Named accounts momentum — ranks strategic/enterprise accounts by
+         recent external research-signal volume (P6: ABM motion). Pairs with
+         the ABM_SHADOW_RESEARCH rule. */}
+      <TopAccountsCard
+        accounts={accounts}
+        opportunities={opportunities}
+        reps={reps}
+      />
 
       {/* v1.5 note */}
       <div className="rounded-xl border border-dashed border-border p-4 text-xs text-muted leading-relaxed">

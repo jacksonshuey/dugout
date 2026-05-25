@@ -712,6 +712,59 @@ const ruleContractIdle: SignalRule = {
   },
 };
 
+const ruleAbmShadowResearch: SignalRule = {
+  id: "ABM_SHADOW_RESEARCH",
+  name: "Named-account research cluster",
+  description:
+    "Strategic or Enterprise account has 2+ high-relevance external signals from 2+ distinct sources in the last 7 days. The first proactive-outreach prompt for the named-accounts motion (P6).",
+  severity: "action",
+  strategicPriority: "P6",
+  evaluate: (ctx) => {
+    // TODO: real-mode reads from external_signals table via Supabase, same
+    // pattern as src/app/api/account-context/route.ts. Demo uses seed
+    // abmTrigger field.
+    const out: Signal[] = [];
+    for (const account of ctx.accounts) {
+      // Segment gate: AccountSegment is "Enterprise" | "Mid-Market" in the
+      // current taxonomy. Named-accounts work is Enterprise-only until a
+      // Strategic tier is introduced.
+      if (account.segment !== "Enterprise") continue;
+      const trigger = account.abmTrigger;
+      if (!trigger) continue;
+      if (trigger.highRelevanceSignalsLast7d < 2) continue;
+      if (trigger.sources.length < 2) continue;
+
+      // Attach the signal to the account's most-recently-created opp so the
+      // existing oppId-keyed UI (drawer, tasks) has a target. Skip if the
+      // account has no opp on file — no surface to render against.
+      const accountOpps = ctx.opportunities.filter(
+        (o) => o.accountId === account.id,
+      );
+      if (accountOpps.length === 0) continue;
+      const anchorOpp = [...accountOpps].sort((a, b) =>
+        a.createdAt < b.createdAt ? 1 : -1,
+      )[0];
+
+      const sourcesLabel = trigger.sources.join(", ");
+      out.push({
+        id: ruleId("ABM_SHADOW_RESEARCH", account.id),
+        ruleId: "ABM_SHADOW_RESEARCH",
+        oppId: anchorOpp.id,
+        severity: "action",
+        // Named-account research cluster = shadow_research per the canonical
+        // taxonomy (synthesis.md §1): buyer-side activity indicating intent
+        // before a deal exists.
+        signalType: "shadow_research",
+        title: `${account.name}: ${trigger.highRelevanceSignalsLast7d} high-relevance signals across ${trigger.sources.length} sources`,
+        body: `${account.name} has ${trigger.highRelevanceSignalsLast7d} high-relevance signals across ${sourcesLabel} in the last 7 days. Compounding external research is a leading indicator of buying intent on named accounts.`,
+        suggestedAction: `${account.name} has ${trigger.highRelevanceSignalsLast7d} high-relevance signals across ${sourcesLabel} in the last 7 days. Consider proactive outreach.`,
+        detectedAt: TODAY.toISOString(),
+      });
+    }
+    return out;
+  },
+};
+
 // ---------------------------------------------------------------------------
 // The rule registry. Order = priority order when displayed in same severity.
 // ---------------------------------------------------------------------------
@@ -732,6 +785,7 @@ export const RULES: SignalRule[] = [
   ruleCallNegativeSentiment,
   ruleLegalRedlineAge,
   ruleSsoSetupPending,
+  ruleAbmShadowResearch,
 ];
 
 export function evaluateAll(ctx: EvaluationContext): Signal[] {
