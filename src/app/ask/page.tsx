@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { marked } from "marked";
 import Link from "next/link";
 import { Card } from "@/components/ui";
 import { cn } from "@/lib/utils";
@@ -472,6 +473,12 @@ function AssistantCard({ turn }: { turn: AssistantTurn }) {
   );
 }
 
+// Renders the agent answer as markdown with inline citation chips.
+//
+// Strategy: replace [citation:id] markers with <cite data-cit="N"></cite>
+// HTML tags (which marked preserves), run the whole answer through marked,
+// then split the resulting HTML on those tags and re-inject React chips.
+// This keeps the markdown structure intact while weaving in interactive chips.
 function AnswerWithCitations({
   answer,
   citations,
@@ -487,29 +494,49 @@ function AnswerWithCitations({
     return m;
   }, [citations]);
 
-  const parts: React.ReactNode[] = [];
-  const re = /\[citation:([^\]\s]+)\]/g;
-  let lastIndex = 0;
-  let m: RegExpExecArray | null;
-  let key = 0;
-  while ((m = re.exec(answer)) !== null) {
-    if (m.index > lastIndex) {
-      parts.push(answer.slice(lastIndex, m.index));
-    }
-    const id = m[1];
-    const c = byId.get(id);
-    parts.push(
-      <CitationChip
-        key={`c-${key++}`}
-        citation={c ?? null}
-        fallbackId={id}
-        accountSlug={accountSlug}
-      />,
+  const idMap = useMemo(() => {
+    const ids: string[] = [];
+    const withPlaceholders = answer.replace(
+      /\[citation:([^\]\s]+)\]/g,
+      (_, id: string) => {
+        const idx = ids.length;
+        ids.push(id);
+        return `<cite data-cit="${idx}"></cite>`;
+      },
     );
-    lastIndex = m.index + m[0].length;
+    const html = marked.parse(withPlaceholders, { async: false }) as string;
+    return { ids, html };
+  }, [answer]);
+
+  const segments = idMap.html.split(/(<cite data-cit="\d+"><\/cite>)/);
+
+  const nodes: React.ReactNode[] = [];
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i];
+    const citMatch = seg.match(/^<cite data-cit="(\d+)"><\/cite>$/);
+    if (citMatch) {
+      const id = idMap.ids[parseInt(citMatch[1])];
+      const c = byId.get(id);
+      nodes.push(
+        <CitationChip
+          key={i}
+          citation={c ?? null}
+          fallbackId={id}
+          accountSlug={accountSlug}
+        />,
+      );
+    } else if (seg) {
+      nodes.push(
+        <span key={i} dangerouslySetInnerHTML={{ __html: seg }} />,
+      );
+    }
   }
-  if (lastIndex < answer.length) parts.push(answer.slice(lastIndex));
-  return <>{parts}</>;
+
+  return (
+    <div className="ask-answer [&_h1]:text-base [&_h1]:font-semibold [&_h1]:mt-4 [&_h1]:mb-1 [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:mt-3 [&_h2]:mb-1 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mt-3 [&_h3]:mb-1 [&_hr]:border-border [&_hr]:my-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:my-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:my-1 [&_li]:my-0.5 [&_p]:mb-2 [&_p:last-child]:mb-0 [&_strong]:font-semibold">
+      {nodes}
+    </div>
+  );
 }
 
 function CitationChip({
