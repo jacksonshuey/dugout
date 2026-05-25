@@ -99,9 +99,9 @@ Coupling between verdict and workspace_relevance:
 
 # Hard constraints (BUILD_ALIGNMENT principles enforced)
 
-- **Voice (#8).** \`reasoning\` is plain prose, ≤200 chars, ONE sentence,
-  no markdown, no emoji, no exclamation marks. Describe what you see; do
-  not editorialize about the publisher.
+- **Voice (#8).** \`reasoning\` is plain prose, ONE sentence, target ≤200
+  chars (hard ceiling 500). No markdown, no emoji, no exclamation marks.
+  Describe what you see; do not editorialize about the publisher.
 - **Read-only (#9).** Do not include action recommendations in \`reasoning\`
   ("the AE should…"). You are a gate, not a recommender.
 - **Provider neutrality carve-out (#11).** This filter is Anthropic-only

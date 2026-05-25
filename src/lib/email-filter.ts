@@ -180,10 +180,15 @@ function validateStage2Output(raw: unknown): ValidationOk | ValidationErr {
   ) {
     return { ok: false, reason: `confidence invalid (${String(confidence)})` };
   }
+  // The prompt asks for ≤200 chars but Haiku 4.5 routinely overshoots to
+  // 200-300. The validator's job is to catch malformed output (truncated,
+  // wrong type), not to fail-close on minor stylistic overshoot. Cap at 500
+  // — generous enough for natural variance, bounded enough to detect a
+  // runaway response.
   if (
     typeof reasoning !== "string" ||
     reasoning.length < 10 ||
-    reasoning.length > 200
+    reasoning.length > 500
   ) {
     return {
       ok: false,
