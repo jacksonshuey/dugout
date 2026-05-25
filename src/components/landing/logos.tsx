@@ -348,6 +348,41 @@ const BRANDS: Record<string, BrandSpec> = {
     glyph: <PandaDocGlyph />,
     domain: "pandadoc.com",
   },
+  nooks: {
+    name: "Nooks",
+    bg: "#6366F1",
+    fg: "white",
+    glyph: <LetterGlyph letter="N" />,
+    domain: "nooks.ai",
+  },
+  swyftai: {
+    name: "Swyft AI",
+    bg: "#0EA5E9",
+    fg: "white",
+    glyph: <LetterGlyph letter="S" />,
+    domain: "swyftai.com",
+  },
+  xero: {
+    name: "Xero",
+    bg: "#13B5EA",
+    fg: "white",
+    glyph: <LetterGlyph letter="X" />,
+    domain: "xero.com",
+  },
+  zendesk: {
+    name: "Zendesk",
+    bg: "#03363D",
+    fg: "white",
+    glyph: <LetterGlyph letter="Z" />,
+    domain: "zendesk.com",
+  },
+  webflow: {
+    name: "Webflow",
+    bg: "#146EF5",
+    fg: "white",
+    glyph: <LetterGlyph letter="W" />,
+    domain: "webflow.com",
+  },
 };
 
 // Public API — render a single branded chip.
