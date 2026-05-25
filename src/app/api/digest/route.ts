@@ -186,7 +186,7 @@ Write ${rep.name.split(" ")[0]}'s morning digest now.`;
     });
     return NextResponse.json({ digest, signalCount: signals.length });
   } catch (e) {
-    const message = e instanceof Error ? e.message : String(e);
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("[digest] Claude API call failed", e);
+    return NextResponse.json({ error: "Failed to generate digest" }, { status: 500 });
   }
 }
