@@ -20,12 +20,14 @@
 
 import OpenAI from "openai";
 import {
+  AccountCatalogEntry,
   accounts,
   activities,
   assetDeliveries,
   calls,
   contacts as seedContacts,
   demoSignals,
+  getAccountCatalog,
   opportunities,
   reps,
 } from "@/data/seed";
@@ -415,12 +417,17 @@ export async function rollup(args: {
   };
 }
 
+export async function listAccounts(): Promise<
+  ToolResult<AccountCatalogEntry[]>
+> {
+  return { ok: true, data: getAccountCatalog() };
+}
+
 // ─── OpenAI function-calling schemas ────────────────────────────────────
 //
 // Shape matches the `tools` parameter of openai.chat.completions.create.
 // Descriptions are written FOR the model — they should tell it when to pick
-// this tool over another. Account slug examples are intentionally the
-// DEMO_SCENARIO_ACCOUNTS keys so the model has working defaults.
+// this tool over another.
 //
 // We ALSO derive an Anthropic-shaped schema array below
 // (ASK_TOOL_SCHEMAS_ANTHROPIC). Both are generated from a single source of
@@ -440,7 +447,8 @@ export const ASK_TOOL_SCHEMAS_OPENAI: OpenAI.Chat.Completions.ChatCompletionTool
         properties: {
           account_slug: {
             type: "string",
-            description: "Account ID like 'acc_sentinel', 'acc_atlas', 'acc_meridian'.",
+            description:
+              "Internal account slug (e.g. 'acc_apex'). Slugs are codenames — they do NOT pattern-match company names. Call list_accounts() first if you don't know the slug.",
           },
           days: {
             type: "number",
@@ -584,6 +592,19 @@ export const ASK_TOOL_SCHEMAS_OPENAI: OpenAI.Chat.Completions.ChatCompletionTool
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "list_accounts",
+      description:
+        "Return every account in this workspace as {slug, name} pairs. Call this FIRST whenever the user names a company and you don't already know its account slug. Slugs are internal codenames — they do NOT pattern-match company names (e.g. Moderna is 'acc_apex', not 'acc_moderna'). Never guess a slug.",
+      parameters: {
+        type: "object",
+        properties: {},
+        additionalProperties: false,
+      },
+    },
+  },
 ];
 
 // ─── Anthropic tool-use schemas ─────────────────────────────────────────
@@ -661,6 +682,8 @@ export async function dispatchTool(
       );
     case "rollup":
       return rollup(args as Parameters<typeof rollup>[0]);
+    case "list_accounts":
+      return listAccounts();
     default:
       return { ok: false, error: `Unknown tool: ${name}` };
   }

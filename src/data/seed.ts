@@ -258,6 +258,17 @@ export const accounts: Account[] = [
   },
 ];
 
+// Minimal {slug, name} pairs used by the /ask list_accounts tool and the
+// system-prompt catalog block. Slug → company name mapping is non-obvious
+// (codenames don't pattern-match company names) so the model must look this
+// up rather than guess. Swap implementation to a Supabase query later without
+// changing call sites.
+export type AccountCatalogEntry = { slug: string; name: string };
+
+export function getAccountCatalog(): AccountCatalogEntry[] {
+  return accounts.map((a) => ({ slug: a.id, name: a.name }));
+}
+
 // Contacts are the key data source for the signal engine. The PRESENCE or
 // ABSENCE of contacts with specific roles drives the wedge signals (no Finance
 // contact on an Evaluating+ deal = priority #4 violation). Names are

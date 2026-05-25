@@ -7,24 +7,38 @@
 //
 // Content covers what the model actually needs to do its job:
 //   1. Identity — who it is and what surface it's on.
-//   2. The Dugout ontology (12 canonical signal_types + 3 severity tiers +
+//   2. Account catalog — slug → company name. Slugs are codenames that don't
+//      pattern-match company names; inlining this lets the model resolve most
+//      lookups from the prompt without burning a list_accounts() tool call.
+//   3. The Dugout ontology (12 canonical signal_types + 3 severity tiers +
 //      direction). This is the *only* taxonomy. The model must never invent
 //      a 13th signal_type or a 4th severity tier; the tool schemas already
 //      enforce that on input, but the prompt reinforces it on output.
-//   3. The 8 tools + a one-line "when to pick this" cue per tool. The
-//      schemas have descriptions, but the prompt gives the model a flat
-//      menu it can scan without doing a JSON deref in its head.
-//   4. Voice — opinionated, plain, no exclamations (BUILD_ALIGNMENT #8).
-//   5. Citation rule — every factual claim must inline a [citation:id]
+//   4. The 9 tools + a one-line "when to pick this" cue per tool.
+//   5. Voice — opinionated, plain, no exclamations (BUILD_ALIGNMENT #8).
+//   6. Citation rule — every factual claim must inline a [citation:id]
 //      pointing at a signal id from a tool result. No claim without
 //      evidence. This is BUILD_ALIGNMENT #6.
-//   6. Boundaries — read-only, no speculation past the data, no actions.
+//   7. Boundaries — read-only, no speculation past the data, no actions.
 //
 // Account context is opt-in: when the caller passes `accountSlug`, we
 // append a short line so the model knows the question is pre-scoped.
 
+import { getAccountCatalog } from "@/data/seed";
+
+function renderCatalogBlock(): string {
+  const rows = getAccountCatalog()
+    .map((c) => `  - ${c.slug.padEnd(16)} — ${c.name}`)
+    .join("\n");
+  return `# Accounts in this workspace
+Slugs are internal codenames — they do NOT pattern-match company names. Use this table to resolve company names to slugs before calling any account tool. If a company the user mentions isn't listed here, call list_accounts() in case the catalog has grown.
+
+${rows}`;
+}
+
 export function getAskSystemPrompt(args: { accountSlug?: string } = {}): string {
   const { accountSlug } = args;
+  const catalogBlock = renderCatalogBlock();
 
   const accountLine = accountSlug
     ? `\n\nThis conversation is scoped to account \`${accountSlug}\`. When you call account-level tools, use this slug unless the user explicitly names another account.`
@@ -34,6 +48,8 @@ export function getAskSystemPrompt(args: { accountSlug?: string } = {}): string 
 
 # Identity
 You operate inside Dugout, a layered GTM signal store that unifies events from ~13 sales tools (Salesforce, HubSpot, Gong, Outreach, Granola, ZoomInfo, Dock, Chili Piper, Swyft, Zendesk, Xero, NewsAPI, SEC EDGAR). The user is an AE, SDR, RevOps, or sales manager. They want fast, defensible answers tied to source events — not a summary of public web content about the customer.
+
+${catalogBlock}
 
 # The Dugout ontology
 All signals across all source tools collapse into **exactly 12 canonical signal_types**. You must use these names verbatim when referring to a signal type. Never invent a 13th.
@@ -63,9 +79,10 @@ All signals across all source tools collapse into **exactly 12 canonical signal_
 
 A *correlation* is when 2+ independent source tools report the same \`signal_type\` on the same account within a time window. Correlations are structurally stronger evidence than single-source signals — when one exists, say so explicitly and name the agreeing sources.
 
-# Tools (8 total, all read-only)
+# Tools (9 total, all read-only)
 Pick the smallest tool set that answers the question. Cap is 8 tool calls per turn.
 
+  - **list_accounts()** — returns every account slug + company name. Call this FIRST if the user names a company and you don't already have its slug from the catalog above.
   - **get_account_context(account_slug, days?)** — the full picture for one account: account row, open opps, contacts by role, recent signals, SV Health Score, correlations. Default starting point for any account-specific question.
   - **get_account_timeline(account_slug, days?)** — time-ordered signal stream. Use when the question is about WHEN things happened or the sequence.
   - **find_signals(signal_type, account_slug, days?)** — filter to one of the 12 types. Use when you already know what kind of signal you're looking for.
