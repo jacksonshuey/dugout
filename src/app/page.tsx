@@ -757,22 +757,36 @@ async function MarketIntelLiveSection() {
 
       <NewsletterTransformVisual />
 
-      <h3 className="mt-12 text-sm font-semibold tracking-tight text-foreground/80">
-        Tracked accounts &middot; live ticker
-      </h3>
+      <div className="mt-12">
+        <h3 className="text-sm font-semibold tracking-tight text-foreground/80">
+          Mentions of your accounts
+        </h3>
+        <p className="text-xs text-muted mt-1 max-w-2xl leading-snug">
+          Haiku scans every inbound newsletter for tracked-account names.
+          When one hits, it gets summarized and tagged to that account so
+          your AE walks in informed.
+        </p>
+      </div>
       <ClientNewsTicker />
 
-      <h3 className="mt-12 text-sm font-semibold tracking-tight text-foreground/80">
-        Workspace inbox
-      </h3>
+      <div className="mt-12">
+        <h3 className="text-sm font-semibold tracking-tight text-foreground/80">
+          Top stories the team should know
+        </h3>
+        <p className="text-xs text-muted mt-1 max-w-2xl leading-snug">
+          High-impact news that doesn&apos;t mention any account by name -
+          M&amp;A, regulatory shifts, big-tech moves. Haiku ranks by
+          relevance so this stays signal, not noise.
+        </p>
+      </div>
       <SortableWorkspaceFeed signals={workspaceSignals} />
 
-      <div className="mt-8">
+      <div className="mt-10">
         <Link
           href="/market-intel"
           className="inline-flex items-center gap-2 text-sm font-medium text-brand hover:underline"
         >
-          See the full inbox
+          Open the full market intel feed
           <span aria-hidden>→</span>
         </Link>
       </div>
