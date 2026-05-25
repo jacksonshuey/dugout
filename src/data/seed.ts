@@ -1,5 +1,6 @@
 import type {
   Account,
+  AccountId,
   Activity,
   AssetDelivery,
   CallTranscript,
@@ -354,6 +355,13 @@ export const accounts: Account[] = [
     isDemoScenario: false,
   },
 ];
+
+// O(1) lookup by primary key. Use this instead of `accounts.find(a => a.id === id)`
+// in hot paths and anywhere readability matters. Built once at module load;
+// the array is the canonical source of truth, this Map is a derived index.
+export const accountsById: ReadonlyMap<AccountId, Account> = new Map(
+  accounts.map((a) => [a.id, a]),
+);
 
 // Minimal {slug, name} pairs used by the /ask list_accounts tool and the
 // system-prompt catalog block. Slug → company name mapping is non-obvious

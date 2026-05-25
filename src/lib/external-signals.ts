@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "./supabase";
+import type { AccountId } from "./types";
 
 // External signals: source-agnostic event store keyed by account.
 // Persisted in Supabase (table `external_signals`). Source attribution
@@ -37,7 +38,7 @@ export type ExternalSignalType =
 
 export interface ExternalSignal {
   id: string;
-  account_id: string;
+  account_id: AccountId;
   source: ExternalSignalSource;
   type: ExternalSignalType;
   summary: string;
@@ -79,7 +80,7 @@ export interface ExternalSignal {
 }
 
 export interface NewExternalSignal {
-  account_id: string;
+  account_id: AccountId;
   source: ExternalSignalSource;
   type: ExternalSignalType;
   summary: string;
@@ -106,7 +107,7 @@ export interface NewExternalSignal {
 // ---------------------------------------------------------------------------
 
 export async function getSignalsForAccount(
-  accountId: string,
+  accountId: AccountId,
   limit = 50,
 ): Promise<ExternalSignal[]> {
   const sb = supabaseAdmin();
