@@ -109,7 +109,6 @@ function Footer() {
     { href: "/console", label: "AE Console", sub: "Pipeline · Today · Digest" },
     { href: "/manager", label: "Manager view", sub: "Team aggregates · per-rep" },
     { href: "/market-intel", label: "Market intel", sub: "Workspace-wide news inbox" },
-    { href: "/trial-intake", label: "Trial intake", sub: "48h SLA · companion system" },
     { href: "/spec", label: "Spec", sub: "Architecture + rollout" },
   ];
   return (

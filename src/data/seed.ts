@@ -7,7 +7,6 @@ import type {
   Opportunity,
   Rep,
   Signal,
-  TrialIntake,
 } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
@@ -1097,56 +1096,3 @@ export const demoSignals: Signal[] = [
 // only render when the AE Console doesn't already have an intake for the opp
 // - the page merges seed + localStorage with the latter winning.
 // ---------------------------------------------------------------------------
-export const seedTrialIntakes: TrialIntake[] = [
-  {
-    id: "intake_opp_atlas_seed",
-    oppId: "opp_atlas",
-    accountId: "acc_atlas",
-    submittedBy: "rep_mw",
-    submittedAt: "2026-05-20T15:00:00Z", // 18h before TODAY
-    slaDeadline: "2026-05-22T15:00:00Z", // 30h after TODAY - healthy
-    kpiHypotheses: [
-      "Reduce contract review cycle from 12d to 5d",
-      "Cut Legal/Procurement back-and-forth by 60%",
-      "Surface buyer-side bottlenecks in first 30 days of deployment",
-    ],
-    buyerSuccessCriteria:
-      "Champion + IT/Security sign off on 5-deal pilot; CFO sees a defensible TCO model before Contracting.",
-    datasetRequirements:
-      "Last 90 days of NDA + MSA matters in CSV; access to Snowflake sandbox tenant for SE walkthrough.",
-    seNotes:
-      "Champion is engaged; IT/Security pre-approved. Pre-seed the demo with Snowflake's own redacted contracts if they share them by EOD.",
-    status: "in_progress",
-    assignedSeId: "rep_se1",
-    history: [
-      { at: "2026-05-20T15:00:00Z", by: "rep_mw", action: "intake submitted" },
-      {
-        at: "2026-05-20T16:12:00Z",
-        by: "system",
-        action: "assigned SE",
-        detail: "rep_se1 (round-robin)",
-      },
-    ],
-  },
-  {
-    id: "intake_opp_sentinel_seed",
-    oppId: "opp_sentinel",
-    accountId: "acc_sentinel",
-    submittedBy: "rep_sc",
-    submittedAt: "2026-05-18T09:00:00Z", // 3d before TODAY
-    slaDeadline: "2026-05-20T09:00:00Z", // 24h before TODAY - overdue
-    kpiHypotheses: [
-      "Cut workflow setup time from 21d to 7d",
-      "Reduce per-matter touchpoints by 40%",
-    ],
-    buyerSuccessCriteria:
-      "Champion can demo to Risk + Compliance committee in week 2 of trial without SE assistance.",
-    datasetRequirements:
-      "Last 60 days of claims-workflow matters; read-only sandbox access.",
-    seNotes: "",
-    status: "pending_se_assignment",
-    history: [
-      { at: "2026-05-18T09:00:00Z", by: "rep_sc", action: "intake submitted" },
-    ],
-  },
-];

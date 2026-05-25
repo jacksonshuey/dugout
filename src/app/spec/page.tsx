@@ -3,7 +3,7 @@ import { Card } from "@/components/ui";
 import { RULES } from "@/lib/signal-engine";
 import { getWorkspaceConfig } from "@/lib/workspace-server";
 
-// Single spec page. Three anchor sections: architecture, rollout, companion.
+// Single spec page. Two anchor sections: architecture, rollout.
 // Sticky in-page nav at the top.
 
 export default async function SpecPage() {
@@ -11,14 +11,6 @@ export default async function SpecPage() {
   const priorityById = new Map(workspace.priorities.map((p) => [p.id, p]));
   const wedgePriority = workspace.priorities[0]?.name ?? "the wedge";
 
-  const assetByName = (id: string, fallback: string) =>
-    workspace.assets.find((a) => a.id === id)?.name ?? fallback;
-  const trialBrief = assetByName("outcome_first_trial_brief", "Trial Brief");
-  const kpiAssessment = assetByName("kpi_assessment", "KPI Assessment");
-  const preSeededDemo = assetByName("pre_seeded_demo", "Pre-Seeded Demo");
-  const financeBrief = assetByName("finance_meeting_brief", "Finance Brief");
-  const itPager = assetByName("it_zero_lift_one_pager", "IT One-Pager");
-  const dealRoom = workspace.stack.dealRooms;
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-10">
@@ -31,12 +23,11 @@ export default async function SpecPage() {
           How Dugout is designed and rolled out
         </h1>
         <p className="text-base text-muted max-w-2xl">
-          Three sections - architecture, rollout, and a companion system. Same page; jump links below.
+          Two sections - architecture and rollout. Same page; jump links below.
         </p>
         <nav className="flex flex-wrap gap-2 text-sm pt-2">
           <AnchorLink href="#architecture">Architecture</AnchorLink>
           <AnchorLink href="#rollout">Rollout</AnchorLink>
-          <AnchorLink href="#companion">Companion system</AnchorLink>
           <Link
             href="/console"
             className="text-muted hover:text-foreground ml-auto"
@@ -247,37 +238,6 @@ export default async function SpecPage() {
           </p>
         </Card>
       </section>
-
-      {/* Companion system */}
-      <section id="companion" className="scroll-mt-20 space-y-8 pt-12">
-        <H2>Companion system: Trial Orchestrator</H2>
-        <Sub>The signal engine surfaces &ldquo;deploy a trial.&rdquo; This companion removes every step between that decision and the trial being live in 48 hours.</Sub>
-
-        <H3>The system in 6 steps</H3>
-        <Card className="p-6 space-y-2 text-sm leading-relaxed">
-          <Step n="01" title="Trigger" body={`AE clicks "Start Trial" on an Eval opp. Auto-fires when the signal engine raises a no-trial-brief warning.`} />
-          <Step n="02" title="Intake (5 min, AE)" body="Auto-prefilled form pulls account, champion, recent call summaries, deal-room engagement. AE confirms 3 KPIs." />
-          <Step n="03" title="SE assignment + clock" body="Round-robin by segment + load. 48-hour SLA, visible to AE, SE, and manager." />
-          <Step n="04" title={`${kpiAssessment} + ${preSeededDemo} (SE, ≤ 48h)`} body={`SE builds the assessment, seeds the demo with the buyer's scenarios, drops both into a ${dealRoom} room.`} />
-          <Step n="05" title="Champion enablement package (auto)" body={`${dealRoom} auto-populates: ${kpiAssessment}, ${preSeededDemo}, ${financeBrief}, ${itPager}, similar customer story, ~90s AI-generated walkthrough video.`} />
-          <Step n="06" title="Champion notification (auto)" body={`Email + Slack to champion. Engagement tracked back to the deal in ${workspace.stack.crm}.`} />
-        </Card>
-
-        <H3>Why it compounds with the rest of the intelligence layer</H3>
-        <ul className="space-y-2 text-sm text-muted">
-          <Bullet>Signal detects the gap. Orchestrator removes the work between detection and delivery. Together: &ldquo;we should run a trial&rdquo; → &ldquo;trial is live&rdquo; in two days.</Bullet>
-          <Bullet>Operationalizes existing assets ({trialBrief}, {financeBrief}, {itPager}) at the moment they matter.</Bullet>
-          <Bullet>Cheap to ship: CRM flow + cron jobs + deal-room API + one prompt. ~3 sprint weeks.</Bullet>
-        </ul>
-
-        <H3>Measurement (4-week pilot)</H3>
-        <Card className="p-6 text-sm space-y-2">
-          <Row label="Trial-deploy lead time" value="~6 business days → ≤ 48 business hours on 80% of triggered trials" />
-          <Row label="Trial deployment rate" value="~35% of Eval deals → 90% in 8 weeks" />
-          <Row label="Trial → won conversion" value="Hold steady at 3× the trial volume - proves quality isn't degrading" />
-          <Row label="SE utilization" value="Past 80%, that's the data to justify SE #3" />
-        </Card>
-      </section>
     </div>
   );
 }
@@ -411,31 +371,3 @@ function PhaseBlock({ label, items }: { label: string; items: string[] }) {
   );
 }
 
-function Step({
-  n,
-  title,
-  body,
-}: {
-  n: string;
-  title: string;
-  body: string;
-}) {
-  return (
-    <div className="flex items-start gap-4 py-2 border-b border-border last:border-0">
-      <div className="text-xs font-mono text-muted shrink-0 mt-0.5">{n}</div>
-      <div>
-        <div className="font-medium">{title}</div>
-        <p className="text-muted leading-relaxed">{body}</p>
-      </div>
-    </div>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-baseline justify-between gap-6 py-2 border-b border-border last:border-0">
-      <div className="font-medium shrink-0">{label}</div>
-      <div className="text-muted text-right">{value}</div>
-    </div>
-  );
-}

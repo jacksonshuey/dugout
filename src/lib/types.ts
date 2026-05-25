@@ -302,61 +302,6 @@ export interface SignalRule {
   evaluate: (ctx: EvaluationContext) => Signal[];
 }
 
-// ---------------------------------------------------------------------------
-// Trial Orchestrator (companion system, see /spec#companion).
-//
-// The signal engine emits NO_TRIAL_BRIEF_AT_DEMO_SAT when a Demo Sat+ opp
-// is missing an outcome-first trial brief. The orchestrator is the workflow
-// that takes that signal from "we should run a trial" to "the brief is in
-// flight" - captured as a TrialIntake submitted by the AE and worked by an SE
-// against a 48-hour SLA.
-//
-// Persistence is localStorage, mirroring the task layer in tasks.ts. The
-// honest production seam: this would be a Postgres table with one row per
-// intake and a real SLA-overdue cron. The state machine on this type is the
-// part that survives that migration unchanged.
-// ---------------------------------------------------------------------------
-
-// 48 hours, expressed in ms. The single SLA window for every intake - kept
-// generic on purpose so the test suite + the timer component read the same
-// number and can't drift.
-export const TRIAL_INTAKE_SLA_MS = 48 * 60 * 60 * 1000;
-
-export type TrialIntakeStatus =
-  | "pending_se_assignment" // AE submitted; round-robin hasn't picked an SE yet
-  | "in_progress" // SE assigned; KPI assessment in flight
-  | "delivered" // KPI assessment + pre-seeded demo dropped in the deal room
-  | "overdue"; // derived, not stored - surfaced when now > slaDeadline and !delivered
-
-export interface TrialIntakeEvent {
-  at: string; // ISO timestamp
-  by?: string; // rep id or "system"
-  action: string; // short verb phrase, e.g. "assigned SE"
-  detail?: string;
-}
-
-export interface TrialIntake {
-  id: string; // `intake_<oppId>_<submittedAt epoch>` - stable per-submission
-  oppId: string;
-  accountId: string;
-  submittedBy: string; // Rep.id of the AE
-  submittedAt: string; // ISO
-  slaDeadline: string; // ISO - submittedAt + TRIAL_INTAKE_SLA_MS
-
-  // Intake fields - captured at submission, immutable thereafter.
-  kpiHypotheses: string[]; // up to 3
-  buyerSuccessCriteria: string;
-  datasetRequirements: string;
-  seNotes: string;
-
-  // Assignment + delivery state.
-  status: Exclude<TrialIntakeStatus, "overdue">; // overdue is derived
-  assignedSeId?: string; // Rep.id (role: SE) - set when status moves off pending
-  kpiAssessmentDeliveredAt?: string; // ISO - set when status moves to delivered
-  demoSeededAt?: string; // ISO
-
-  history: TrialIntakeEvent[];
-}
 
 // Forward-declared on purpose to avoid a circular import. The concrete shape
 // lives in lib/workspace.ts. Optional here so older call sites continue to
