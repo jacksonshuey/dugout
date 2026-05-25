@@ -75,10 +75,10 @@ collapsed and dissimilar columns visible side by side.
                        ▼
         ┌────────────────────────────────────┐
         │  Supabase                          │
-        │   • zippering_schema (per pkey)    │
-        │   • zippering_decisions (cache)    │
+        │   • zippering_decisions (truth)    │
         │   • zippered_signals (wide rows)   │
         │   • zippering_conflicts (audit)    │
+        │   • zippering_schema (view)        │
         └──────────────┬─────────────────────┘
                        │
                        ▼
@@ -90,9 +90,11 @@ collapsed and dissimilar columns visible side by side.
 ```
 
 Two abstractions that matter:
-- **Schema registry** (`zippering_schema` + `zippering_decisions`) — the cached
-  brain. Knows that `meeting_date` from Granola maps to `occurred_at` for
-  `acc_stripe` so we don't re-Haiku.
+- **Decision cache** (`zippering_decisions`) — the cached brain. Knows that
+  `meeting_date` from Granola maps to `occurred_at` for `acc_stripe` so we
+  don't re-Haiku. Acts as the single source of truth for both the per-source
+  routing AND the per-pkey canonical schema (the latter is derived via the
+  `zippering_schema` view, not a separate table).
 - **Zippered store** (`zippered_signals`) — the wide rows themselves, JSONB-
   backed so the schema can grow without migrations.
 
@@ -100,42 +102,58 @@ Two abstractions that matter:
 
 ## 3. Data model
 
-Four new Supabase tables. All RLS deny-all + service-role only (matches
-existing posture per `reference_dugout_tooling`).
+Three new Supabase tables + one derived view. All RLS deny-all +
+service-role only (matches existing posture per `reference_dugout_tooling`).
 
-### `zippering_schema`
-Per-pkey list of canonical column names.
-
-```sql
-create table zippering_schema (
-  id              uuid primary key default gen_random_uuid(),
-  pkey            text not null,                 -- AccountId
-  canonical_name  text not null,                 -- e.g. "occurred_at"
-  data_type       text not null,                 -- "timestamp" | "text" | "jsonb" | "string[]"
-  first_source    text not null,                 -- integration that introduced this column
-  first_seen_at   timestamptz not null default now(),
-  unique (pkey, canonical_name)
-);
-```
-
-### `zippering_decisions`
-Cache of Haiku verdicts. The hot path is `SELECT WHERE pkey = ? AND source = ? AND source_column = ?`.
+### `zippering_decisions` — single source of truth
+Cache of Haiku verdicts AND the implicit canonical-column registry. One row
+per `(pkey, source, source_column)` triple. The hot path is
+`SELECT WHERE pkey = ? AND source = ? AND source_column = ?`.
 
 ```sql
 create table zippering_decisions (
-  id                uuid primary key default gen_random_uuid(),
-  pkey              text not null,
-  source            text not null,                -- "granola" | "sec_edgar" | "newsapi" | ...
-  source_column     text not null,                -- "meeting_date"
-  verdict           text not null check (verdict in ('join','append','unclear')),
-  canonical_name    text,                          -- set when verdict='join' or 'append'
-  similarity_score  numeric,                       -- Haiku-reported 0..1
-  reason            text,                          -- one-line Haiku justification
-  needs_review      boolean not null default false, -- true when verdict='unclear'
-  decided_at        timestamptz not null default now(),
+  id                       uuid primary key default gen_random_uuid(),
+  pkey                     text not null,
+  source                   text not null,                -- "granola" | "sec_edgar" | "newsapi" | ...
+  source_column            text not null,                -- "meeting_date"
+  verdict                  text not null check (verdict in ('join','append','unclear')),
+  canonical_name           text not null,                -- always set; echoes existing on 'join', new name on 'append' | 'unclear'
+  data_type                text not null,                -- "timestamp" | "text" | "jsonb" | "string[]"
+  similarity_score         numeric,                       -- Haiku-reported 0..1
+  reason                   text,                          -- one-line Haiku justification
+  needs_review             boolean not null default false, -- true when verdict='unclear'; cleared on operator promotion
+  decision_override_by     text,                          -- rep_id; set when an operator manually re-classifies
+  decision_override_at     timestamptz,
+  decided_at               timestamptz not null default now(),
   unique (pkey, source, source_column)
 );
+create index zippering_decisions_pkey_canonical on zippering_decisions (pkey, canonical_name);
+create index zippering_decisions_needs_review on zippering_decisions (needs_review) where needs_review;
 ```
+
+### `zippering_schema` — derived view (NOT a table)
+Per-pkey list of canonical column names. Computed from `zippering_decisions`
+so it cannot drift. Callers can `SELECT * FROM zippering_schema WHERE pkey = ?`
+without thinking about the underlying table.
+
+```sql
+create view zippering_schema as
+select distinct on (pkey, canonical_name)
+  pkey,
+  canonical_name,
+  data_type,
+  source as first_source,
+  decided_at as first_seen_at
+from zippering_decisions
+where verdict in ('join', 'append', 'unclear')
+order by pkey, canonical_name, decided_at asc;
+```
+
+If two decision rows for the same `(pkey, canonical_name)` disagree on
+`data_type` (rare but possible — e.g., source A wrote `timestamp` and
+source B's column got mistakenly typed as `text`), the view returns the
+earliest writer's type by `decided_at asc`. The zipperer should refuse to
+write inconsistent types in the first place (see §11.2 type changes).
 
 ### `zippered_signals`
 Wide rows. JSONB for the dynamic-schema columns.
@@ -257,8 +275,8 @@ for each column in rawRow:
   if not decision:
     decision = haiku.assess(pkey, source, column, samples)
     zippering_decisions.insert(decision)
-    if decision.verdict == 'append':
-      zippering_schema.insert(pkey, decision.canonical_name)
+    # No second-table write — the zippering_schema view derives from this
+    # row automatically. data_type is captured on the decision itself.
   ↓
 build wide row:
   canonical_columns = {}
@@ -418,7 +436,7 @@ Three-phase migration so we never have a flag day.
 
 | Phase | Scope | Days | Ships |
 | --- | --- | --- | --- |
-| 0 | Schema (4 tables) + migration + RLS posture | 1 | Supabase migration only |
+| 0 | Schema (3 tables + 1 view) + migration + RLS posture | 1 | Supabase migration only |
 | 1 | Zipperer lib + Haiku prompt + tests | 2 | `src/lib/zippering.ts` + fixtures + unit tests |
 | 2 | Wrap ONE adapter (newsletter) in dual-write | 2 | Behind feature flag; shadow reads validate |
 | 3 | Migrate remaining 5 adapters (sec, newsapi, firecrawl, granola, web-scrape) | 3 | All sources zippered |
