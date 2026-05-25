@@ -62,12 +62,12 @@ export type ProcessOutcome =
   | { kind: "stored"; id: string; classification: ClassificationOutcome }
   | { kind: "storage_failed"; error: string };
 
-interface ParsedFrom {
+export interface ParsedFrom {
   address: string;
   domain: string;
 }
 
-function parseFromAddress(raw: string): ParsedFrom | null {
+export function parseFromAddress(raw: string): ParsedFrom | null {
   // "Display Name <user@example.com>" or bare "user@example.com"
   const angle = raw.match(/<([^>]+)>/);
   const addr = (angle ? angle[1] : raw).trim().toLowerCase();
@@ -76,7 +76,7 @@ function parseFromAddress(raw: string): ParsedFrom | null {
   return { address: addr, domain: addr.slice(at + 1) };
 }
 
-function senderAllowed(domain: string): boolean {
+export function senderAllowed(domain: string): boolean {
   const allowlist = (process.env.INBOUND_SENDER_ALLOWLIST ?? "")
     .split(",")
     .map((s) => s.trim().toLowerCase())
