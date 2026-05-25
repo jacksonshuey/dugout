@@ -70,8 +70,15 @@ export type Stage2Verdict =
 // Tool-use output shape. Haiku is forced to call `submit_verdict` with
 // exactly this object. The implementer post-validates length + range
 // defensively (matches ranker pattern).
+//
+// `workspace_relevance` was added in the Phase 3 unification — previously
+// the email filter only emitted a verdict, leaving the ranker without a
+// relevance hint for newsletter-derived signals. Now every email decision
+// carries one of the four workspace-relevance tiers per
+// WORKSPACE_RELEVANCE_DEFINITION (src/lib/workspace-relevance.ts).
 export interface Stage2Output {
   verdict: Stage2Verdict;
+  workspace_relevance: import("./workspace-relevance").WorkspaceRelevance;
   confidence: number; // 0..1 inclusive
   reasoning: string; // 10..200 chars, plain prose, one sentence
 }

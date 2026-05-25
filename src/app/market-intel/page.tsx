@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Card } from "@/components/ui";
-import { AEBrief } from "@/components/ae-brief";
+import { WorkspaceDigest } from "@/components/ae-brief";
 import { RankerBanner } from "@/components/ranker-banner";
 import { SignalSourceChip } from "@/components/signal-source-chip";
 import {
@@ -155,7 +155,7 @@ export default async function MarketIntelPage() {
     // keep default
   }
 
-  // Hoisted so both the ranker and <AEBrief /> see the same 48h window.
+  // Hoisted so both the ranker and <WorkspaceDigest /> see the same 48h window.
   const sinceRankerMs = nowMs - RANKER_LOOKBACK_HOURS * 60 * 60 * 1000;
   const rankerSignals: ExternalSignal[] =
     signals && !fetchError
@@ -251,26 +251,65 @@ export default async function MarketIntelPage() {
           </div>
         </Card>
       ) : signals && signals.length > 0 ? (
-        <div className="space-y-8">
-          <AEBrief
-            signals={allBriefSignals}
-            rankedItems={rankerResult?.items ?? []}
-            now={new Date(nowMs)}
-          />
-          {rankerResult && <RankerBanner stubReason={rankerResult.stubReason} />}
-          {rankerResult && rankerResult.items.length > 0 && (
+        <div className="space-y-10">
+          {/* Section 1: account-named signals first — audit P2 #16. The
+              prior order put workspace newsletters above account-named
+              intel; reversed here so the AE sees the items tied to a
+              tracked account (KKR, Snowflake, etc.) before generic
+              workspace feeds. */}
+          {highRelevanceSignals.length > 0 && (
             <section>
-              <h2 className="text-lg font-semibold tracking-tight mb-3">
-                Ranked by relevance
-              </h2>
-              <RankedTable signals={signals} items={rankerResult.items} />
+              <div className="space-y-1 mb-3">
+                <h2 className="text-lg font-semibold tracking-tight">
+                  Your tracked accounts
+                </h2>
+                <p className="text-sm text-muted">
+                  High and medium relevance items mentioning accounts you track,
+                  from the last {Math.round(RANKER_LOOKBACK_HOURS / 24)} days.
+                </p>
+              </div>
+              <AccountNamedTable signals={highRelevanceSignals} />
             </section>
           )}
-          <section>
-            <h2 className="text-lg font-semibold tracking-tight mb-3">
-              All signals (chronological)
-            </h2>
-            <SignalTable signals={signals} />
+
+          {/* Divider between the two pools so the visual hierarchy is
+              unambiguous, even when both sections have content. */}
+          {highRelevanceSignals.length > 0 && (
+            <div className="border-t border-border pt-2" aria-hidden />
+          )}
+
+          {/* Section 2: workspace intel — newsletters + the legacy AE
+              brief synthesis. Renamed component, same shape. */}
+          <section className="space-y-6">
+            <div className="space-y-1">
+              <h2 className="text-lg font-semibold tracking-tight">
+                Workspace intel
+              </h2>
+              <p className="text-sm text-muted">
+                Newsletters and market-wide signals not tied to any single
+                tracked account.
+              </p>
+            </div>
+            <WorkspaceDigest
+              signals={allBriefSignals}
+              rankedItems={rankerResult?.items ?? []}
+              now={new Date(nowMs)}
+            />
+            {rankerResult && <RankerBanner stubReason={rankerResult.stubReason} />}
+            {rankerResult && rankerResult.items.length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold tracking-tight mb-2 uppercase tracking-wider text-muted font-mono">
+                  Ranked by relevance
+                </h3>
+                <RankedTable signals={signals} items={rankerResult.items} />
+              </div>
+            )}
+            <div>
+              <h3 className="text-sm font-semibold tracking-tight mb-2 uppercase tracking-wider text-muted font-mono">
+                All signals (chronological)
+              </h3>
+              <SignalTable signals={signals} />
+            </div>
           </section>
         </div>
       ) : (
@@ -459,6 +498,85 @@ function renderRationale(rationale: string): React.ReactNode {
   }
   if (lastIndex < rationale.length) parts.push(rationale.slice(lastIndex));
   return parts;
+}
+
+// Table for the "Your tracked accounts" section. Each row links the
+// account name + summary + source. Sort key: workspace_relevance HIGH
+// before MEDIUM, then newest first inside each band — keeps the most
+// material items at the top regardless of recency drift.
+function AccountNamedTable({ signals }: { signals: ExternalSignal[] }) {
+  const accountById = new Map(accounts.map((a) => [a.id, a]));
+
+  const sorted = [...signals].sort((a, b) => {
+    const ra = a.workspace_relevance === "high" ? 0 : 1;
+    const rb = b.workspace_relevance === "high" ? 0 : 1;
+    if (ra !== rb) return ra - rb;
+    return a.occurred_at < b.occurred_at ? 1 : -1;
+  });
+
+  return (
+    <Card className="overflow-hidden">
+      <table className="w-full text-sm">
+        <thead className="bg-black/[0.02] text-left text-xs uppercase tracking-wider text-muted">
+          <tr>
+            <th className="px-4 py-2 font-medium">Date</th>
+            <th className="px-4 py-2 font-medium">Account</th>
+            <th className="px-4 py-2 font-medium">Relevance</th>
+            <th className="px-4 py-2 font-medium">Type</th>
+            <th className="px-4 py-2 font-medium">Summary</th>
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map((s) => {
+            const account = accountById.get(s.account_id);
+            const typeLabel = TYPE_LABELS[s.type] ?? s.type;
+            return (
+              <tr
+                key={s.id}
+                className="border-t border-border align-top hover:bg-black/[0.02]"
+              >
+                <td className="px-4 py-3 whitespace-nowrap text-muted">
+                  {formatDate(s.occurred_at)}
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap font-medium">
+                  {account ? (
+                    <Link
+                      href={`/account/${account.id}/prep`}
+                      className="hover:text-brand"
+                    >
+                      {account.name}
+                    </Link>
+                  ) : (
+                    s.account_id
+                  )}
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  <span
+                    className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold tracking-wider uppercase border ${
+                      s.workspace_relevance === "high"
+                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
+                        : "border-amber-500/30 bg-amber-500/10 text-amber-700"
+                    }`}
+                  >
+                    {s.workspace_relevance === "high" ? "High" : "Medium"}
+                  </span>
+                </td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold tracking-wider border border-border bg-black/[0.04]">
+                    {typeLabel}
+                  </span>
+                </td>
+                <td className="px-4 py-3 space-y-2">
+                  <div>{s.summary}</div>
+                  <SignalSourceChip {...chipPropsFor(s)} />
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </Card>
+  );
 }
 
 function SignalTable({ signals }: { signals: ExternalSignal[] }) {

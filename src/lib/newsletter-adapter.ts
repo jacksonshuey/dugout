@@ -10,6 +10,13 @@ import {
 } from "./external-signals";
 import type { PublisherInfo } from "./email-filter-types";
 import { extractLeadArticleUrl } from "./extract-lead-article-url";
+import {
+  WORKSPACE_RELEVANCE_DEFINITION,
+  WORKSPACE_RELEVANCE_TOOL_PROPERTY,
+  WORKSPACE_RELEVANCE_VALUES,
+  coerceWorkspaceRelevance,
+  type WorkspaceRelevance,
+} from "./workspace-relevance";
 
 // Newsletter adapter — takes a stored inbound email, extracts material
 // business signals via Haiku, and maps them to either a tracked account
@@ -19,14 +26,24 @@ import { extractLeadArticleUrl } from "./extract-lead-article-url";
 // Mirrors the structure of news-adapter.ts so the two pipelines stay
 // legible together. Key differences:
 //   - One Haiku call per email, not per company.
-//   - Output is { mention, type, summary, url? } — the mention is a free-
-//     text entity name we match against trackable accounts post-hoc.
+//   - Output is { mention, type, summary, url?, workspace_relevance } —
+//     the mention is a free-text entity name we match against trackable
+//     accounts post-hoc.
 //   - Unmatched mentions become workspace-scoped signals.
+//
+// Determinism: temperature=0.1 + forced tool-use via `submit_extraction`,
+// modeled on news-filter.ts. Replaced the free-text ```json fence parser
+// to eliminate brittle re-prompts when Haiku decorates its output.
 //
 // Cost: typical newsletter is 2-10 material items, ~3K input tokens, ~500
 // output tokens. ~$0.005 per email at Haiku 4.5 sticker.
 
 const HAIKU_MODEL = "claude-haiku-4-5";
+
+// Wall-clock budget for the classifier call. Tighter than the previous
+// implicit 20s SDK default to keep the cron sweeper inside Vercel's per-
+// function budget on long newsletter days.
+const HAIKU_TIMEOUT_MS = 15_000;
 
 // Truncate email body to this many characters before sending to Haiku.
 // Newsletters past this length (e.g. 50K-char digests) get costly and the
@@ -55,7 +72,7 @@ function getEnvOrFile(name: string): string | null {
 function anthropicClient(): Anthropic {
   const key = getEnvOrFile("ANTHROPIC_API_KEY");
   if (!key) throw new Error("ANTHROPIC_API_KEY not set");
-  return new Anthropic({ apiKey: key, maxRetries: 2, timeout: 20_000 });
+  return new Anthropic({ apiKey: key, maxRetries: 2, timeout: HAIKU_TIMEOUT_MS });
 }
 
 // ---------------------------------------------------------------------------
@@ -114,8 +131,65 @@ interface RawExtraction {
   mention: string;
   type: ExternalSignalType;
   summary: string;
+  workspace_relevance: WorkspaceRelevance;
   url?: string;
 }
+
+// ---------------------------------------------------------------------------
+// Forced tool-use schema. Modeled on news-filter.ts's submit_verdict tool:
+// single tool, forced tool_choice, schema-validated post-hoc. The model
+// returns { items: [...] } — one extraction per material event.
+// ---------------------------------------------------------------------------
+
+const TOOL_NAME = "submit_extraction";
+
+const TOOL_SCHEMA = {
+  name: TOOL_NAME,
+  description:
+    "Submit the extracted material business events. Call this exactly once with the full list (empty array is allowed when nothing is material).",
+  input_schema: {
+    type: "object" as const,
+    additionalProperties: false,
+    required: ["items"],
+    properties: {
+      items: {
+        type: "array" as const,
+        maxItems: 25,
+        items: {
+          type: "object" as const,
+          additionalProperties: false,
+          required: ["mention", "type", "summary", "workspace_relevance"],
+          properties: {
+            mention: {
+              type: "string",
+              minLength: 1,
+              maxLength: 200,
+              description:
+                "Company or entity name exactly as it appears in the newsletter text.",
+            },
+            type: {
+              type: "string",
+              enum: VALID_TYPES as unknown as string[],
+            },
+            summary: {
+              type: "string",
+              minLength: 5,
+              maxLength: 500,
+              description:
+                "1-2 sentence factual summary (≤200 chars, no markdown).",
+            },
+            workspace_relevance: WORKSPACE_RELEVANCE_TOOL_PROPERTY,
+            url: {
+              type: "string",
+              description:
+                "Absolute URL for this specific event if explicitly referenced; omit otherwise.",
+            },
+          },
+        },
+      },
+    },
+  },
+} as const;
 
 function buildClassifierPrompt(email: InboundEmail, body: string): string {
   return `You are extracting material business signals from a newsletter for a B2B sales team that tracks specific companies and monitors the broader market.
@@ -130,9 +204,10 @@ ${body}
 YOUR JOB
 Extract every material business event mentioned that the sales team should know about. For each event:
 1. Identify the company/entity it concerns (the "mention" — exactly as it appears in the text, e.g. "Stripe", "Moderna", "OpenAI").
-2. Classify the event type.
+2. Classify the event type using one of: leadership_change, champion_job_change, ma_acquisition, funding_round, layoff, earnings, product_launch, press_release, competitor_mention, regulatory_action, partnership, other.
 3. Write a 1-2 sentence factual summary (≤200 chars, no markdown).
-4. If a specific URL is referenced for that event, capture it (omit if no URL).
+4. Tag the workspace_relevance tier per the rubric below — REQUIRED on every extraction.
+5. If a specific URL is referenced for that event, capture it (omit if no URL).
 
 Skip:
 - Opinion pieces, commentary, predictions, listicles
@@ -140,49 +215,82 @@ Skip:
 - Items where the entity is too generic to track ("the market", "AI startups")
 - Items that are clearly ads or sponsored content
 
-Output ONLY a JSON array inside a \`\`\`json code fence. One entry per material event. Each entry:
+${WORKSPACE_RELEVANCE_DEFINITION}
 
-{
-  "mention": "<company or entity name as it appears in the text>",
-  "type": one of: "leadership_change" | "ma_acquisition" | "funding_round" | "layoff" | "earnings" | "product_launch" | "press_release" | "competitor_mention" | "regulatory_action" | "partnership" | "other",
-  "summary": "...",
-  "url": "<absolute URL if explicitly present, else omit>"
+# Output format — forced tool-use, mandatory
+You MUST emit your answer via the \`${TOOL_NAME}\` tool. Free-text replies are invalid. Return an empty items array when the newsletter contains no material events. Do not invent facts. No preamble.`;
 }
 
-Return \`[]\` if the newsletter contains no material events. Do not invent facts. No preamble.`;
+// Test seam: callers (tests) can inject a fake Haiku call so we never hit
+// the network. Returns the tool_use.input payload or throws.
+export type NewsletterHaikuCall = (args: {
+  systemPromptUserMessage: string;
+  toolSchema: typeof TOOL_SCHEMA;
+  timeoutMs: number;
+}) => Promise<unknown>;
+
+async function callHaikuReal(args: {
+  systemPromptUserMessage: string;
+  toolSchema: typeof TOOL_SCHEMA;
+  timeoutMs: number;
+}): Promise<unknown> {
+  const c = anthropicClient();
+  const ac = new AbortController();
+  const timer = setTimeout(() => ac.abort(), args.timeoutMs);
+  try {
+    const response = await c.messages.create(
+      {
+        model: HAIKU_MODEL,
+        max_tokens: 2000,
+        // Locked at 0.1 (was implicit SDK default ~1.0). Newsletter
+        // classification needs determinism, not creativity — same email
+        // should yield the same extraction list across re-runs.
+        temperature: 0.1,
+        tools: [
+          {
+            name: args.toolSchema.name,
+            description: args.toolSchema.description,
+            input_schema:
+              args.toolSchema.input_schema as unknown as Anthropic.Tool.InputSchema,
+          },
+        ],
+        tool_choice: { type: "tool", name: args.toolSchema.name },
+        messages: [{ role: "user", content: args.systemPromptUserMessage }],
+      },
+      { signal: ac.signal },
+    );
+    const toolUse = response.content.find(
+      (b): b is Anthropic.ToolUseBlock =>
+        b.type === "tool_use" && b.name === args.toolSchema.name,
+    );
+    if (!toolUse) throw new Error("Haiku returned no tool_use block");
+    return toolUse.input;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
-async function classifyWithHaiku(email: InboundEmail): Promise<RawExtraction[]> {
+async function classifyWithHaiku(
+  email: InboundEmail,
+  haikuCall?: NewsletterHaikuCall,
+): Promise<RawExtraction[]> {
   const body = emailBodyForClassification(email);
   if (body.trim().length < 50) return [];
 
-  const c = anthropicClient();
-  const message = await c.messages.create({
-    model: HAIKU_MODEL,
-    max_tokens: 2000,
-    messages: [
-      { role: "user", content: buildClassifierPrompt(email, body) },
-    ],
+  const prompt = buildClassifierPrompt(email, body);
+  const call = haikuCall ?? callHaikuReal;
+  const toolInput = await call({
+    systemPromptUserMessage: prompt,
+    toolSchema: TOOL_SCHEMA,
+    timeoutMs: HAIKU_TIMEOUT_MS,
   });
 
-  const text = message.content
-    .filter((b) => b.type === "text")
-    .map((b) => (b as { type: "text"; text: string }).text)
-    .join("\n");
-
-  const fence = text.match(/```json\s*([\s\S]*?)```/i);
-  const jsonStr = fence ? fence[1].trim() : text.trim();
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(jsonStr);
-  } catch {
-    return [];
-  }
-  if (!Array.isArray(parsed)) return [];
+  if (!toolInput || typeof toolInput !== "object") return [];
+  const itemsRaw = (toolInput as Record<string, unknown>).items;
+  if (!Array.isArray(itemsRaw)) return [];
 
   const out: RawExtraction[] = [];
-  for (const raw of parsed) {
+  for (const raw of itemsRaw) {
     if (!raw || typeof raw !== "object") continue;
     const r = raw as Record<string, unknown>;
     const mention = typeof r.mention === "string" ? r.mention.trim() : "";
@@ -194,10 +302,17 @@ async function classifyWithHaiku(email: InboundEmail): Promise<RawExtraction[]> 
     const summary = typeof r.summary === "string" ? r.summary.trim() : "";
     if (!summary) continue;
     const url = typeof r.url === "string" && /^https?:\/\//i.test(r.url) ? r.url : undefined;
+    const relevance =
+      coerceWorkspaceRelevance(r.workspace_relevance) ??
+      // Defensive default: when Haiku returns a missing/invalid tier,
+      // treat the item as low-relevance rather than dropping it. The AE
+      // Brief filter still hides low/none rows; the drawer still gets them.
+      ("low" as WorkspaceRelevance);
     out.push({
       mention: mention.slice(0, 200),
       type,
       summary: summary.slice(0, 500),
+      workspace_relevance: relevance,
       url,
     });
   }
@@ -252,15 +367,22 @@ export interface NewsletterClassification {
   workspace: number;
 }
 
+// Optional injection seam — tests can pass `haikuCall` to skip the network
+// entirely. Production callers omit it and the real Anthropic SDK is used.
+export interface ClassifyNewsletterDeps {
+  haikuCall?: NewsletterHaikuCall;
+}
+
 export async function classifyNewsletter(
   email: InboundEmail,
   trackableAccounts: Account[],
   publisherInfo?: PublisherInfo,
+  deps: ClassifyNewsletterDeps = {},
 ): Promise<NewsletterClassification> {
   let extractions: RawExtraction[];
   let classifier_used: "haiku" | "none" = "haiku";
   try {
-    extractions = await classifyWithHaiku(email);
+    extractions = await classifyWithHaiku(email, deps.haikuCall);
   } catch (e) {
     // No heuristic fallback here — newsletters are too varied for keyword
     // matching to produce useful signals. Better to leave them unclassified
@@ -309,6 +431,12 @@ export async function classifyNewsletter(
         newsletter_subject: email.subject,
         mention: x.mention,
         matched: Boolean(acc),
+        // Capture the ingestion time independently of occurred_at so the
+        // ranker has access to "when Dugout learned this" distinct from
+        // "when the event happened" — newsletter classifiers usually
+        // align them, but a digest published on Monday about a Saturday
+        // event has a real gap the ranker should see.
+        received_at: email.received_at,
       },
       is_demo: false,
       // Parallel top-level surface so /market-intel queries don't need to
@@ -324,8 +452,19 @@ export async function classifyNewsletter(
       // types. Prefer html_body for fidelity; fall back to text_body.
       source_content_md: email.html_body ?? email.text_body ?? null,
       source_content_kind: email.html_body ? "email_html" : "email_text",
-    };
+      // Workspace relevance tier set by Haiku — drives the AE Brief filter.
+      workspace_relevance: x.workspace_relevance,
+    } as NewExternalSignal;
   });
 
   return { signals, classifier_used, matched, workspace };
 }
+
+// Exported for tests so the suite can assert the schema shape it cares
+// about (enum lists, required fields) without hitting Haiku.
+export const _internal = {
+  TOOL_NAME,
+  TOOL_SCHEMA,
+  VALID_TYPES,
+  WORKSPACE_RELEVANCE_VALUES,
+};

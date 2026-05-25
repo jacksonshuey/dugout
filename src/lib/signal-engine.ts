@@ -1,10 +1,12 @@
 import {
   STAGE_AGE_BENCHMARK_DAYS,
+  type CallTranscript,
   type DealHealth,
   type EvaluationContext,
   type Opportunity,
   type Signal,
   type SignalRule,
+  type StandardAsset,
 } from "./types";
 import { daysBetween, TODAY } from "./utils";
 import { CONTRACT_IDLE_AMOUNT_FLOOR_DEFAULT } from "./workspace";
@@ -114,8 +116,118 @@ function assetLink(
 }
 
 // ---------------------------------------------------------------------------
+// Multi-signal helpers (spec §1.4 BUDGET_APPROVAL_RISK)
+// ---------------------------------------------------------------------------
+
+// Look for keyword mentions in any call transcript on an opportunity. Checks
+// summary + excerpts (the two fields the LLM-derived call data populates) so
+// matches don't depend on a sales rep manually adding the keyword to riskFlags.
+// Case-insensitive. Returns true if any keyword appears in any transcript.
+export function hasTranscriptMention(
+  oppId: string,
+  keywords: string[],
+  calls: CallTranscript[],
+): boolean {
+  if (keywords.length === 0) return false;
+  const lowered = keywords.map((k) => k.toLowerCase());
+  for (const call of calls) {
+    if (call.oppId !== oppId) continue;
+    const haystacks: string[] = [call.summary.toLowerCase()];
+    for (const e of call.excerpts) {
+      haystacks.push(e.text.toLowerCase());
+    }
+    for (const h of haystacks) {
+      if (lowered.some((k) => h.includes(k))) return true;
+    }
+  }
+  return false;
+}
+
+// "Unviewed asset" check used by the Budget Approval Risk rule. An asset is
+// considered unviewed when (a) it appears in the delivery log (deliveredAt
+// populated) AND (b) the per-opp `assetsShared` view-state flag is explicitly
+// false. Returns false when the asset was never sent (different problem —
+// "no delivery" rather than "delivered + ignored") or when the buyer opened
+// it. Today the only supported `assetType` is `cfo_leave_behind`; other
+// assets follow the same naming convention if they're added later.
+export function hasUnviewedAsset(
+  opp: Opportunity,
+  asset: StandardAsset,
+  deliveries: { oppId: string; asset: string; deliveredAt?: string }[],
+): boolean {
+  const delivered = deliveries.some(
+    (d) => d.oppId === opp.id && d.asset === asset && d.deliveredAt,
+  );
+  if (!delivered) return false;
+
+  const shared = opp.assetsShared;
+  if (!shared) return false; // no view-state data → can't claim "unviewed"
+
+  switch (asset) {
+    case "cfo_leave_behind":
+      return shared.cfoLeaveBehindViewed === false;
+    case "it_zero_lift_one_pager":
+      return shared.itZeroLiftViewed === false;
+    case "finance_meeting_brief":
+      return shared.financeBriefViewed === false;
+    default:
+      return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Rules
 // ---------------------------------------------------------------------------
+
+// BUDGET_APPROVAL_RISK — spec §1.4. Multi-signal synthesis rule that only
+// fires when ALL four conditions co-occur:
+//   1. Deal is in Selected Vendor stage
+//   2. A recent call transcript explicitly mentions budget approval
+//   3. No Finance contact is on the opportunity's contact roles
+//   4. The CFO Leave-Behind asset was delivered but the buyer has not opened it
+//
+// Replaces the previous SELECTED_VENDOR_NO_FINANCE rule, which was reductive
+// (contact-gap only). The synthesis here is the product story: this combination
+// is the canonical "deal will die at the budget gate" pattern.
+const ruleBudgetApprovalRisk: SignalRule = {
+  id: "BUDGET_APPROVAL_RISK",
+  name: "Budget approval risk",
+  description:
+    "Selected Vendor deal where (a) budget approval was mentioned on the last call, (b) no Finance/CFO contact is on the OCR, and (c) the CFO Leave-Behind asset has been delivered but not viewed. Multi-signal synthesis from spec §1.4.",
+  severity: "blocking",
+  strategicPriority: "P4",
+  evaluate: (ctx) =>
+    ctx.opportunities
+      .filter((o) => o.stage === "Selected Vendor")
+      .filter((o) => !hasContactRole(o, ctx, "Finance/CFO"))
+      .filter((o) =>
+        hasTranscriptMention(
+          o.id,
+          ["budget approval", "approve budget", "finance signoff", "finance sign-off"],
+          ctx.calls,
+        ),
+      )
+      .filter((o) =>
+        hasUnviewedAsset(o, "cfo_leave_behind", ctx.deliveries),
+      )
+      .map((o) => ({
+        id: ruleId("BUDGET_APPROVAL_RISK", o.id),
+        ruleId: "BUDGET_APPROVAL_RISK",
+        oppId: o.id,
+        severity: "blocking",
+        // Finance persona absent + buyer-side disengagement on the budget
+        // asset → canonical committee_gap (the absent role is what blocks
+        // the deal; the unviewed asset is corroborating evidence).
+        signalType: "committee_gap",
+        title: "Budget approval risk",
+        body:
+          "This deal is in Selected Vendor, budget approval was mentioned in the last call, no Finance stakeholder is mapped, and the CFO leave-behind has not been viewed.",
+        suggestedAction:
+          "Map Finance, send CFO package, and schedule Finance alignment before the next buyer meeting.",
+        assetLink: assetLink(ctx, "cfo_leave_behind", "CFO Leave-Behind"),
+        detectedAt: TODAY.toISOString(),
+      })),
+};
 
 const ruleSelectedVendorNoFinance: SignalRule = {
   id: "SELECTED_VENDOR_NO_FINANCE",
@@ -136,8 +248,7 @@ const ruleSelectedVendorNoFinance: SignalRule = {
         ruleId: "SELECTED_VENDOR_NO_FINANCE",
         oppId: o.id,
         severity: "blocking",
-        // Finance persona absent from a buying committee — canonical committee_gap.
-        signalType: "committee_gap",
+        signalType: "committee_gap" as const,
         title: "Finance gate unmanned",
         body: "Deal is at Selected Vendor without a Finance contact identified. Budget approval is the most common kill point at this stage.",
         suggestedAction: `Send the ${assetName(ctx, "cfo_leave_behind", "CFO Leave-Behind")} to your champion today and ask for a Finance intro by EOW.`,
@@ -771,6 +882,7 @@ const ruleAbmShadowResearch: SignalRule = {
 export const RULES: SignalRule[] = [
   ruleChampionDeparted,
   ruleChampionGhost,
+  ruleBudgetApprovalRisk,
   ruleContractIdle,
   ruleSelectedVendorNoFinance,
   ruleSelectedVendorNoProcurement,

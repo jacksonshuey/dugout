@@ -35,6 +35,18 @@ interface PublisherEntry {
 // sender domains are the fallback when a publisher doesn't ship a List-ID.
 const PUBLISHERS: PublisherEntry[] = [
   {
+    canonical: "ai_snake_oil",
+    display: "AI Snake Oil",
+    source_url_origin: "https://www.aisnakeoil.com",
+    // TODO(jackson): confirm List-ID via headers when first email arrives —
+    // Substack publications usually expose "<slug>.substack.com" but the
+    // AI Snake Oil archive is also published on aisnakeoil.com. Sender
+    // domain scoped to the publisher-specific substack subdomain so it
+    // doesn't collide with the bare substack.com bucket.
+    list_ids: ["ai-snake-oil.substack.com"],
+    sender_domains: ["aisnakeoil.substack.com", "aisnakeoil.com"],
+  },
+  {
     canonical: "artificial_lawyer",
     display: "Artificial Lawyer",
     source_url_origin: "https://www.artificiallawyer.com",
@@ -46,6 +58,18 @@ const PUBLISHERS: PublisherEntry[] = [
     source_url_origin: "https://www.axios.com",
     list_ids: ["axios-pro-rata.axios.com"],
     sender_domains: ["axios.com"],
+  },
+  {
+    canonical: "bens_bites",
+    display: "Ben's Bites",
+    source_url_origin: "https://bensbites.beehiiv.com",
+    // TODO(jackson): confirm List-ID via headers when first email arrives —
+    // beehiiv typically ships "<slug>.beehiiv.com" but some publishers
+    // use a custom domain in the List-ID. The sender_domains entry is
+    // scoped to the publisher-specific beehiiv subdomain so multiple
+    // beehiiv publishers don't collide on the bare "beehiiv.com" suffix.
+    list_ids: ["bensbites.beehiiv.com"],
+    sender_domains: ["bensbites.beehiiv.com"],
   },
   {
     canonical: "brainyacts",
@@ -119,6 +143,17 @@ const PUBLISHERS: PublisherEntry[] = [
     display: "The Information",
     source_url_origin: "https://www.theinformation.com",
     sender_domains: ["theinformation.com"],
+  },
+  {
+    canonical: "the_rundown_ai",
+    display: "The Rundown AI",
+    source_url_origin: "https://www.therundown.ai",
+    // TODO(jackson): confirm List-ID via headers when first email arrives —
+    // beehiiv publishers commonly use "<slug>.beehiiv.com". Sender_domains
+    // is scoped to the specific subdomain to avoid colliding with other
+    // beehiiv-hosted publishers (e.g. bens_bites, brainyacts).
+    list_ids: ["therundown.beehiiv.com"],
+    sender_domains: ["therundown.beehiiv.com"],
   },
 ];
 

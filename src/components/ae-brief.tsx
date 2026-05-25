@@ -6,10 +6,18 @@ import { displayNameFor } from "@/lib/inbound-publishers";
 import { verticalFor, isTechOrAI } from "@/lib/newsletter-verticals";
 import { dedupByEntity } from "@/lib/signal-entity-dedup";
 
-// "Today's AE Brief — tech & AI". Read-only server component that renders
+// Workspace digest — tech & AI. Read-only server component that renders
 // above the existing /market-intel tables. Merges two signal pools, dedups
 // by entity, scores by rank + recency, and renders the top 10 with
 // provenance.
+//
+// NAMING NOTE (audit P1 #10 resolution): this component is exported as
+// `WorkspaceDigest` because that's what it actually is — a workspace-wide
+// newsletter + relevance digest. The legacy `AEBrief` name was misleading:
+// the true AE pre-meeting brief surface lives at /account/[slug]/prep and
+// is composed of the focused components under src/components/meeting-prep/.
+// Filename retained to avoid touching git history; the named export is the
+// canonical entry point.
 //
 // Dual-pool logic (WS3):
 //   1. Newsletter pool — workspace-scoped signals (account_id =
@@ -27,7 +35,7 @@ import { dedupByEntity } from "@/lib/signal-entity-dedup";
 // Pure render — no Supabase calls, no client hooks (per BUILD_ALIGNMENT
 // #7 + #9). Every bullet renders SignalSourceChip for citation (#6).
 
-interface AEBriefProps {
+interface WorkspaceDigestProps {
   signals: ExternalSignal[]; // 48h-filtered, dual-pool (newsletter + account)
   rankedItems: RankedItem[]; // rankSignals().items (workspace pool only)
   now: Date; // injected for testability + consistent rendering
@@ -100,7 +108,7 @@ function RelevancePill({
   return null;
 }
 
-export function AEBrief({ signals, rankedItems, now }: AEBriefProps) {
+export function WorkspaceDigest({ signals, rankedItems, now }: WorkspaceDigestProps) {
   const signalById = new Map(signals.map((s) => [s.id, s]));
   const totalRanked = Math.max(rankedItems.length, 1);
 
@@ -179,9 +187,9 @@ export function AEBrief({ signals, rankedItems, now }: AEBriefProps) {
   return (
     <section>
       <div className="space-y-1 mb-3">
-        <h2 className="text-lg font-semibold tracking-tight">
-          Today&apos;s AE Brief — tech &amp; AI
-        </h2>
+        <h3 className="text-sm font-semibold tracking-tight uppercase tracking-wider text-muted font-mono">
+          Workspace digest — tech &amp; AI
+        </h3>
         <p className="text-sm text-muted">
           Top tech and AI signals from the last 48 hours, deduped and ranked
           by impact + recency.

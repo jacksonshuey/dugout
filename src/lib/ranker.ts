@@ -89,12 +89,24 @@ function buildUserMessage(input: RankerInput, workspaceName: string): string {
     const meta = (s.meta ?? {}) as { mention?: unknown };
     const mention =
       typeof meta.mention === "string" ? meta.mention : null;
+    // Newsletter signals carry an inbound_email_id; the email's
+    // received_at is captured on the signal itself as `occurred_at` for
+    // newsletter rows (newsletter-adapter copies email.received_at into
+    // occurred_at). For surfaces that need the ingestion time distinct
+    // from the underlying event time we forward `received_at` from meta
+    // when present; otherwise it stays null.
+    const received_at =
+      typeof (meta as { received_at?: unknown }).received_at === "string"
+        ? ((meta as { received_at?: string }).received_at ?? null)
+        : null;
     return {
       id: s.id,
       source: s.source,
-      type: s.type,
+      signal_type: s.type,
       summary: s.summary,
       occurred_at: s.occurred_at,
+      received_at,
+      workspace_relevance: s.workspace_relevance ?? null,
       mention,
     };
   });
@@ -251,6 +263,10 @@ export interface RankSignalsDeps {
   // to workspaceKey when not supplied so the prompt always has SOMETHING.
   workspaceName?: string;
   workspaceContext?: string;
+  // Primary vertical — gates the AI-topic relevance bonus in the prompt.
+  // Defaults to "tech_ai" since that's Checkbox's primary lens; callers
+  // for other verticals should pass their slug explicitly.
+  primaryVertical?: string;
   // Test seam for HAS_ANTHROPIC_KEY — defaults to the env-derived value.
   hasApiKey?: boolean;
 }
@@ -313,6 +329,7 @@ async function rankSignalsInner(
     workspaceContext:
       deps.workspaceContext ?? `Workspace: ${workspaceName}. Industry, ICP, and strategic priorities omitted from this prompt — see Dugout workspace config.`,
     topN,
+    primaryVertical: deps.primaryVertical ?? "tech_ai",
   });
   const userMessage = buildUserMessage(input, workspaceName);
   const toolSchema = buildToolSchema(topN);

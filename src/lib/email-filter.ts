@@ -39,6 +39,12 @@ import type {
   Stage2Verdict,
 } from "./email-filter-types";
 import type { InboundEmail } from "./inbound-email";
+import {
+  WORKSPACE_RELEVANCE_TOOL_PROPERTY,
+  WORKSPACE_RELEVANCE_VALUES,
+  coerceWorkspaceRelevance,
+  type WorkspaceRelevance,
+} from "./workspace-relevance";
 
 // Haiku model id — centralized here so a model bump is one line.
 const HAIKU_MODEL = "claude-haiku-4-5";
@@ -72,12 +78,16 @@ function buildToolSchema() {
     input_schema: {
       type: "object" as const,
       additionalProperties: false,
-      required: ["verdict", "confidence", "reasoning"],
+      required: ["verdict", "workspace_relevance", "confidence", "reasoning"],
       properties: {
         verdict: {
           type: "string",
           enum: VALID_VERDICTS as unknown as string[],
         },
+        // Added in the Phase 3 unification — every email decision now
+        // carries one of the four workspace-relevance tiers so downstream
+        // ranker code has a consistent hint regardless of source.
+        workspace_relevance: WORKSPACE_RELEVANCE_TOOL_PROPERTY,
         confidence: {
           type: "number",
           minimum: 0,
@@ -181,15 +191,28 @@ function validateStage2Output(raw: unknown): ValidationOk | ValidationErr {
     };
   }
 
+  // Coerce workspace_relevance. Missing/invalid → "low" (defensive
+  // default; the AE Brief filter still hides low/none rows). When verdict
+  // is anything but 'newsworthy' we coerce to "none" since logistics/
+  // promotional/other content has no workspace-relevance signal.
+  const coerced = coerceWorkspaceRelevance(obj.workspace_relevance);
+  const workspace_relevance: WorkspaceRelevance =
+    verdict === "newsworthy" ? (coerced ?? "low") : "none";
+
   return {
     ok: true,
     output: {
       verdict: verdict as Stage2Verdict,
+      workspace_relevance,
       confidence,
       reasoning,
     },
   };
 }
+
+// Re-export the canonical value list so callers/tests can assert against
+// the same source-of-truth without importing both modules.
+export const STAGE2_WORKSPACE_RELEVANCE_VALUES = WORKSPACE_RELEVANCE_VALUES;
 
 // ─── Classify SDK errors → Stage2FailureReason ──────────────────────────
 
