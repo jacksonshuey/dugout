@@ -79,7 +79,7 @@ export default async function MeetingPrepPage({
 
       {refreshHint && (
         <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-[11px] text-emerald-700">
-          Brief refreshed at {new Date(brief.generatedAt).toLocaleTimeString()}.
+          Brief refreshed at {new Date(brief.generatedAt).toLocaleTimeString('en-US', { timeZone: 'UTC', hour: '2-digit', minute: '2-digit' })}.
         </div>
       )}
 
@@ -115,7 +115,7 @@ export default async function MeetingPrepPage({
 
       <div className="flex items-center justify-between text-[11px] text-muted pt-2">
         <span>
-          Generated {new Date(brief.generatedAt).toLocaleString()} ·{" "}
+          Generated {new Date(brief.generatedAt).toLocaleString('en-US', { timeZone: 'UTC', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })} ·{" "}
           {brief.scrapeStatus}
         </span>
         <Link href={`/account/${slug}`} className="hover:text-foreground">
