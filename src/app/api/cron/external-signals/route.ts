@@ -87,6 +87,17 @@ async function runIngestion(filterAccountId?: string): Promise<CronResult> {
   };
 }
 
+// Constant-time string compare to avoid leaking CRON_SECRET length via timing.
+// Matches the pattern in cron/granola/route.ts.
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
 // Verify request is from Vercel cron. Vercel auto-injects
 // Authorization: Bearer ${CRON_SECRET} when the env var is set.
 // Fail-closed: if the secret isn't configured, refuse all requests
@@ -96,8 +107,8 @@ async function runIngestion(filterAccountId?: string): Promise<CronResult> {
 function authorized(req: Request): boolean {
   const required = process.env.CRON_SECRET;
   if (!required) return false;
-  const header = req.headers.get("authorization");
-  return header === `Bearer ${required}`;
+  const header = req.headers.get("authorization") ?? "";
+  return timingSafeEqual(header, `Bearer ${required}`);
 }
 
 export async function GET(req: Request) {
