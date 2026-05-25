@@ -31,6 +31,8 @@ interface HealthCheck {
   configOnly?: boolean;
   // Adapter that runs without server-side credentials (SEC EDGAR, public).
   noCredentialRequired?: boolean;
+  // Adapter that uses a per-workspace Vault key (not a global env var).
+  vaultKey?: boolean;
 }
 
 // Per-brand check definitions. Adding a new constellation integration =
@@ -44,9 +46,9 @@ const CHECKS: Partial<Record<BrandKey, HealthCheck>> = {
   firecrawl: { envVars: ["FIRECRAWL_API_KEY"] },
   slack: { envVars: ["SLACK_WEBHOOK_URL"] },
   // Granola uses per-workspace Vault rows. There's no global env var that
-  // tells us "the integration is on." From the constellation's POV the
-  // adapter is shipped; per-workspace status is a different surface.
-  granola: { noCredentialRequired: true },
+  // tells us "the integration is on." The adapter is shipped; per-workspace
+  // key setup happens at onboarding time (paste → Vault).
+  granola: { vaultKey: true },
   // OAuth display rows — workspace-config integrations. The adapter is
   // a planned integration shape, not a running connection.
   salesforce: { configOnly: true },
@@ -63,6 +65,9 @@ export function checkHealth(brand: BrandKey): IntegrationHealth {
   }
   if (check.configOnly) {
     return { mode: "config", note: "OAuth · connected per workspace" };
+  }
+  if (check.vaultKey) {
+    return { mode: "live", note: "API key (Vault)" };
   }
   if (check.noCredentialRequired) {
     return { mode: "live", note: "No credential required" };
