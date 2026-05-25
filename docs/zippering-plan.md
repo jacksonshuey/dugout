@@ -118,6 +118,13 @@ work without joining six diverging schemas, and a **per-pkey extension
 layer** for fields that genuinely only matter to one account. Haiku
 considers both when routing.
 
+### Multi-tenancy note
+Every table below carries a `workspace_key text not null` column +
+`(workspace_key, ...)` composite index. Defaults to `'dugout-default'`
+for the single-tenant deployment; future multi-workspace rollout costs
+zero retrofit. Pattern mirrors `meeting_signals` + `web_scrapes` already
+in the codebase. RLS policies filter on `workspace_key`.
+
 ### `global_canonical_columns` — cross-pkey shared fields
 Seeded with the columns that ALL accounts will reasonably have
 (company_name, domain, employee_count, account_owner, latest_signal_at,
@@ -332,6 +339,46 @@ with a strict JSON schema enforced.
 
 ---
 
+## 4b. Write-time normalization
+
+When the verdict routes an incoming value to a canonical column, the value
+gets normalized to the canonical's `data_type` before insert. The zippered
+store holds **consistent canonical types at rest** — readers don't have to
+coerce, downstream consumers see the same shape every time.
+
+A small coercion registry handles the safe, predictable cases:
+
+```ts
+// src/lib/zippering-coercions.ts
+type CoercionKey = `${SourceType}→${CanonicalType}`;
+
+const COERCERS: Partial<Record<CoercionKey, (v: unknown) => unknown>> = {
+  'epoch_ms→timestamp':       (v) => new Date(v as number).toISOString(),
+  'timestamp→epoch_ms':       (v) => new Date(v as string).getTime(),
+  'string→string[]':          (v) => [v],
+  'string[]→jsonb':           (v) => v,
+  'integer→text':             (v) => String(v),
+  'text→integer':             (v) => {
+    const n = parseInt(v as string, 10);
+    if (Number.isNaN(n)) throw new UnsafeCoercion();
+    return n;
+  },
+  // ~5-10 entries; expand as integrations surface new pairs
+};
+```
+
+If the source type equals the canonical type, no-op. If a coercer exists
+and succeeds, the normalized value is written. If a coercer is missing
+or throws `UnsafeCoercion` (text → integer when the text isn't parseable),
+the routing decision is **flipped to `needs_review`** on the decision row
+and the value is **not written** to `zippered_signals`. The operator
+review surface (§6 below) then handles it the same way it handles
+`unclear` Haiku verdicts.
+
+This keeps reads fast, keeps the canonical type contract honest, and
+keeps unsafe coercions out of the data while preserving the original
+`source_samples` on the decision row for explainability.
+
 ## 5. Ingest flow
 
 ```
@@ -343,8 +390,8 @@ for each column in rawRow:
   # Latest decision (append-only audit; latest is active routing)
   decision = zippering_decisions.latest(pkey, source, column)
   if not decision:
-    candidates_global = global_canonical_columns.all()
-    candidates_pkey   = zippering_schema.where(pkey, is_global=false)
+    candidates_global = global_canonical_columns.where(workspace_key)
+    candidates_pkey   = zippering_schema.where(workspace_key, pkey, is_global=false)
     decision = haiku.assess(
       pkey, source, column,
       source_data_type, source_description, samples,
@@ -359,6 +406,19 @@ for each column in rawRow:
       # Ensure the per-pkey schema mirrors the global routing so
       # zippered_signals lookups don't have to special-case is_global.
       zippering_schema.upsert(pkey, decision.canonical_name, data_type, is_global=true)
+
+  # Write-time normalize before the JSONB insert.
+  try:
+    value = normalize(rawValue, source_data_type, decision.data_type)
+  except UnsafeCoercion:
+    # Flip the decision to needs_review, do NOT write the value. The
+    # operator-review surface handles it like an 'unclear' Haiku verdict.
+    zippering_decisions.insert({
+      ...decision, verdict: decision.verdict, needs_review: true,
+      reason: f"unsafe coercion {source_data_type}→{decision.data_type}",
+      decided_by: 'normalizer',
+    })
+    continue  # next column
   ↓
 build wide row:
   canonical_columns = {}
@@ -388,6 +448,35 @@ Supabase upsert.
 ---
 
 ## 6. Reads
+
+### Column explainability — every mapped column is inspectable (core product, not debug)
+
+The whole value of zippering depends on operators trusting Haiku's
+semantic column joins. If a column appears in the zippered output and
+the operator can't see why, the trust collapses. So explainability is
+treated as **core product**, not a debug afterthought, and ships in
+Phase 1 alongside the zipperer itself.
+
+The contract: every column in every `zippered_signals` row can be traced
+back to:
+- The **source column** that produced this value (which integration, which
+  column name, which row's `external_id`)
+- The **sample values** Haiku evaluated when making the routing decision
+- The **matched canonical column** (and whether it's global or per-pkey)
+- The **verdict** (join / append / unclear) + the **similarity score**
+- The **one-line reason** Haiku gave
+- The **override history** if any (who, when, why)
+
+Surface: `GET /api/zippering/explain?pkey=...&canonical=...&source=...`
+returns the full decision history for a `(pkey, source, canonical_name)`
+slice. A small companion page renders it as a table. Operators can also
+follow a link from any column in the account drawer to land on its
+explainability view directly.
+
+The data is already in `zippering_decisions` (the append-only audit) and
+`zippered_signals` (the actual values). The endpoint is ~30 lines of
+route handler + a small server-rendered page. Cheap relative to the
+trust dividend.
 
 ### Operator review of unclear decisions
 
@@ -518,12 +607,12 @@ Three-phase migration so we never have a flag day.
 
 | Phase | Scope | Days | Ships |
 | --- | --- | --- | --- |
-| 0 | Schema (5 tables) + migration + RLS posture + seed global_canonical_columns | 1-2 | Supabase migration + Postgres seed |
-| 1 | Zipperer lib + Haiku prompt + tests | 2 | `src/lib/zippering.ts` + fixtures + unit tests |
-| 2 | Wrap ONE adapter (newsletter) in dual-write | 2 | Behind feature flag; shadow reads validate |
+| 0 | Schema (4 tables) + workspace_key on all + migration + RLS posture + seed global_canonical_columns | 1-2 | Supabase migration + Postgres seed |
+| 1 | Zipperer lib + Haiku prompt + coercion registry + **explainability endpoint + page** + tests | 3 | `src/lib/zippering.ts`, `src/lib/zippering-coercions.ts`, `/api/zippering/explain`, `/zippering/explain` page, fixtures + unit tests |
+| 2 | Wrap ONE adapter (newsletter) in dual-write | 2 | Behind feature flag; shadow reads validate; explainability already live for the new path |
 | 3 | Migrate remaining 5 adapters (sec, newsapi, firecrawl, granola, web-scrape) | 3 | All sources zippered |
-| 4 | Read path migration | 3 | UIs read from `zippered_signals`; compat view backs legacy callers |
-| 5 | Conflict UI + reviewer surface | open-ended | `/zippering/conflicts` (value disagreements) + `/zippering/review` (unclear-decision promotion to join) + manual resolution flow |
+| 4 | Read path migration | 3 | UIs read from `zippered_signals`; compat view backs legacy callers; account drawer links into explainability per column |
+| 5 | Reviewer + conflict UIs | open-ended | `/zippering/review` (unclear-decision promotion to join) + `/zippering/conflicts` (value disagreements) — operator tooling that builds on the Phase 1 explainability surface |
 
 Phase 0-3 is the path to "zippering is real and writing." Phase 4 is when it
 becomes visible to operators. Phase 5 is the long tail of operator tooling.
@@ -532,33 +621,37 @@ becomes visible to operators. Phase 5 is the long tail of operator tooling.
 
 ## 11. Open questions
 
-Worth resolving before Phase 1 starts:
+All five resolved before Phase 0 ships.
 
-1. ✅ **Schema scope.** RESOLVED via operator pushback (PR #98): **hybrid
-   model**. Global canonical columns (`global_canonical_columns`) hold
-   cross-pkey shared fields so questions like "show me every company with
-   >500 employees" stay queryable. Per-pkey schema (`zippering_schema`)
-   holds local extensions. Haiku prefers global routing when a reasonable
-   match exists; falls back to per-pkey; only appends when neither fits.
-2. **Type changes mid-stream.** What happens when source A writes
-   `occurred_at` as a date string and source B writes it as an epoch ms?
-   Option A: zipperer normalizes at write time using `data_type` from
-   `zippering_schema`. Option B: store as-is, normalize at read. Plan
-   recommends A but it adds a small parser layer.
-3. **Explainability.** How does an operator answer "why did this signal map
-   to `content`?" A `/zippering/decisions/<pkey>/<column>` debug endpoint
-   surfaces the original Haiku verdict + reason. Cheap to add; worth it for
-   trust.
-4. **Operator override.** Resolved in the data model: overrides append a
-   new `zippering_decisions` row with `decided_by = <rep_id>`; the
+1. ✅ **Schema scope.** RESOLVED (PR #98) — **hybrid model**. Global
+   canonical columns hold cross-pkey shared fields so cross-account
+   queries stay tractable. Per-pkey schema holds local extensions. Haiku
+   prefers global routing; falls back to per-pkey; appends only when
+   neither fits.
+2. ✅ **Type changes mid-stream.** RESOLVED (PR #99) — **write-time
+   normalize**. Zipperer coerces incoming values to the canonical's
+   declared `data_type` via a small coercion registry (§4b). Safe
+   coercions (epoch↔timestamp, string↔string[], integer↔text where
+   parseable) happen silently. Unsafe coercions flip the decision to
+   `needs_review` and skip the write — same operator path as unclear
+   Haiku verdicts. Reads stay fast and type-consistent.
+3. ✅ **Explainability.** RESOLVED (PR #99) — ships in **Phase 1 as core
+   product, not debug**. Every column in `zippered_signals` is traceable
+   to its source column, sample values, matched canonical, verdict,
+   score, reason, and override history via `/api/zippering/explain` +
+   `/zippering/explain` page. The trust dividend is foundational —
+   operators won't take "Haiku decided" on faith and shouldn't have to.
+4. ✅ **Operator override.** RESOLVED (PR #98) — overrides append a new
+   `zippering_decisions` row with `decided_by = <rep_id>`; the
    `zippering_schema` row updates in place; the audit log preserves the
-   prior Haiku verdict forever. The UI surface (`/zippering/review`) ships
-   in Phase 5. Backfill on canonical rename uses `jsonb_set` to walk
+   prior Haiku verdict forever. The promotion UI (`/zippering/review`)
+   ships Phase 5. Backfill on canonical rename uses `jsonb_set` to walk
    `zippered_signals.columns`.
-5. **Multi-tenancy.** If we ever serve multiple Checkbox-style workspaces,
-   all four tables need a `workspace_key` column. Cheap to add now (one
-   migration); painful to retrofit later. Plan recommends adding it from
-   Phase 0.
+5. ✅ **Multi-tenancy.** RESOLVED (PR #99) — **`workspace_key` on every
+   table from Phase 0**. Defaults to `'dugout-default'` for single-tenant
+   today; matches the existing pattern in `meeting_signals` /
+   `web_scrapes`; saves a multi-day retrofit if Dugout ever goes
+   multi-workspace.
 
 ---
 
@@ -595,8 +688,19 @@ Zippering is the next thing those pkeys carry weight for.
 
 ---
 
-## 14. Open for review
+## 14. Status: ready for Phase 0
 
-Push back on anything in §3 (data model), §8 (conflict policy), §11.1 (per-pkey
-vs global schema), or §10 (phasing). Those are the load-bearing choices; the
-rest is mechanics.
+All five load-bearing decisions are locked (§11). Plan is ready for
+implementation. Phase 0 is a single PR:
+
+- 4 Supabase tables (+ 1 if you count the hand-seeded
+  `global_canonical_columns` payload as a separate step)
+- All carry `workspace_key text not null default 'dugout-default'`
+- RLS deny-all + service-role policies on each
+- Indexes per §3
+- Migration named `<YYYYMMDD>_zippering_tables.sql`
+
+Phase 1 follows immediately: zipperer lib + Haiku prompt + coercion
+registry + explainability endpoint + page + tests.
+
+Say "ship Phase 0" to start the migration PR.
