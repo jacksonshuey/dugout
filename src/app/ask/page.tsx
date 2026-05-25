@@ -81,8 +81,7 @@ const SUGGESTIONS = [
   "Show me Moderna's latest signals",
 ];
 
-let nextId = 0;
-const mkId = () => `turn_${++nextId}_${Date.now().toString(36)}`;
+const mkId = () => crypto.randomUUID();
 
 export default function AskPage() {
   const [turns, setTurns] = useState<Turn[]>([]);
