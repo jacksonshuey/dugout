@@ -515,7 +515,7 @@ async function callHaikuReal(args: {
       {
         model: HAIKU_MODEL,
         max_tokens: 1000,
-        temperature: 0.2,
+        temperature: 0,
         system: args.systemPrompt,
         tools: [
           {
