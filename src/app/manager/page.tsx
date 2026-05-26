@@ -269,7 +269,7 @@ export default async function ManagerPage() {
             tone="blocking"
           />
           <StatCard
-            label="Action (morning digest)"
+            label="Action"
             value={String(totalAction)}
             tone="action"
           />

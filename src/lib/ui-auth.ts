@@ -2,11 +2,10 @@
 // probing and bot crawlers.
 //
 // Threat model: an attacker who only has the public Vercel URL. Without auth,
-// they can drain the Anthropic budget by hammering /api/digest, spam the
-// configured Slack channel via /api/slack, or enumerate account names via
-// /api/external-signals. This module makes every API call require a cookie
-// that's seeded by the proxy on the first page load - so calling the API
-// without first having loaded the UI is rejected.
+// they can spam the configured Slack channel via /api/slack or enumerate
+// account names via /api/external-signals. This module makes every API call
+// require a cookie that's seeded by the proxy on the first page load, so
+// calling the API without first having loaded the UI is rejected.
 //
 // This is NOT real auth. It's the minimal gate that closes the "share the
 // URL" attack surface. Real per-user auth would be a separate layer.

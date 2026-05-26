@@ -1,6 +1,6 @@
 // Next 16 Proxy (formerly Middleware). Seeds the UI session cookie on the
 // first page request so that subsequent client-side calls to the protected
-// API routes (digest, studio, slack, external-signals) carry it.
+// API routes (slack, external-signals, studio) carry it.
 //
 // Matcher excludes /api so this never runs on the API itself - auth is
 // checked inside each route handler, which the Next docs explicitly call

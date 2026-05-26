@@ -56,6 +56,12 @@ interface AgentMailMessageFull {
   subject?: string;
   text?: string;
   html?: string;
+  // AgentMail's API returns extracted_text/extracted_html for messages where
+  // the inline text/html is empty (HTML-only senders, certain forwards, size
+  // trims). Mirrors the webhook handler's fallback chain so backfilled rows
+  // recover bodies the same way new webhooks do.
+  extracted_text?: string;
+  extracted_html?: string;
   headers?: Record<string, string>;
 }
 
@@ -199,8 +205,17 @@ async function handle(req: Request): Promise<NextResponse> {
           const normalized: NormalizedInboundEmail = {
             from_raw: String(full.from ?? "").slice(0, 500),
             subject: String(full.subject ?? "").slice(0, 1000),
-            text_body: typeof full.text === "string" ? full.text : "",
-            html_body: typeof full.html === "string" ? full.html : "",
+            // Three-tier body extraction. Mirrors the webhook handler: try
+            // inline text/html first, fall back to extracted_text/extracted_html
+            // (used by AgentMail for HTML-only or forwarded mail).
+            text_body:
+              (typeof full.text === "string" && full.text) ||
+              (typeof full.extracted_text === "string" && full.extracted_text) ||
+              "",
+            html_body:
+              (typeof full.html === "string" && full.html) ||
+              (typeof full.extracted_html === "string" && full.extracted_html) ||
+              "",
             message_id: normalizeMessageId(full.message_id),
             headers: full.headers,
             list_id: extractListId(full.headers),

@@ -17,7 +17,6 @@ const APP_LINKS: { href: string; label: string }[] = [
   { href: "/manager", label: "Manager" },
   { href: "/ask", label: "Ask" },
   { href: "/market-intel", label: "Market Intel" },
-  { href: "/settings", label: "Settings" },
 ];
 
 export function Nav() {
@@ -26,7 +25,7 @@ export function Nav() {
 
   return (
     <header className="border-b border-border bg-background sticky top-0 z-30">
-      <div className="px-4 h-12 flex items-center justify-between gap-4">
+      <div className="px-6 h-12 flex items-center justify-between gap-4">
         <Link href="/" className="flex items-center gap-2 shrink-0">
           {/* Logo mark - the canonical Dugout brand SVG. Includes the
               brown rounded-square background and the two stacked parallelogram
