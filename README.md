@@ -1,147 +1,54 @@
 # Dugout
 
-> *The dugout view of your pipeline.*
+> The operating system for GTM teams.
 
-A working deal intelligence layer for GTM teams. Configurable per workspace (presets live in `src/lib/workspace.ts`), built by Jackson Shuey.
-
-Tells sellers and managers what's happening in their pipeline before they have to ask.
+Dugout unifies every revenue signal across Salesforce, Slack, calendars, newsletters, and the public web, so sales teams spend less time hopping platforms and more time executing deals.
 
 → **Live demo:** [trydugout.com](https://trydugout.com) · **Contact:** [jacksonshuey@gmail.com](mailto:jacksonshuey@gmail.com?subject=Dugout%20walkthrough)
 
 ## Surfaces
 
-- `/` — landing. Hero → integration constellation (autoplay setup reel) → onboarding walkthrough → embedded live Console.
-- `/console` — standalone AE Console (same component as the embedded one on `/`). Morning digest + per-deal cards + inline playbooks.
-- `/manager` — team risk roll-up. SVHealthHeroDashboard three-up + team aggregates.
-- `/account/[slug]` — per-account deep view. SV Health Hero, opps, buying committee, Procurement Tracker, unified signal timeline.
-- `/ask` — chat-thread UI. Dual-provider (GPT-4o, Claude Sonnet 4.6, Claude Haiku 4.5), user-picked, env-key-aware.
-- `/market-intel` — workspace-scoped signal table (newsletter inbox feature).
-- `/spec` — single-scroll architecture/rollout writeup.
+- `/` — landing. Hero, integration constellation, embedded live Console.
+- `/console` — AE Console. Morning digest, per-deal cards, inline playbooks.
+- `/manager` — team risk roll-up across reps.
+- `/account/[slug]` — per-account deep view: SV Health, opps, buying committee, signal timeline.
+- `/market-intel` — workspace-scoped market intel feed (newsletter inbox).
+- `/ask` — chat UI over your workspace, dual-provider (Claude, GPT-4o).
 
-> Workspace configuration (priorities, assets, stack) lives in `src/lib/workspace.ts` as code — the `/settings` editor that earlier README versions described was removed during demo prep (see PR #20).
+## How it works
+
+- **Signal engine** ([`src/lib/signal-engine.ts`](src/lib/signal-engine.ts)) — pure functions, one per rule. Each rule tags a workspace priority and a severity tier; the tier dictates routing.
+- **Workspace config** ([`src/lib/workspace.ts`](src/lib/workspace.ts)) — runtime configuration that drives the engine, digest prompt, and rule-authoring prompt.
+- **Deal Health** — compound state aggregated from signals on a deal, weighted by close-date proximity. Returns `Healthy / Monitor / At Risk / Critical`.
+- **Playbooks** — multi-phase workflows attached to specific signals.
+- **LLM use** — Claude Sonnet 4.6 for digest synthesis and rule authoring. ~90% of useful signals are deterministic; the LLM runs where it earns its keep.
 
 ## Integrations
 
-The full integration matrix — status, auth method, deployment mode, data direction, limits — lives in [`src/data/integrations.ts`](src/data/integrations.ts) and is rendered on the landing page below the constellation. At a glance:
+The integration matrix (status, auth, deployment mode, data direction, limits) lives in [`src/data/integrations.ts`](src/data/integrations.ts) and renders on the landing page. Adding a source is one entry in `INTEGRATIONS` plus one adapter file.
 
-- **Live**: Anthropic, Supabase, NewsAPI, SEC EDGAR, Firecrawl, Slack, Granola (beta).
-- **Display** (workspace-config rows, OAuth pattern): Salesforce, Gong, Outreach, Dock, Chili Piper.
+**Live:** Anthropic, Supabase, AgentMail, NewsAPI, SEC EDGAR, Firecrawl, Slack, Granola.
+**Display:** Salesforce, Gong, Outreach, Dock, Chili Piper.
 
-Adding a source is one entry in `INTEGRATIONS` + one adapter file. The constellation and the matrix both read from the same source of truth.
+## Security posture
 
-## Security & compliance
-
-The four constraints surfaced on the landing page, with file pointers:
-
-- **API keys never reach the browser.** Integration credentials live in Supabase Vault, encrypted at rest. Server-side adapters retrieve them through `SECURITY DEFINER` RPCs. See [`supabase/migrations/20260523_granola_integration.sql`](supabase/migrations/20260523_granola_integration.sql).
-- **Inbound webhooks are cryptographically verified.** HMAC signatures + 5-minute replay window. Unsigned, expired, or tampered payloads are rejected pre-write. See [`src/app/api/inbound-email/agentmail/route.ts`](src/app/api/inbound-email/agentmail/route.ts).
+- **API keys never reach the browser.** Integration credentials live in Supabase Vault, encrypted at rest. Server-side adapters retrieve them through `SECURITY DEFINER` RPCs.
+- **Inbound webhooks are cryptographically verified.** HMAC signatures + 5-minute replay window. Unsigned, expired, or tampered payloads are rejected pre-write.
 - **Database is deny-all by default.** RLS enabled on every `public.*` table. Service role runs Dugout's reads and writes; anon role does nothing.
-- **No writes to source systems.** Adapters consume; they never `POST` / `PATCH` / `DELETE` back to Salesforce, Gong, Outreach, or any source. Read-only is the v1 contract (BUILD_ALIGNMENT principle 9). A bug in Dugout can produce a wrong signal — it cannot push a bad CRM update or send an unintended email.
+- **No writes to source systems.** Adapters consume; they never `POST` / `PATCH` / `DELETE` back to Salesforce, Gong, Outreach, or any source. A bug in Dugout can produce a wrong signal. It cannot push a bad CRM update.
 
-UI gates at the proxy ([`src/proxy.ts`](src/proxy.ts)) mint a per-session cookie; protected API routes verify it in-handler — proxy is not a substitute for in-handler auth.
+UI gates at the proxy ([`src/proxy.ts`](src/proxy.ts)) mint a per-session cookie; protected API routes verify it in-handler.
 
-## How the engine works
+## Stack
 
-- **Signal engine** (`src/lib/signal-engine.ts`) — pure functions, one per rule. Each rule tags a workspace priority and a severity tier. The tier dictates routing.
-- **Workspace config** (`src/lib/workspace.ts`) — runtime configuration that drives behavior. Priorities, asset names, and stack labels flow through the engine, the digest prompt, and the rule-authoring prompt.
-- **Deal Health** — compound state aggregated from signals on a deal, weighted by close-date proximity. Returns `Healthy / Monitor / At Risk / Critical`.
-- **Playbooks** — multi-phase workflows attached to specific signals. The Champion Departure playbook ships in v1.
-- **Claude** — Sonnet 4.6 for digest synthesis and rule authoring. ~90% of useful signals are deterministic; the LLM runs where it earns its keep.
+Next.js · TypeScript · Supabase (Postgres + Vault + RLS) · Anthropic · Vercel.
 
 ## Run locally
 
 ```bash
-cp .env.example .env.local      # then fill in ANTHROPIC_API_KEY
+cp .env.example .env.local      # fill in ANTHROPIC_API_KEY
 npm install
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
-
-## Deploy
-
-Connect this repo to Vercel. Add `ANTHROPIC_API_KEY` (and optionally `SLACK_WEBHOOK_URL`) in Vercel's Environment Variables. Push to `main` to deploy.
-
-## AE pre-meeting skill (Claude Code)
-
-The `firecrawl-company-scope` skill at [`.claude/skills/firecrawl-company-scope/SKILL.md`](.claude/skills/firecrawl-company-scope/SKILL.md) lets an AE pull a pre-meeting brief for any Dugout-tracked account from the Claude Code CLI. It calls the same endpoint as the in-product `/account/[slug]/prep` page, so the brief is identical whether you look at the UI or invoke from your terminal.
-
-### One-time setup
-
-1. Generate a skill token: `openssl rand -hex 32`
-2. Add it to your Vercel env as `DUGOUT_SKILL_TOKEN` (Project Settings → Environment Variables).
-3. In your local shell:
-   ```bash
-   export DUGOUT_SKILL_TOKEN=<hex>
-   export DUGOUT_BASE_URL=https://your-deployment.vercel.app
-   ```
-4. Open Claude Code in this repo; the skill is auto-discovered from `.claude/skills/`.
-
-If `DUGOUT_SKILL_TOKEN` is unset on the server, the endpoint falls back to requiring a UI session cookie and the skill won't work — this is intentional fail-closed.
-
-### Usage
-
-```
-/firecrawl-company-scope Stripe
-/firecrawl-company-scope acc_cobalt
-/firecrawl-company-scope stripe.com
-```
-
-Returns the same `MeetingBrief` (`src/lib/meeting-prep.ts`) that `/account/[slug]/prep` renders in the product, formatted as a scannable Markdown brief with status banner, SV Health, recent moves, exec changes, buying-committee gaps, and any blocking signals with prescribed actions.
-
-## Newsletter inbox
-
-Dugout's account-scoped market intelligence (NewsAPI + SEC EDGAR) is complemented by a workspace-wide newsletter inbox. Inbound emails arrive via Mailgun, land in `inbound_emails`, get classified by Haiku, and produce signals into `external_signals` — either tagged to a tracked account (when a known company is named) or as workspace-scoped market intel. The morning digest reads the workspace-scoped items and adds a "Market intel" section when relevant.
-
-Mailgun signs every webhook with HMAC-SHA256, which is verified server-side; the route rejects anything older than 5 minutes to prevent replay.
-
-### Setup
-
-**1. Pick a domain.** You need a subdomain you control DNS on — e.g. `inbox.yourdomain.com`. The full inbox address will be anything-`@inbox.yourdomain.com`.
-
-**2. Configure DNS.** Add TWO MX records on the subdomain:
-
-```
-inbox.yourdomain.com.   MX   10 mxa.mailgun.org.
-inbox.yourdomain.com.   MX   10 mxb.mailgun.org.
-```
-
-**3. Add the domain in Mailgun.** Sending → Domains → Add New Domain → `inbox.yourdomain.com`. Pick US region. For inbound-only you can skip the TXT/SPF/DKIM records they prompt for — those are for sending.
-
-**4. Create the inbound Route.** Receiving → Routes → Create Route:
-- **Expression Type:** Match Recipient
-- **Recipient:** `.*@inbox.yourdomain.com` (regex catches every address on the subdomain)
-- **Actions:** Forward → URL: `https://<your-vercel-deployment>/api/inbound-email/mailgun`
-- **Priority:** `0`
-
-**5. Grab the signing key.** Settings → API security → copy the "HTTP webhook signing key" (this is NOT the API key — it's a separate value used only for verifying webhook signatures).
-
-**6. Run the SQL migration.** Open Supabase Studio → SQL Editor → paste `supabase/migrations/20260522_inbound_emails.sql` → Run.
-
-**7. Set environment variables** (Vercel + `.env.local`):
-
-```
-MAILGUN_SIGNING_KEY=<paste from step 5>
-INBOUND_SENDER_ALLOWLIST=substack.com,beehiiv.com,tldrnewsletter.com,lennysnewsletter.com
-```
-
-**8. Subscribe to newsletters** from `<anything>@inbox.yourdomain.com`. Only senders whose domain is in `INBOUND_SENDER_ALLOWLIST` (or a subdomain of one) are persisted; others are dropped with a 200 OK so Mailgun doesn't retry.
-
-### What lives where
-
-- Webhook handler: `src/app/api/inbound-email/mailgun/route.ts` (HMAC-verified)
-- Pipeline (validation, storage, classification): `src/lib/inbound-pipeline.ts`
-- Classifier: `src/lib/newsletter-adapter.ts`
-- Storage lib: `src/lib/inbound-email.ts`
-- Migration: `supabase/migrations/20260522_inbound_emails.sql`
-- Digest integration: `src/app/api/digest/route.ts` (reads workspace-scoped signals into the morning briefing)
-- Backfill cron for failed classifications: `src/app/api/cron/classify-pending/route.ts`
-
-## What's real vs what's seamed
-
-**Real:** The signal engine, workspace config, digest synthesis, and Signal Studio all do live work. The configuration genuinely drives system behavior (asset names, priority mappings, digest context).
-
-**Seamed (intentional v1 limits):**
-- Pipeline stage names are hardcoded (refactoring the `Stage` union type to be runtime-configurable is a separate ~2h job).
-- Contact role names are hardcoded.
-- Seed data (accounts, opportunities) is fictional and legal-tech themed — switching presets updates terminology but not the underlying deals.
