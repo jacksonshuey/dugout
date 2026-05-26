@@ -32,7 +32,7 @@ describe("isValidProviderModel", () => {
 describe("runAskAgent · stub routing", () => {
   test("provider=stub returns deterministic stub regardless of question", async () => {
     const r = await runAskAgent({
-      question: "Why is acc_sentinel stalling?",
+      question: "Why is acc_cna stalling?",
       provider: "stub",
       model: "stub-deterministic",
     });
@@ -66,7 +66,7 @@ describe("runAskAgent · stub routing", () => {
 
   test("stub returns a citation chain (collectCitations integration)", async () => {
     const r = await runAskAgent({
-      question: "Why is acc_sentinel stalling?",
+      question: "Why is acc_cna stalling?",
       provider: "stub",
       model: "stub-deterministic",
     });
@@ -85,7 +85,7 @@ describe("runAskAgent · stub routing", () => {
 
   test("stub records a tool_call for traceability", async () => {
     const r = await runAskAgent({
-      question: "Brief me on acc_sentinel",
+      question: "Brief me on acc_cna",
       provider: "stub",
       model: "stub-deterministic",
     });
@@ -117,7 +117,7 @@ describe("runAskAgent · stub fallback when env key missing", () => {
       return;
     }
     const r = await runAskAgent({
-      question: "Brief me on acc_sentinel",
+      question: "Brief me on acc_cna",
       provider: "openai",
       model: "gpt-4o",
     });
@@ -131,7 +131,7 @@ describe("runAskAgent · stub fallback when env key missing", () => {
       return;
     }
     const r = await runAskAgent({
-      question: "Brief me on acc_sentinel",
+      question: "Brief me on acc_cna",
       provider: "anthropic",
       model: "claude-sonnet-4-6",
     });
@@ -147,7 +147,7 @@ describe("runAskAgent · provider/model validation", () => {
     // of their respective unions), but invalid against the matrix. SUT
     // should reject without calling out to the provider.
     const r = await runAskAgent({
-      question: "Brief me on acc_sentinel",
+      question: "Brief me on acc_cna",
       provider: "openai",
       model: "claude-sonnet-4-6",
     });
@@ -165,7 +165,7 @@ describe("runAskAgent · tool-call cap constants are exposed in stub flow", () =
 
   test("stub never emits more than 1 tool call (deterministic, single fetch)", async () => {
     const r = await runAskAgent({
-      question: "Why is acc_sentinel stalling?",
+      question: "Why is acc_cna stalling?",
       provider: "stub",
       model: "stub-deterministic",
     });

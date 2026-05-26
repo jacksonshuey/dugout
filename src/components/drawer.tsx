@@ -14,6 +14,12 @@ import type {
 import type { Task } from "@/lib/tasks";
 import type { ExternalSignal } from "@/lib/external-signals";
 import type { MeetingSignalRow } from "@/lib/meeting-signals";
+import { getSeedMeetingsForAccount } from "@/data/granola-meeting-seed";
+import {
+  getSeedSignalsForAccount,
+  getVerticalForAccount,
+} from "@/data/external-signals-seed";
+import { BrandLogo } from "@/components/landing/logos";
 import { HealthBadge, StageBadge } from "./ui";
 import { computeDealHealth } from "@/lib/signal-engine";
 import { TaskCard } from "./task-card";
@@ -117,24 +123,35 @@ export function Drawer({
       .then((r) => r.json())
       .then((d) => {
         if (cancelled) return;
-        setExternalSignals(d.signals ?? []);
+        const fromDb: ExternalSignal[] = d.signals ?? [];
+        // Fall back to the seeded vertical-aware demo set when the live
+        // read is empty so the section always has something to show.
+        setExternalSignals(
+          fromDb.length > 0 ? fromDb : getSeedSignalsForAccount(opp.accountId),
+        );
         setSignalsLoading(false);
       })
       .catch(() => {
         if (cancelled) return;
-        setExternalSignals([]);
+        setExternalSignals(getSeedSignalsForAccount(opp.accountId));
         setSignalsLoading(false);
       });
     fetch(`/api/meeting-signals?account=${opp.accountId}`)
       .then((r) => r.json())
       .then((d) => {
         if (cancelled) return;
-        setMeetingSignals(d.signals ?? []);
+        const fromDb: MeetingSignalRow[] = d.signals ?? [];
+        // Fall back to the seeded demo set when the live read is empty so
+        // the drawer always has something to show. Real Granola data wins
+        // when it's present.
+        setMeetingSignals(
+          fromDb.length > 0 ? fromDb : getSeedMeetingsForAccount(opp.accountId),
+        );
         setMeetingsLoading(false);
       })
       .catch(() => {
         if (cancelled) return;
-        setMeetingSignals([]);
+        setMeetingSignals(getSeedMeetingsForAccount(opp.accountId));
         setMeetingsLoading(false);
       });
     return () => {
@@ -409,6 +426,7 @@ export function Drawer({
           <ExternalSignalsSection
             signals={externalSignals}
             loading={signalsLoading}
+            vertical={getVerticalForAccount(opp.accountId)}
           />
 
           {/* Meeting signals - Granola-sourced buying-process signals */}
@@ -597,17 +615,35 @@ function CallCard({
 function ExternalSignalsSection({
   signals,
   loading,
+  vertical,
 }: {
   signals: ExternalSignal[];
   loading: boolean;
+  vertical: string | null;
 }) {
+  const accountCount = signals.filter(
+    (s) => !isVerticalMatch(s),
+  ).length;
+  const verticalCount = signals.filter(isVerticalMatch).length;
   const sub = loading
     ? "Loading…"
     : signals.length === 0
-      ? "No signals yet - daily cron runs at 8am UTC"
-      : `${signals.length} event${signals.length === 1 ? "" : "s"} on record`;
+      ? "No signals in lookback window"
+      : `${accountCount} account · ${verticalCount} vertical`;
   return (
-    <Section title="External signals" sub={sub}>
+    <Section
+      title="External signals"
+      sub={sub}
+      titleAdornment={
+        vertical ? (
+          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-brand/30 bg-brand/[0.06] text-[10px] font-medium text-brand">
+            <span className="font-mono uppercase tracking-[0.1em]">AI</span>
+            <span className="text-foreground/70">·</span>
+            <span className="normal-case">{vertical}</span>
+          </span>
+        ) : null
+      }
+    >
       {loading ? (
         <div className="text-xs text-muted italic">Loading signals…</div>
       ) : signals.length === 0 ? (
@@ -618,35 +654,53 @@ function ExternalSignalsSection({
         </div>
       ) : (
         <div className="space-y-2">
-          {signals.map((s) => (
-            <div
-              key={s.id}
-              className="rounded-lg border border-border p-3 space-y-1.5"
-            >
-              <div className="flex items-baseline justify-between gap-2 flex-wrap">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[10px] font-semibold tracking-wider uppercase text-muted px-1.5 py-0.5 rounded bg-slate-100">
-                    {SIGNAL_TYPE_LABEL[s.type] ?? "News"}
+          {signals.map((s) => {
+            const isVertical = isVerticalMatch(s);
+            return (
+              <div
+                key={s.id}
+                className={
+                  "rounded-lg border p-3 space-y-1.5 " +
+                  (isVertical
+                    ? "border-dashed border-border bg-foreground/[0.015]"
+                    : "border-border")
+                }
+              >
+                <div className="flex items-baseline justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] font-semibold tracking-wider uppercase text-muted px-1.5 py-0.5 rounded bg-slate-100">
+                      {SIGNAL_TYPE_LABEL[s.type] ?? "News"}
+                    </span>
+                    <SourceBadge signal={s} />
+                    {isVertical && (
+                      <span className="text-[10px] font-semibold tracking-wider uppercase px-1.5 py-0.5 rounded bg-brand/[0.08] text-brand border border-brand/20">
+                        Vertical
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[11px] text-muted font-mono">
+                    {formatDate(s.occurred_at)}
                   </span>
-                  <SourceBadge signal={s} />
                 </div>
-                <span className="text-[11px] text-muted font-mono">
-                  {formatDate(s.occurred_at)}
-                </span>
+                <p className="text-sm leading-relaxed">
+                  <span className="font-medium text-muted">
+                    {formatDate(s.occurred_at)}
+                  </span>
+                  {" · "}
+                  {s.summary}
+                </p>
               </div>
-              <p className="text-sm leading-relaxed">
-                <span className="font-medium text-muted">
-                  {formatDate(s.occurred_at)}
-                </span>
-                {" · "}
-                {s.summary}
-              </p>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </Section>
   );
+}
+
+function isVerticalMatch(s: ExternalSignal): boolean {
+  if (!s.meta || typeof s.meta !== "object") return false;
+  return (s.meta as { vertical_match?: boolean }).vertical_match === true;
 }
 
 // Safely read a string field from a signal's loosely-typed meta blob.
@@ -731,17 +785,22 @@ function Section({
   title,
   sub,
   children,
+  titleAdornment,
 }: {
   title: string;
   sub?: string;
   children: React.ReactNode;
+  titleAdornment?: React.ReactNode;
 }) {
   return (
     <section className="space-y-2">
-      <div className="flex items-baseline justify-between">
-        <h3 className="text-xs uppercase tracking-wider font-semibold text-muted">
-          {title}
-        </h3>
+      <div className="flex items-baseline justify-between gap-2">
+        <div className="flex items-center gap-1.5">
+          <h3 className="text-xs uppercase tracking-wider font-semibold text-muted">
+            {title}
+          </h3>
+          {titleAdornment}
+        </div>
         {sub && <span className="text-[11px] text-muted">{sub}</span>}
       </div>
       <div>{children}</div>
@@ -773,13 +832,17 @@ function MeetingSignalsSection({
   const sub = loading
     ? "Loading…"
     : signals.length === 0
-      ? "No meeting signals yet - Granola not connected"
+      ? "No meeting signals in lookback window"
       : `${signals.length} signal${signals.length === 1 ? "" : "s"} across ${
           new Set(signals.map((s) => s.note_id)).size
         } meeting${new Set(signals.map((s) => s.note_id)).size === 1 ? "" : "s"}`;
 
   return (
-    <Section title="Meeting signals (Granola)" sub={sub}>
+    <Section
+      title="Meeting signals"
+      sub={sub}
+      titleAdornment={<BrandLogo brand="granola" size={14} />}
+    >
       {loading ? (
         <div className="text-xs text-muted italic">Loading meetings…</div>
       ) : signals.length === 0 ? (

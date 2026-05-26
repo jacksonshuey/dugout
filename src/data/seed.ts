@@ -22,9 +22,9 @@ import { createAccountSeed } from "@/lib/account-onboarding";
 //
 // Targets when scored by the metrics.md SV Health formula (verified by
 // scripts/verify-demo-scores.ts):
-//   - healthy  → Snowflake (acc_atlas)         expected score ~83 (Healthy)
-//   - watch    → KKR (acc_meridian)            expected score ~65 (Watch, amber)
-//   - critical → CNA Financial (acc_sentinel)  expected score ~10 (Critical,
+//   - healthy  → Snowflake (acc_snowflake)         expected score ~83 (Healthy)
+//   - watch    → KKR (acc_kkr)            expected score ~65 (Watch, amber)
+//   - critical → CNA Financial (acc_cna)  expected score ~10 (Critical,
 //                matches the Helios worked example in metrics.md §"Worked
 //                example" verbatim: amount $185K, stage age 23d, 2/5 committee,
 //                1/3 enablement, champion 9d silent, -20 risk penalty)
@@ -43,9 +43,9 @@ import { createAccountSeed } from "@/lib/account-onboarding";
 //               champion_loss correlation that triggers the -20 risk penalty.
 // ---------------------------------------------------------------------------
 export const DEMO_SCENARIO_ACCOUNTS = {
-  healthy: "acc_atlas",
-  watch: "acc_meridian",
-  critical: "acc_sentinel",
+  healthy: "acc_snowflake",
+  watch: "acc_kkr",
+  critical: "acc_cna",
 } as const;
 
 export type DemoScenarioTier = keyof typeof DEMO_SCENARIO_ACCOUNTS;
@@ -313,7 +313,7 @@ const checkboxBundles = [
 // company. Demo audience sees the isDemoScenario chip in the drawer.
 export const accounts: Account[] = [
   {
-    id: "acc_apex",
+    id: "acc_moderna",
     name: "Moderna",
     industry: "Pharma",
     segment: "Enterprise",
@@ -327,7 +327,7 @@ export const accounts: Account[] = [
     isDemoScenario: true,
   },
   {
-    id: "acc_meridian",
+    id: "acc_kkr",
     name: "KKR & Co.",
     industry: "Financial Services",
     segment: "Enterprise",
@@ -346,7 +346,7 @@ export const accounts: Account[] = [
     },
   },
   {
-    id: "acc_cobalt",
+    id: "acc_stripe",
     name: "Stripe",
     industry: "SaaS",
     segment: "Enterprise",
@@ -366,7 +366,7 @@ export const accounts: Account[] = [
     },
   },
   {
-    id: "acc_northwind",
+    id: "acc_conoco",
     name: "ConocoPhillips",
     industry: "Energy",
     segment: "Enterprise",
@@ -380,7 +380,7 @@ export const accounts: Account[] = [
     isDemoScenario: true,
   },
   {
-    id: "acc_helios",
+    id: "acc_unitedhealth",
     name: "UnitedHealth Group",
     industry: "Healthcare",
     segment: "Enterprise",
@@ -399,7 +399,7 @@ export const accounts: Account[] = [
     },
   },
   {
-    id: "acc_sentinel",
+    id: "acc_cna",
     name: "CNA Financial",
     industry: "Insurance",
     segment: "Enterprise",
@@ -413,7 +413,7 @@ export const accounts: Account[] = [
     isDemoScenario: true,
   },
   {
-    id: "acc_vector",
+    id: "acc_boeing",
     name: "Boeing",
     industry: "Aerospace",
     segment: "Enterprise",
@@ -427,7 +427,7 @@ export const accounts: Account[] = [
     isDemoScenario: true,
   },
   {
-    id: "acc_atlas",
+    id: "acc_snowflake",
     name: "Snowflake",
     industry: "SaaS",
     segment: "Strategic",
@@ -448,7 +448,7 @@ export const accounts: Account[] = [
     },
   },
   {
-    id: "acc_quantum",
+    id: "acc_ups",
     name: "UPS",
     industry: "Logistics",
     segment: "Enterprise",
@@ -462,7 +462,7 @@ export const accounts: Account[] = [
     isDemoScenario: true,
   },
   {
-    id: "acc_horizon",
+    id: "acc_atlassian",
     name: "Atlassian",
     industry: "SaaS",
     segment: "Enterprise",
@@ -476,7 +476,7 @@ export const accounts: Account[] = [
     isDemoScenario: true,
   },
   {
-    id: "acc_stratos",
+    id: "acc_civitas",
     name: "Civitas Resources",
     industry: "Energy",
     segment: "Mid-Market",
@@ -520,7 +520,7 @@ export function getAccountCatalog(): AccountCatalogEntry[] {
 // company, which violates LinkedIn's TOS and breaks the rigged scenarios.
 export const contacts: Contact[] = [
   // Moderna (Sara) - WEDGE: champion only, no Finance, no IT
-  { id: "c_apex_1", accountId: "acc_apex", name: "Priya Raman", title: "Senior Counsel, Contracts", role: "Champion" },
+  { id: "c_apex_1", accountId: "acc_moderna", name: "Priya Raman", title: "Senior Counsel, Contracts", role: "Champion" },
 
   // KKR (Sara) - DEMO_SCENARIO_ACCOUNTS.watch. Selected Vendor: Champion +
   // GC (Legal role for SV Health) + Finance + Procurement. Missing the EB
@@ -531,24 +531,24 @@ export const contacts: Contact[] = [
   // been looped in. Two of three enablement assets sent, but the Finance
   // brief was never opened by the buyer. Champion drifting (6d since last
   // dock visit)."
-  { id: "c_mer_1", accountId: "acc_meridian", name: "Daniel Cohen", title: "Director, Legal Operations", role: "Champion" },
-  { id: "c_mer_2", accountId: "acc_meridian", name: "Janet Liu", title: "General Counsel", role: "GC" },
-  { id: "c_mer_3", accountId: "acc_meridian", name: "Robert Park", title: "VP Finance", role: "Finance/CFO" },
-  { id: "c_mer_4", accountId: "acc_meridian", name: "Anika Shah", title: "Procurement Manager", role: "Procurement" },
+  { id: "c_mer_1", accountId: "acc_kkr", name: "Daniel Cohen", title: "Director, Legal Operations", role: "Champion" },
+  { id: "c_mer_2", accountId: "acc_kkr", name: "Janet Liu", title: "General Counsel", role: "GC" },
+  { id: "c_mer_3", accountId: "acc_kkr", name: "Robert Park", title: "VP Finance", role: "Finance/CFO" },
+  { id: "c_mer_4", accountId: "acc_kkr", name: "Anika Shah", title: "Procurement Manager", role: "Procurement" },
 
   // Stripe (Sara) - Qualified: champion identified, but no demo activity
-  { id: "c_cob_1", accountId: "acc_cobalt", name: "Maya Patel", title: "Head of Legal", role: "Champion" },
+  { id: "c_cob_1", accountId: "acc_stripe", name: "Maya Patel", title: "Head of Legal", role: "Champion" },
 
   // ConocoPhillips (Sara) - Demo Sat: strong champion + Legal Ops + Procurement
-  { id: "c_nw_1", accountId: "acc_northwind", name: "Charles Whitfield", title: "Deputy GC", role: "Champion" },
-  { id: "c_nw_2", accountId: "acc_northwind", name: "Linda Park", title: "Legal Operations Manager", role: "Legal Ops" },
-  { id: "c_nw_3", accountId: "acc_northwind", name: "Tom Ostrov", title: "Director of Procurement", role: "Procurement" },
+  { id: "c_nw_1", accountId: "acc_conoco", name: "Charles Whitfield", title: "Deputy GC", role: "Champion" },
+  { id: "c_nw_2", accountId: "acc_conoco", name: "Linda Park", title: "Legal Operations Manager", role: "Legal Ops" },
+  { id: "c_nw_3", accountId: "acc_conoco", name: "Tom Ostrov", title: "Director of Procurement", role: "Procurement" },
 
   // UnitedHealth (Sara) - Evaluating + HEALTHY: champion, GC, Finance, IT all engaged
-  { id: "c_hel_1", accountId: "acc_helios", name: "Rachel Nguyen", title: "Senior Counsel", role: "Champion" },
-  { id: "c_hel_2", accountId: "acc_helios", name: "James Okafor", title: "General Counsel", role: "GC" },
-  { id: "c_hel_3", accountId: "acc_helios", name: "Maria Santos", title: "CFO", role: "Finance/CFO" },
-  { id: "c_hel_4", accountId: "acc_helios", name: "Kevin Wu", title: "Director of IT Security", role: "IT/Security" },
+  { id: "c_hel_1", accountId: "acc_unitedhealth", name: "Rachel Nguyen", title: "Senior Counsel", role: "Champion" },
+  { id: "c_hel_2", accountId: "acc_unitedhealth", name: "James Okafor", title: "General Counsel", role: "GC" },
+  { id: "c_hel_3", accountId: "acc_unitedhealth", name: "Maria Santos", title: "CFO", role: "Finance/CFO" },
+  { id: "c_hel_4", accountId: "acc_unitedhealth", name: "Kevin Wu", title: "Director of IT Security", role: "IT/Security" },
 
   // CNA (Sara) - DEMO_SCENARIO_ACCOUNTS.critical. The Helios worked example
   // from metrics.md, instantiated. Champion + Executive Sponsor only on the
@@ -557,46 +557,46 @@ export const contacts: Contact[] = [
   // opp_sentinel.contactRoleIds below). Champion last touched 9 days ago,
   // Stage age 35 days, asset views fail (cfoLeaveBehind sent but unviewed),
   // → ~10/100 Critical when scored.
-  { id: "c_sen_1", accountId: "acc_sentinel", name: "Amelia Hart", title: "Associate GC", role: "Champion" },
-  { id: "c_sen_2", accountId: "acc_sentinel", name: "Greg Foster", title: "VP Finance", role: "Finance/CFO" },
-  { id: "c_sen_3", accountId: "acc_sentinel", name: "Brian Tu", title: "Procurement Lead", role: "Procurement" },
-  { id: "c_sen_4", accountId: "acc_sentinel", name: "Patricia Wells", title: "SVP Risk & Compliance", role: "Executive Sponsor" },
+  { id: "c_sen_1", accountId: "acc_cna", name: "Amelia Hart", title: "Associate GC", role: "Champion" },
+  { id: "c_sen_2", accountId: "acc_cna", name: "Greg Foster", title: "VP Finance", role: "Finance/CFO" },
+  { id: "c_sen_3", accountId: "acc_cna", name: "Brian Tu", title: "Procurement Lead", role: "Procurement" },
+  { id: "c_sen_4", accountId: "acc_cna", name: "Patricia Wells", title: "SVP Risk & Compliance", role: "Executive Sponsor" },
 
   // Boeing (Sara) - Evaluating: champion DEPARTED to a competitor (the worst-
   // case version of going dark). Detected via LinkedIn Sales Navigator alert.
   {
     id: "c_vec_1",
-    accountId: "acc_vector",
+    accountId: "acc_boeing",
     name: "Samuel Brooks",
     title: "Senior Legal Counsel",
     role: "Champion",
     status: "departed",
     departureNote: "LinkedIn updated 5/20: moved to Ironclad as Head of Legal. Ironclad was the competitor mentioned in the 5/9 call.",
   },
-  { id: "c_vec_2", accountId: "acc_vector", name: "Helen Zhao", title: "Director, Legal Ops", role: "Legal Ops" },
+  { id: "c_vec_2", accountId: "acc_boeing", name: "Helen Zhao", title: "Director, Legal Ops", role: "Legal Ops" },
 
   // Snowflake (Marcus) - DEMO_SCENARIO_ACCOUNTS.healthy. Selected Vendor with
   // all 5 SV Health committee roles engaged: Champion, Executive Sponsor (EB),
   // Finance, IT/Security, GC (Legal). Procurement also present but doesn't
   // count toward the 5-role coverage check. Targets score ~85 (Healthy).
-  { id: "c_atl_1", accountId: "acc_atlas", name: "Roberto Diaz", title: "GC", role: "Champion" },
-  { id: "c_atl_2", accountId: "acc_atlas", name: "Kim Andersson", title: "CFO", role: "Finance/CFO" },
-  { id: "c_atl_3", accountId: "acc_atlas", name: "Marcus Lee", title: "Procurement Director", role: "Procurement" },
-  { id: "c_atl_4", accountId: "acc_atlas", name: "Eleanor Bishop", title: "Chief Legal Officer", role: "GC" },
-  { id: "c_atl_5", accountId: "acc_atlas", name: "Devon Pierce", title: "VP Information Security", role: "IT/Security" },
-  { id: "c_atl_6", accountId: "acc_atlas", name: "Hiroshi Tanaka", title: "President, Data Cloud BU", role: "Executive Sponsor" },
+  { id: "c_atl_1", accountId: "acc_snowflake", name: "Roberto Diaz", title: "GC", role: "Champion" },
+  { id: "c_atl_2", accountId: "acc_snowflake", name: "Kim Andersson", title: "CFO", role: "Finance/CFO" },
+  { id: "c_atl_3", accountId: "acc_snowflake", name: "Marcus Lee", title: "Procurement Director", role: "Procurement" },
+  { id: "c_atl_4", accountId: "acc_snowflake", name: "Eleanor Bishop", title: "Chief Legal Officer", role: "GC" },
+  { id: "c_atl_5", accountId: "acc_snowflake", name: "Devon Pierce", title: "VP Information Security", role: "IT/Security" },
+  { id: "c_atl_6", accountId: "acc_snowflake", name: "Hiroshi Tanaka", title: "President, Data Cloud BU", role: "Executive Sponsor" },
 
   // UPS (Marcus) - Evaluating, SINGLE THREAD: only champion
-  { id: "c_qua_1", accountId: "acc_quantum", name: "Yusuf Abadi", title: "Senior Counsel", role: "Champion" },
+  { id: "c_qua_1", accountId: "acc_ups", name: "Yusuf Abadi", title: "Senior Counsel", role: "Champion" },
 
   // Atlassian (Jenna) - Contracting, healthy
-  { id: "c_hor_1", accountId: "acc_horizon", name: "Diane Mercer", title: "Deputy GC", role: "Champion" },
-  { id: "c_hor_2", accountId: "acc_horizon", name: "Frank Olson", title: "VP Legal", role: "GC" },
-  { id: "c_hor_3", accountId: "acc_horizon", name: "Anita Krishnan", title: "Director Finance", role: "Finance/CFO" },
-  { id: "c_hor_4", accountId: "acc_horizon", name: "Carlos Vega", title: "IT Security Manager", role: "IT/Security" },
+  { id: "c_hor_1", accountId: "acc_atlassian", name: "Diane Mercer", title: "Deputy GC", role: "Champion" },
+  { id: "c_hor_2", accountId: "acc_atlassian", name: "Frank Olson", title: "VP Legal", role: "GC" },
+  { id: "c_hor_3", accountId: "acc_atlassian", name: "Anita Krishnan", title: "Director Finance", role: "Finance/CFO" },
+  { id: "c_hor_4", accountId: "acc_atlassian", name: "Carlos Vega", title: "IT Security Manager", role: "IT/Security" },
 
   // Civitas (Jenna) - Qualified, stalled
-  { id: "c_str_1", accountId: "acc_stratos", name: "Tracy Bell", title: "Legal Manager", role: "Champion" },
+  { id: "c_str_1", accountId: "acc_civitas", name: "Tracy Bell", title: "Legal Manager", role: "Champion" },
 
   // Checkbox customers spread in from `checkboxBundles`.
   ...checkboxBundles.flatMap((b) => b.contacts),
@@ -607,7 +607,7 @@ export const contacts: Contact[] = [
 export const opportunities: Opportunity[] = [
   {
     id: "opp_apex",
-    accountId: "acc_apex",
+    accountId: "acc_moderna",
     name: "Moderna - Legal Service Hub",
     ownerId: "rep_sc",
     stage: "Evaluating",
@@ -628,7 +628,7 @@ export const opportunities: Opportunity[] = [
     // Score math: 0.2*67 + 0.3*60 + 0.2*67 + 0.2*100 - 0
     //           = 13.3 + 18 + 13.3 + 20 = 64.7 → 65 (Watch).
     id: "opp_meridian",
-    accountId: "acc_meridian",
+    accountId: "acc_kkr",
     name: "KKR - Matter Management",
     ownerId: "rep_sc",
     stage: "Selected Vendor",
@@ -647,7 +647,7 @@ export const opportunities: Opportunity[] = [
   },
   {
     id: "opp_cobalt",
-    accountId: "acc_cobalt",
+    accountId: "acc_stripe",
     name: "Stripe - NDA Automation",
     ownerId: "rep_sc",
     stage: "Qualified",
@@ -659,7 +659,7 @@ export const opportunities: Opportunity[] = [
   },
   {
     id: "opp_northwind",
-    accountId: "acc_northwind",
+    accountId: "acc_conoco",
     name: "ConocoPhillips - Legal Service Hub",
     ownerId: "rep_sc",
     stage: "Demo Sat",
@@ -671,7 +671,7 @@ export const opportunities: Opportunity[] = [
   },
   {
     id: "opp_helios",
-    accountId: "acc_helios",
+    accountId: "acc_unitedhealth",
     name: "UnitedHealth Group - Full Platform",
     ownerId: "rep_sc",
     stage: "Evaluating",
@@ -700,7 +700,7 @@ export const opportunities: Opportunity[] = [
     //   Outreach, Gong, signal_engine CHAMPION_GHOST) → rolls up to a BLOCKING
     //   champion_loss correlation that triggers the -20 risk penalty.
     id: "opp_sentinel",
-    accountId: "acc_sentinel",
+    accountId: "acc_cna",
     name: "CNA Financial - Workflow Automation",
     ownerId: "rep_sc",
     stage: "Selected Vendor",
@@ -718,7 +718,7 @@ export const opportunities: Opportunity[] = [
   },
   {
     id: "opp_vector",
-    accountId: "acc_vector",
+    accountId: "acc_boeing",
     name: "Boeing - Enterprise Deployment",
     ownerId: "rep_sc",
     stage: "Evaluating",
@@ -738,7 +738,7 @@ export const opportunities: Opportunity[] = [
     // - Champion last touched 2d ago (see Atlas activities below)
     // - No BLOCKING signals fire on this opp.
     id: "opp_atlas",
-    accountId: "acc_atlas",
+    accountId: "acc_snowflake",
     name: "Snowflake - Contract Lifecycle",
     ownerId: "rep_mw",
     stage: "Selected Vendor",
@@ -758,7 +758,7 @@ export const opportunities: Opportunity[] = [
   },
   {
     id: "opp_quantum",
-    accountId: "acc_quantum",
+    accountId: "acc_ups",
     name: "UPS - Matter Management",
     ownerId: "rep_mw",
     stage: "Evaluating",
@@ -770,7 +770,7 @@ export const opportunities: Opportunity[] = [
   },
   {
     id: "opp_horizon",
-    accountId: "acc_horizon",
+    accountId: "acc_atlassian",
     name: "Atlassian - Full Platform",
     ownerId: "rep_jp",
     stage: "Contracting",
@@ -782,7 +782,7 @@ export const opportunities: Opportunity[] = [
   },
   {
     id: "opp_stratos",
-    accountId: "acc_stratos",
+    accountId: "acc_civitas",
     name: "Civitas Resources - NDA Automation",
     ownerId: "rep_jp",
     stage: "Qualified",
@@ -806,7 +806,7 @@ export const opportunities: Opportunity[] = [
   //   - No SSO/IT activity at all → SSO_SETUP_PENDING fires (12d > 7d)
   {
     id: "opp_atlas_2",
-    accountId: "acc_atlas",
+    accountId: "acc_snowflake",
     name: "Snowflake - Data Cloud BU Expansion",
     ownerId: "rep_mw",
     stage: "Contracting",
@@ -1321,9 +1321,9 @@ export const demoSignals: Signal[] = [
 // Seed trial intakes - companion-system fixture for /trial-intake. The
 // canonical TODAY is 2026-05-21T09:00:00Z (see utils.ts). Two intakes:
 //
-//   - acc_atlas (healthy): submitted 18h ago, SE picked up, KPI Assessment
+//   - acc_snowflake (healthy): submitted 18h ago, SE picked up, KPI Assessment
 //     in flight - green-bucket countdown, "in_progress" status.
-//   - acc_sentinel (critical): submitted 3 days ago, never got an SE assigned,
+//   - acc_cna (critical): submitted 3 days ago, never got an SE assigned,
 //     deep in overdue territory - the SLA-breach demo case.
 //
 // IDs are stable (no Date.now()) so reloads + tests are deterministic. These

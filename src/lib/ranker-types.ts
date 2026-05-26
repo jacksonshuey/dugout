@@ -24,7 +24,7 @@ export interface RankerInput {
 // "modernatx.com" → "modernatx"). When an account has no website on the seed
 // row we set domain_slug to undefined and fall back to name + ticker matching.
 export interface AccountKeyword {
-  account_id: string; // e.g. "acc_helios"
+  account_id: string; // e.g. "acc_unitedhealth"
   name: string; // "Helios Manufacturing"
   ticker?: string; // "HLOS"
   domain_slug?: string; // "helios"

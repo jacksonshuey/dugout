@@ -37,13 +37,15 @@ const PHASE_DURATIONS: Record<Phase, number> = {
   constellation: 3400,
 };
 
+// The constellation reveal phase is intentionally excluded — the reel just
+// cycles through the setup-card phases (key paste → verify → success →
+// loop). The icon grid is rendered in IntegrationConstellation elsewhere.
 const ORDER: Phase[] = [
   "empty",
   "typing-key",
   "filling-fields",
   "verifying",
   "success",
-  "constellation",
 ];
 
 // matchMedia subscription via useSyncExternalStore - avoids a setState-in-
@@ -81,7 +83,7 @@ export function IntegrationSetupReel({
   // Each tick advances one phase. Cycle counter (tick / ORDER.length) keys the
   // typing child so it remounts at the start of each loop without an effect-
   // driven state reset.
-  const phase = reducedMotion ? "constellation" : ORDER[tick % ORDER.length];
+  const phase = reducedMotion ? "success" : ORDER[tick % ORDER.length];
   const cycle = Math.floor(tick / ORDER.length);
 
   useEffect(() => {

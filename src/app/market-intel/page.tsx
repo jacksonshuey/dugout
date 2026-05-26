@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Card } from "@/components/ui";
 import { WorkspaceDigest } from "@/components/ae-brief";
 import { RankerBanner } from "@/components/ranker-banner";
-import { SignalSourceChip } from "@/components/signal-source-chip";
+import { AccountNamedTable, RankedTable, SignalTable } from "./_tables";
 import {
   getWorkspaceSignals,
   getHighRelevanceSignals,
@@ -12,11 +12,9 @@ import {
   getInboundQueueSummary,
   type InboundQueueSummary,
 } from "@/lib/inbound-email";
-import { displayNameFor } from "@/lib/inbound-publishers";
 import { rankSignals } from "@/lib/ranker";
 import type {
   AccountKeyword,
-  RankedItem,
   RankerResult,
 } from "@/lib/ranker-types";
 import { accounts } from "@/data/seed";
@@ -51,38 +49,6 @@ const MAX_ITEMS = 200;
 // freshest material.
 const RANKER_LOOKBACK_HOURS = 48;
 
-interface SignalMeta {
-  sender_domain?: string;
-  newsletter_subject?: string;
-  mention?: string;
-  inbound_email_id?: string;
-  matched?: boolean;
-}
-
-function readMeta(s: ExternalSignal): SignalMeta {
-  if (!s.meta || typeof s.meta !== "object") return {};
-  return s.meta as SignalMeta;
-}
-
-// Map an ExternalSignal to the props the source chip needs. Centralized
-// so both tables render identical attribution. Handles Q8 fallback:
-// `publisher_canonical_name` is preferred; meta.sender_domain is the
-// fallback for older rows.
-function chipPropsFor(s: ExternalSignal) {
-  const meta = readMeta(s);
-  return {
-    signalId: s.id,
-    publisherDisplayName: s.publisher_canonical_name
-      ? displayNameFor(s.publisher_canonical_name)
-      : null,
-    senderDomainFallback: meta.sender_domain ?? null,
-    emailSubject:
-      s.email_subject ?? meta.newsletter_subject ?? null,
-    sourceUrl: s.source_url ?? s.url ?? null,
-    inboundEmailId: s.inbound_email_id ?? meta.inbound_email_id ?? null,
-  };
-}
-
 function formatDate(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleDateString(undefined, {
@@ -91,21 +57,6 @@ function formatDate(iso: string): string {
     year: "numeric",
   });
 }
-
-const TYPE_LABELS: Record<string, string> = {
-  leadership_change: "Leadership",
-  champion_job_change: "Champion move",
-  ma_acquisition: "M&A",
-  funding_round: "Funding",
-  layoff: "Layoff",
-  earnings: "Earnings",
-  product_launch: "Product",
-  press_release: "Press",
-  competitor_mention: "Competitor",
-  regulatory_action: "Regulatory",
-  partnership: "Partnership",
-  other: "Other",
-};
 
 // Build the AccountKeyword[] the ranker uses for account fan-in. Cheap
 // projection of the seed accounts that are marked trackable. `domain_slug`
@@ -409,223 +360,3 @@ function PendingClassificationState({
   );
 }
 
-// Ranked-by-relevance table. Joins the page's signal list against the
-// ranker's items[] by signal_id. Items whose signal_id is no longer in the
-// chronological list (shouldn't happen - same fetch - but defensive) are
-// skipped silently. The rationale renders the [citation:id] marker as a
-// small monospace chip so it's visually distinct from the prose.
-function RankedTable({
-  signals,
-  items,
-}: {
-  signals: ExternalSignal[];
-  items: RankedItem[];
-}) {
-  const byId = new Map(signals.map((s) => [s.id, s]));
-  return (
-    <Card className="overflow-hidden">
-      <table className="w-full text-sm">
-        <thead className="bg-black/[0.02] text-left text-xs uppercase tracking-wider text-muted">
-          <tr>
-            <th className="px-4 py-2 font-medium w-10">#</th>
-            <th className="px-4 py-2 font-medium">Date</th>
-            <th className="px-4 py-2 font-medium">Type</th>
-            <th className="px-4 py-2 font-medium">Mention</th>
-            <th className="px-4 py-2 font-medium">Rationale</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item) => {
-            const s = byId.get(item.signal_id);
-            if (!s) return null;
-            const meta = readMeta(s);
-            const mention = meta.mention ?? "-";
-            const typeLabel = TYPE_LABELS[s.type] ?? s.type;
-            return (
-              <tr
-                key={item.signal_id}
-                className="border-t border-border align-top hover:bg-black/[0.02]"
-              >
-                <td className="px-4 py-3 text-muted font-mono text-xs">
-                  {item.rank}
-                </td>
-                <td className="px-4 py-3 whitespace-nowrap text-muted">
-                  {formatDate(s.occurred_at)}
-                </td>
-                <td className="px-4 py-3 whitespace-nowrap">
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold tracking-wider border border-border bg-black/[0.04]">
-                    {typeLabel}
-                  </span>
-                </td>
-                <td className="px-4 py-3 whitespace-nowrap font-medium">
-                  {mention}
-                </td>
-                <td className="px-4 py-3 space-y-2">
-                  <div>{renderRationale(item.rationale)}</div>
-                  <SignalSourceChip {...chipPropsFor(s)} />
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </Card>
-  );
-}
-
-// Render a rationale, replacing every [citation:signal_id] marker with a
-// small chip. Keeps the visual contract symmetric with /ask citations
-// (see ask-chat-panel.tsx renderAnswer).
-function renderRationale(rationale: string): React.ReactNode {
-  const parts: React.ReactNode[] = [];
-  const re = /\[citation:([^\]\s]+)\]/g;
-  let lastIndex = 0;
-  let key = 0;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(rationale)) !== null) {
-    if (m.index > lastIndex) parts.push(rationale.slice(lastIndex, m.index));
-    const id = m[1];
-    parts.push(
-      <span
-        key={`c-${key++}`}
-        className="inline-flex items-center align-baseline mx-0.5 px-1 h-4 rounded text-[9px] font-mono bg-brand/10 text-brand border border-brand/30"
-        title={`signal ${id}`}
-      >
-        {id.slice(0, 12)}
-      </span>,
-    );
-    lastIndex = m.index + m[0].length;
-  }
-  if (lastIndex < rationale.length) parts.push(rationale.slice(lastIndex));
-  return parts;
-}
-
-// Table for the "Your tracked accounts" section. Each row links the
-// account name + summary + source. Sort key: workspace_relevance HIGH
-// before MEDIUM, then newest first inside each band - keeps the most
-// material items at the top regardless of recency drift.
-function AccountNamedTable({ signals }: { signals: ExternalSignal[] }) {
-  const accountById = new Map(accounts.map((a) => [a.id, a]));
-
-  const sorted = [...signals].sort((a, b) => {
-    const ra = a.workspace_relevance === "high" ? 0 : 1;
-    const rb = b.workspace_relevance === "high" ? 0 : 1;
-    if (ra !== rb) return ra - rb;
-    return a.occurred_at < b.occurred_at ? 1 : -1;
-  });
-
-  return (
-    <Card className="overflow-hidden">
-      <table className="w-full text-sm">
-        <thead className="bg-black/[0.02] text-left text-xs uppercase tracking-wider text-muted">
-          <tr>
-            <th className="px-4 py-2 font-medium">Date</th>
-            <th className="px-4 py-2 font-medium">Account</th>
-            <th className="px-4 py-2 font-medium">Relevance</th>
-            <th className="px-4 py-2 font-medium">Type</th>
-            <th className="px-4 py-2 font-medium">Summary</th>
-          </tr>
-        </thead>
-        <tbody>
-          {sorted.map((s) => {
-            const account = accountById.get(s.account_id);
-            const typeLabel = TYPE_LABELS[s.type] ?? s.type;
-            return (
-              <tr
-                key={s.id}
-                className="border-t border-border align-top hover:bg-black/[0.02]"
-              >
-                <td className="px-4 py-3 whitespace-nowrap text-muted">
-                  {formatDate(s.occurred_at)}
-                </td>
-                <td className="px-4 py-3 whitespace-nowrap font-medium">
-                  {account ? (
-                    <Link
-                      href={`/account/${account.id}/prep`}
-                      className="hover:text-brand"
-                    >
-                      {account.name}
-                    </Link>
-                  ) : (
-                    s.account_id
-                  )}
-                </td>
-                <td className="px-4 py-3 whitespace-nowrap">
-                  <span
-                    className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold tracking-wider uppercase border ${
-                      s.workspace_relevance === "high"
-                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
-                        : "border-amber-500/30 bg-amber-500/10 text-amber-700"
-                    }`}
-                  >
-                    {s.workspace_relevance === "high" ? "High" : "Medium"}
-                  </span>
-                </td>
-                <td className="px-4 py-3 whitespace-nowrap">
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold tracking-wider border border-border bg-black/[0.04]">
-                    {typeLabel}
-                  </span>
-                </td>
-                <td className="px-4 py-3 space-y-2">
-                  <div>{s.summary}</div>
-                  <SignalSourceChip {...chipPropsFor(s)} />
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </Card>
-  );
-}
-
-function SignalTable({ signals }: { signals: ExternalSignal[] }) {
-  return (
-    <Card className="overflow-hidden">
-      <table className="w-full text-sm">
-        <thead className="bg-black/[0.02] text-left text-xs uppercase tracking-wider text-muted">
-          <tr>
-            <th className="px-4 py-2 font-medium">Date</th>
-            <th className="px-4 py-2 font-medium">Source</th>
-            <th className="px-4 py-2 font-medium">Type</th>
-            <th className="px-4 py-2 font-medium">Mention</th>
-            <th className="px-4 py-2 font-medium">Summary</th>
-          </tr>
-        </thead>
-        <tbody>
-          {signals.map((s) => {
-            const meta = readMeta(s);
-            const sender = meta.sender_domain ?? "-";
-            const mention = meta.mention ?? "-";
-            const typeLabel = TYPE_LABELS[s.type] ?? s.type;
-            return (
-              <tr
-                key={s.id}
-                className="border-t border-border align-top hover:bg-black/[0.02]"
-              >
-                <td className="px-4 py-3 whitespace-nowrap text-muted">
-                  {formatDate(s.occurred_at)}
-                </td>
-                <td className="px-4 py-3 whitespace-nowrap text-muted font-mono text-xs">
-                  {sender}
-                </td>
-                <td className="px-4 py-3 whitespace-nowrap">
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold tracking-wider border border-border bg-black/[0.04]">
-                    {typeLabel}
-                  </span>
-                </td>
-                <td className="px-4 py-3 whitespace-nowrap font-medium">
-                  {mention}
-                </td>
-                <td className="px-4 py-3 space-y-2">
-                  <div>{s.summary}</div>
-                  <SignalSourceChip {...chipPropsFor(s)} />
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </Card>
-  );
-}

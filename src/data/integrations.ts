@@ -37,52 +37,12 @@ export interface IntegrationSpec {
   pinFirst?: boolean;
 }
 
+// Customer-visible integrations only — every row here is an app Checkbox
+// uses (or Slack, which is universal delivery). Dugout's internal data
+// sources (Anthropic, Supabase, NewsAPI, SEC EDGAR, Firecrawl, Granola)
+// aren't displayed in the constellation; they still power the product and
+// are tracked in src/lib/integration-health.ts.
 export const INTEGRATIONS: IntegrationSpec[] = [
-  {
-    brand: "anthropic",
-    role: "Sonnet 4.6 + Haiku 4.5",
-    status: "live",
-    auth: "api-key",
-    deployment: "hosted",
-    direction: "read",
-    limits: "Per-session 20/hr + 100/day; 500/day global",
-  },
-  {
-    brand: "supabase",
-    role: "Signals + Vault-encrypted keys",
-    status: "live",
-    auth: "service-role",
-    deployment: "hosted",
-    direction: "bidirectional",
-    limits: "Dugout-owned tenant",
-  },
-  {
-    brand: "newsapi",
-    role: "Material news classification",
-    status: "live",
-    auth: "api-key",
-    deployment: "hosted",
-    direction: "read",
-    limits: "Daily cron; per-account scoped",
-  },
-  {
-    brand: "sec",
-    role: "8-K filings · public-co signals",
-    status: "live",
-    auth: "public",
-    deployment: "hosted",
-    direction: "read",
-    limits: "10 req/s (SEC fair-use)",
-  },
-  {
-    brand: "firecrawl",
-    role: "Per-account web scrape",
-    status: "live",
-    auth: "api-key",
-    deployment: "hosted",
-    direction: "read",
-    limits: "Daily cron; per-account markdown",
-  },
   {
     brand: "slack",
     role: "Severity-tiered delivery",

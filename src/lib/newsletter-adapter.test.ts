@@ -44,7 +44,7 @@ function mkEmail(overrides: Partial<InboundEmail> = {}): InboundEmail {
 }
 
 const HELIOS: Account = {
-  id: "acc_helios",
+  id: "acc_unitedhealth",
   name: "Helios Manufacturing",
   industry: "Manufacturing",
   segment: "Enterprise",
@@ -250,7 +250,7 @@ describe("newsletter-adapter · account matching", () => {
     });
     expect(r.matched).toBe(1);
     expect(r.workspace).toBe(0);
-    expect(r.signals[0].account_id).toBe("acc_helios");
+    expect(r.signals[0].account_id).toBe("acc_unitedhealth");
   });
 
   test("mention not matching any account → signal pinned to workspace sentinel", async () => {

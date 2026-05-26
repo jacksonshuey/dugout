@@ -18,14 +18,15 @@ import {
   type BrandKey,
 } from "@/components/landing/logos";
 import { IntegrationSetupReel } from "@/components/landing/integration-setup-reel";
-import { IntegrationsMatrix } from "@/components/landing/integrations-matrix";
-import { MetricsCheckboxDemo } from "@/components/landing/metrics-checkbox-demo";
-import { NinetyDayVision } from "@/components/landing/ninety-day-vision";
-import { SecurityTrust } from "@/components/landing/security-trust";
+import { LiveZipperingDemo } from "@/components/landing/live-zippering-demo";
+import { InteractiveZipperedTable } from "@/components/landing/interactive-zippered-table";
+import { InteractiveSignals } from "@/components/landing/interactive-signals";
+import { InteractiveDecisions } from "@/components/landing/interactive-decisions";
+import { INTEGRATIONS } from "@/data/integrations";
+import { checkAllHealth } from "@/lib/integration-health";
+import { RefreshButton } from "@/components/landing/refresh-button";
 import { ClientNewsTicker } from "@/components/landing/client-news-ticker";
 import { SortableWorkspaceFeed } from "@/components/landing/sortable-workspace-feed";
-import { INTEGRATIONS } from "@/data/integrations";
-import { checkAllHealth, type IntegrationHealth } from "@/lib/integration-health";
 import {
   getWorkspaceSignals,
   type ExternalSignal,
@@ -68,17 +69,10 @@ export default async function LandingPage() {
     },
   };
   const signals = evaluateAll(ctx);
-  // Server-side env-presence snapshot. Reads process.env once per request;
-  // no network calls. Threaded through to the constellation + matrix so
-  // both surfaces render the same answer.
-  const integrationHealth = checkAllHealth();
 
   return (
     <div className="bg-background">
       <Hero />
-      <NinetyDayVision />
-      <IntegrationConstellation health={integrationHealth} />
-      <IntegrationsMatrixSection health={integrationHealth} />
       <OnboardingWalkthrough />
       <DemoDivider />
       <section id="demo" className="border-t border-border bg-foreground/[0.02]">
@@ -96,7 +90,6 @@ export default async function LandingPage() {
         />
       </section>
       <MarketIntelLiveSection />
-      <SecurityTrustSection />
       <Footer />
     </div>
   );
@@ -208,10 +201,10 @@ function Hero() {
         </p>
         <div className="mt-8 flex flex-wrap gap-3 items-center">
           <Link
-            href="#ninety-day-plan"
+            href="/plan"
             className="inline-flex items-center px-5 h-11 rounded-lg bg-background text-foreground text-sm font-semibold hover:bg-background/90 transition-colors"
           >
-            See the 90-day plan ↓
+            See the 90-day plan →
           </Link>
           <Link
             href="#demo"
@@ -226,92 +219,10 @@ function Hero() {
 }
 
 // ---------------------------------------------------------------------------
-// 2. Integration constellation - visual: Dugout in the center, integration
-// logos arranged around it. Each chip is a real brand-colored logo.
-// The integration list is owned by `src/data/integrations.ts` so the matrix
-// below and the constellation here can't drift.
-// ---------------------------------------------------------------------------
-
-function IntegrationConstellation({
-  health,
-}: {
-  health: Record<string, IntegrationHealth>;
-}) {
-  return (
-    <section className="max-w-6xl mx-auto px-6 py-20 sm:py-24 border-b border-border">
-      <SectionEyebrow>Integrations</SectionEyebrow>
-      <div className="mt-3 grid md:grid-cols-12 gap-10 items-start">
-        <div className="md:col-span-5">
-          <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight">
-            One synthesis layer
-            <br />
-            over your stack.
-          </h2>
-          <p className="mt-4 text-base text-foreground/70 leading-relaxed">
-            Dugout reads from the systems that already capture buyer behavior +
-            the news your buyers&apos; verticals run on. Pluggable adapters:
-            adding a source is a file, not an architecture change. Easy to
-            plug in: paste a key, verify, sync.
-          </p>
-          <div className="mt-6 flex items-center gap-4 text-xs">
-            <StatusKey color="bg-severity-green" label="Live" />
-            <StatusKey color="bg-severity-action" label="Beta" />
-            <StatusKey color="bg-slate-400" label="Display" />
-            <StatusKey color="bg-severity-blocking" label="Key missing" />
-          </div>
-        </div>
-        <div className="md:col-span-7">
-          <IntegrationSetupReel integrations={INTEGRATIONS} health={health} />
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function StatusKey({ color, label }: { color: string; label: string }) {
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      <span className={`w-1.5 h-1.5 rounded-full ${color}`} />
-      <span className="text-muted">{label}</span>
-    </span>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// 2b. Integrations matrix - productized view of the same list the
-// constellation visualizes. Status · Auth · Where it runs · Direction.
-// ---------------------------------------------------------------------------
-
-function IntegrationsMatrixSection({
-  health,
-}: {
-  health: Record<string, IntegrationHealth>;
-}) {
-  return (
-    <section className="max-w-6xl mx-auto px-6 py-20 sm:py-24 border-b border-border">
-      <div className="max-w-3xl">
-        <SectionEyebrow>Matrix</SectionEyebrow>
-        <h2 className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight">
-          Status, auth, and where the data lives.
-        </h2>
-        <p className="mt-4 text-base text-foreground/70 leading-relaxed">
-          The constellation is the hook. This is the answer. Every
-          integration with how it authenticates, where the adapter runs,
-          and which direction data moves. Nothing here is aspirational -
-          if it&apos;s Live, the cron is running and the rows are in
-          Supabase. The <span className="font-mono text-xs">Configured</span>{" "}
-          column reads <span className="font-mono text-xs">process.env</span>{" "}
-          on this server right now.
-        </p>
-      </div>
-      <div className="mt-10">
-        <IntegrationsMatrix health={health} />
-      </div>
-    </section>
-  );
-}
-
-
+// All integrate / zipper / ontology content lives inside the
+// OnboardingWalkthrough section below — see StepIntegrate, StepZipper,
+// StepOntology. The old IntegrationConstellation and NewsLayerSection
+// were folded into those steps so the page has one main narrative.
 
 // ---------------------------------------------------------------------------
 // 3. Onboarding walkthrough - 4 steps, each with a visualization that
@@ -322,14 +233,20 @@ function IntegrationsMatrixSection({
 function OnboardingWalkthrough() {
   return (
     <section className="max-w-6xl mx-auto px-6 py-20 sm:py-24 border-b border-border">
-      <SectionEyebrow>Onboarding · end to end</SectionEyebrow>
+      <SectionEyebrow>How the engine works</SectionEyebrow>
       <h2 className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight max-w-3xl">
-        From paste-a-key to first signal in three steps.
+        Integrate, zipper, ontology, rules, actions.
       </h2>
+      <p className="mt-4 text-base text-foreground/70 leading-relaxed max-w-2xl">
+        Each stage builds on the one before. Integrations write into a single
+        ontology. Rules fire over that ontology. The AE acts on the result.
+      </p>
       <div className="mt-10">
-        <StepTwo />
-        <StepThree />
-        <StepFive />
+        <StepIntegrate />
+        <StepZipper />
+        <StepOntology />
+        <StepRules />
+        <StepActions />
       </div>
     </section>
   );
@@ -340,18 +257,41 @@ function StepShell({
   title,
   sub,
   children,
+  wide = false,
 }: {
   num: number;
   title: string;
   sub: string;
   children: React.ReactNode;
+  // When true, the step renders the header above and the visual full-width
+  // below. Use for steps whose visuals don't fit the 4/8 column split
+  // (Integrate, Zipper, Ontology — each has a richer in-step demo).
+  wide?: boolean;
 }) {
+  if (wide) {
+    return (
+      <div className="border-t border-border py-10 sm:py-12">
+        <div className={"space-y-2 max-w-3xl " + (sub ? "mb-8" : "mb-6")}>
+          <span className="font-mono text-xs text-muted">
+            STEP 0{num} / 05
+          </span>
+          <h3 className="text-xl sm:text-2xl font-semibold tracking-tight">
+            {title}
+          </h3>
+          {sub && (
+            <p className="text-sm text-muted leading-relaxed">{sub}</p>
+          )}
+        </div>
+        {children}
+      </div>
+    );
+  }
   return (
     <div className="grid md:grid-cols-12 gap-6 items-center border-t border-border py-10 sm:py-12">
       <div className="md:col-span-4 space-y-2">
         <div className="flex items-center gap-2">
           <span className="font-mono text-xs text-muted">
-            STEP 0{num} / 03
+            STEP 0{num} / 05
           </span>
         </div>
         <h3 className="text-xl sm:text-2xl font-semibold tracking-tight">
@@ -364,54 +304,11 @@ function StepShell({
   );
 }
 
-function StepTwo() {
-  // Priorities + ICP - show real CHECKBOX_PRESET data.
-  return (
-    <StepShell
-      num={1}
-      title="Define priorities + kill point"
-      sub="Strategic priorities tag every signal rule. The kill-point sentence is the single thing your engine optimizes around."
-    >
-      <div className="space-y-5">
-        <div>
-          <div className="text-[10px] uppercase tracking-wider text-muted font-mono">
-            Kill point
-          </div>
-          <div className="text-sm font-medium mt-1 leading-snug">
-            {CHECKBOX_PRESET.killPoint}
-          </div>
-        </div>
-        <div className="space-y-1.5">
-          <div className="text-[10px] uppercase tracking-wider text-muted font-mono">
-            Strategic priorities · {CHECKBOX_PRESET.priorities.length}
-          </div>
-          {CHECKBOX_PRESET.priorities.slice(0, 4).map((p) => (
-            <div
-              key={p.id}
-              className="flex items-baseline gap-2 text-sm leading-snug"
-            >
-              <span className="font-mono text-[11px] text-muted shrink-0 w-7">
-                {p.id}
-              </span>
-              <span className="text-foreground">{p.name}</span>
-            </div>
-          ))}
-          <div className="text-[11px] text-muted pl-9">
-            + {CHECKBOX_PRESET.priorities.length - 4} more
-          </div>
-        </div>
-      </div>
-    </StepShell>
-  );
-}
-
-function StepThree() {
-  // Stack mapping - horizontal marquee of recognizable sales-stack brands.
-  // The CSS class .marquee-track animates infinitely; we duplicate the list
-  // so the loop is seamless. Container is overflow-hidden so the wider
-  // logo strip doesn't break page layout. Order is intentionally mixed
-  // across categories (CRM → CI → engagement → ...) so adjacent chips
-  // don't all look alike during a slow stretch of the loop.
+function StepIntegrate() {
+  // Horizontal marquee of recognizable sales-stack brands. The CSS class
+  // .marquee-track animates infinitely; we duplicate the list so the loop
+  // is seamless. Container is overflow-hidden so the wider logo strip
+  // doesn't break page layout.
   const stackBrands: BrandKey[] = [
     "salesforce",
     "gong",
@@ -420,113 +317,131 @@ function StepThree() {
     "chilipiper",
     "zoominfo",
     "hubspot",
-    "chorus",
-    "salesloft",
-    "aligned",
-    "calendly",
-    "clay",
-    "pipedrive",
-    "fathom",
-    "apollo",
-    "trumpet",
-    "calcom",
-    "leadiq",
-    "attio",
-    "tldv",
-    "mixmax",
-    "cognism",
-    "loom",
-    "zoom",
-    "docusign",
-    "pandadoc",
-    "notion",
+    "nooks",
+    "swyftai",
+    "xero",
+    "zendesk",
+    "webflow",
+    "granola",
+    "slack",
   ];
+  const integrationHealth = checkAllHealth();
   return (
-    <StepShell
-      num={2}
-      title="Map your stack"
-      sub="What you already use. Stack identity flows into the digest prompt and the drawer: 'Gong call excerpts' shows up as 'Granola' if you picked Granola."
-    >
-      <div className="marquee-container relative overflow-hidden">
-        {/* Edge fades so logos enter/exit softly instead of clipping */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-y-0 left-0 w-16 z-10"
-          style={{
-            background:
-              "linear-gradient(to right, var(--background), transparent)",
-          }}
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-y-0 right-0 w-16 z-10"
-          style={{
-            background:
-              "linear-gradient(to left, var(--background), transparent)",
-          }}
-        />
-        <div className="marquee-track flex gap-4 w-max py-2">
-          {/* Two copies of the list - required for a seamless loop */}
-          {[...stackBrands, ...stackBrands].map((b, i) => (
-            <div
-              key={`${b}-${i}`}
-              className="flex flex-col items-center gap-1.5 shrink-0"
-              style={{ width: "84px" }}
-            >
-              <BrandLogo brand={b} size={48} />
-              <span className="text-[11px] text-muted whitespace-nowrap">
-                {getBrandName(b)}
-              </span>
+    <StepShell num={1} wide title="Integrate" sub="">
+      <div className="grid md:grid-cols-12 gap-8">
+        <div className="md:col-span-5 flex flex-col">
+          <div className="space-y-3">
+            <p className="text-sm text-foreground/70 leading-relaxed">
+              <span className="font-semibold text-foreground">
+                Integrate with your existing tools.
+              </span>{" "}
+              Each tool plugs in the same way: paste an API key, set sync
+              frequency, verify, done. Credentials encrypt in Supabase Vault
+              and never reach the browser. Granola is the example here — the
+              same flow works for every adapter shown.
+            </p>
+            <p className="text-sm text-foreground/70 leading-relaxed">
+              No per-source schema design. The adapter resolves the account
+              and emits raw rows; the zipper step (next) handles the rest.
+            </p>
+          </div>
+          <div className="mt-auto pb-2 space-y-2">
+            <div className="text-[10px] uppercase tracking-[0.2em] font-mono text-muted">
+              Checkbox stack · {stackBrands.length} tools
             </div>
-          ))}
+            <div className="marquee-container relative overflow-hidden">
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-y-0 left-0 w-10 z-10"
+                style={{ background: "linear-gradient(to right, var(--background), transparent)" }}
+              />
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-y-0 right-0 w-10 z-10"
+                style={{ background: "linear-gradient(to left, var(--background), transparent)" }}
+              />
+              <div className="marquee-track flex gap-3 w-max py-2">
+                {[...stackBrands, ...stackBrands].map((b, i) => (
+                  <div
+                    key={`${b}-${i}`}
+                    className="flex flex-col items-center gap-1 shrink-0"
+                    style={{ width: "85px" }}
+                  >
+                    <BrandLogo brand={b} size={45} />
+                    <span className="text-[10px] text-muted whitespace-nowrap">
+                      {getBrandName(b)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-      <div className="mt-8">
-        <MetricsCheckboxDemo />
+        <div className="md:col-span-7">
+          <IntegrationSetupReel
+            integrations={INTEGRATIONS}
+            health={integrationHealth}
+          />
+        </div>
       </div>
     </StepShell>
   );
 }
 
+function StepZipper() {
+  // Live, animated demo of the join: three real source paths get routed
+  // into one canonical column on the account's wide row. AI verdict cycles
+  // through columns automatically.
+  return (
+    <StepShell
+      num={2}
+      wide
+      title="Zipper"
+      sub="AI reads each incoming column, matches it against the canonical columns we already track for the account, and routes it. Same data, one shape."
+    >
+      <LiveZipperingDemo />
+    </StepShell>
+  );
+}
 
-function StepFive() {
-  // Signals flow in - show stylized signal cards landing in a feed.
-  const signalSamples: {
-    severity: "blocking" | "action" | "awareness";
-    title: string;
-    sub: string;
-    account: string;
-  }[] = [
-    {
-      severity: "blocking",
-      title: "Champion departed → Ironclad",
-      sub: "Boeing · LinkedIn updated 5/20",
-      account: "Boeing",
-    },
-    {
-      severity: "action",
-      title: "Finance brief unsent · 14d in Selected Vendor",
-      sub: "CNA Financial · auto-detected gap",
-      account: "CNA Financial",
-    },
-    {
-      severity: "awareness",
-      title: "Snowflake Series E · budget environment improved",
-      sub: "TechCrunch · classified by Haiku 4.5",
-      account: "Snowflake",
-    },
-  ];
+function StepOntology() {
+  // Mini wide-row mockup — one account, a handful of canonical columns,
+  // brand-chip provenance per cell. Mirrors the InteractiveZipperedTable
+  // above; this is the compact form that lives inside the walkthrough.
   return (
     <StepShell
       num={3}
-      title="Signals start flowing"
-      sub="13 deterministic rules over your CRM data. News + SEC + meetings classified by Haiku. Severity routing: blocking → page, action → digest, awareness → weekly."
+      wide
+      title="Ontology"
+      sub="Every account lives on one unified record: sales activity, deal data, news, and meeting notes all in one place. Once every integration is connected, the table view is fully customizable. Pick any combination of columns drawn from any field your tools capture, filter the sources, choose the accounts, sort by any of them."
     >
-      <div className="space-y-2">
-        {signalSamples.map((s, i) => (
-          <SignalSampleCard key={i} {...s} />
-        ))}
-      </div>
+      <InteractiveZipperedTable />
+    </StepShell>
+  );
+}
+
+function StepRules() {
+  return (
+    <StepShell
+      num={4}
+      wide
+      title="Rules"
+      sub="Build a rule stream from any source: ontology fields, news, meetings, or AI extraction. Chain triggers with AND, then chain actions to run on a hit (Slack DM, Dock workspace, Outreach sequence, asset delivery, snooze). Three urgency tiers route the output: blocking to Slack within the hour, action to the daily digest, awareness to the weekly roundup."
+    >
+      <InteractiveSignals />
+    </StepShell>
+  );
+}
+
+function StepActions() {
+  return (
+    <StepShell
+      num={5}
+      wide
+      title="Actions"
+      sub="Every rule lands with a specific next step. Acted, skipped, or snoozed, all logged with the channel used and the observed outcome. Actions feed back into the engine so the next rule is better targeted."
+    >
+      <InteractiveDecisions />
     </StepShell>
   );
 }
@@ -568,27 +483,6 @@ function SignalSampleCard({
 }
 
 // ---------------------------------------------------------------------------
-// Security / trust - surfaces real posture (Vault, HMAC, RLS, no-write)
-// that's already in the code but invisible to the marketing reader.
-// ---------------------------------------------------------------------------
-
-function SecurityTrustSection() {
-  return (
-    <section className="max-w-6xl mx-auto px-6 py-12 border-t border-border">
-      <div className="flex items-baseline gap-3 flex-wrap">
-        <SectionEyebrow>Security posture</SectionEyebrow>
-        <h2 className="text-lg sm:text-xl font-semibold tracking-tight">
-          Four constraints we don&apos;t bend.
-        </h2>
-      </div>
-      <div className="mt-6">
-        <SecurityTrust />
-      </div>
-    </section>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Market intel live preview - surfaces the workspace-wide newsletter inbox
 // at the bottom of the landing page so visitors see real intelligence flowing
 // (not just the seed-driven Console above). Pulls the freshest five
@@ -605,6 +499,73 @@ function SecurityTrustSection() {
 // static markup with one CSS-pulse animation on the Haiku panel dots, no
 // JS required.
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Data sources row — three cards calling out the upstream feeds that power
+// the workspace inbox. AgentMail is the inbox runtime (webhook + signed
+// Svix delivery), NewsAPI is the daily news cron, SEC EDGAR is the public
+// filings monitor. Sits above the NewsletterTransformVisual so the reader
+// sees what's feeding the synthesis before they see the synthesis itself.
+// ---------------------------------------------------------------------------
+
+function DataSourcesRow() {
+  return (
+    <div className="mt-10 grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <SourceCard
+        icon="✉"
+        name="AgentMail"
+        role="Inbox runtime · Svix-signed webhooks"
+        detail="Every subscribed publisher delivers into one workspace inbox. AgentMail handles signed delivery + dedup; AI runs on top to tag each row to a tracked account or its vertical before the team sees it."
+      />
+      <SourceCard
+        icon="N"
+        name="NewsAPI"
+        role="Material news classification"
+        detail="Daily cron pulls company-mention headlines across major publishers (Reuters, Bloomberg, TechCrunch). AI grades each story for relevance and routes high-confidence hits to the matching account."
+      />
+      <SourceCard
+        icon="§"
+        name="SEC EDGAR"
+        role="Public-company filings · 10-K, 8-K, 6-K"
+        detail="Filings monitored continuously for tracked public-company accounts. Leadership changes, risk-factor edits, M&A disclosures, and earnings move from filing to drawer within minutes."
+      />
+    </div>
+  );
+}
+
+function SourceCard({
+  icon,
+  name,
+  role,
+  detail,
+}: {
+  icon: string;
+  name: string;
+  role: string;
+  detail: string;
+}) {
+  return (
+    <div className="rounded-lg border border-border bg-background p-4 space-y-2">
+      <div className="flex items-center gap-2.5">
+        <span
+          aria-hidden
+          className="inline-flex items-center justify-center w-8 h-8 rounded border border-border bg-foreground/[0.04] text-foreground font-mono font-bold text-sm shrink-0"
+        >
+          {icon}
+        </span>
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold tracking-tight">{name}</h3>
+          <div className="text-[10px] uppercase tracking-[0.15em] font-mono text-muted leading-snug">
+            {role}
+          </div>
+        </div>
+      </div>
+      <p className="text-[12px] text-foreground/65 leading-relaxed">
+        {detail}
+      </p>
+    </div>
+  );
+}
 
 function NewsletterTransformVisual() {
   return (
@@ -746,8 +707,14 @@ async function MarketIntelLiveSection() {
         Workspace-wide intel, ranked by relevance.
       </h2>
       <p className="mt-4 text-base text-foreground/70 leading-relaxed max-w-3xl">
-        Newsletter in. Haiku reads it. Tagged signal on the dashboard.
+        Subscribe industry newsletters to one workspace inbox. AI classifies
+        every email as it lands: account mentions route to that account&apos;s
+        drawer, market-wide moves surface in the feed below. Your team gets
+        shared, continuously refreshed context on every customer without
+        anyone reading 200 emails a week.
       </p>
+
+      <DataSourcesRow />
 
       <NewsletterTransformVisual />
 
@@ -756,22 +723,27 @@ async function MarketIntelLiveSection() {
           Mentions of your accounts
         </h3>
         <p className="text-xs text-muted mt-1 max-w-2xl leading-snug">
-          Haiku scans every inbound newsletter for tracked-account names.
-          When one hits, it gets summarized and tagged to that account so
-          your AE walks in informed.
+          AI scans every inbound newsletter for tracked-account names. When
+          one hits, it gets summarized and tagged to that account so your AE
+          walks in informed.
         </p>
       </div>
       <ClientNewsTicker />
 
       <div className="mt-12">
-        <h3 className="text-sm font-semibold tracking-tight text-foreground/80">
-          Top stories the team should know
-        </h3>
-        <p className="text-xs text-muted mt-1 max-w-2xl leading-snug">
-          High-impact news that doesn&apos;t mention any account by name -
-          M&amp;A, regulatory shifts, big-tech moves. Haiku ranks by
-          relevance so this stays signal, not noise.
-        </p>
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <h3 className="text-sm font-semibold tracking-tight text-foreground/80">
+              Top stories the team should know
+            </h3>
+            <p className="text-xs text-muted mt-1 max-w-2xl leading-snug">
+              High-impact news that doesn&apos;t mention any account by name:
+              M&amp;A, regulatory shifts, big-tech moves. Haiku ranks by
+              relevance so this stays signal, not noise.
+            </p>
+          </div>
+          <RefreshButton label="Refresh feed" />
+        </div>
       </div>
       <SortableWorkspaceFeed signals={workspaceSignals} />
 
@@ -794,18 +766,10 @@ async function MarketIntelLiveSection() {
 
 function DemoDivider() {
   return (
-    <section className="max-w-6xl mx-auto px-6 py-16 text-center">
-      <SectionEyebrow centered>Live demo</SectionEyebrow>
-      <h2 className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight">
-        Scroll. It&apos;s real.
+    <section className="max-w-6xl mx-auto px-6 py-16">
+      <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight">
+        Dashboard
       </h2>
-      <p className="mt-3 text-sm text-muted max-w-xl mx-auto">
-        Below this point is the actual console. Same component, same seed,
-        same signal engine. 11 real public-company accounts. Click any row.
-      </p>
-      <div className="mt-6 text-muted text-xl" aria-hidden>
-        ↓
-      </div>
     </section>
   );
 }
