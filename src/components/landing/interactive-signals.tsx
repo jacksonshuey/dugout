@@ -1409,7 +1409,7 @@ function FieldPicker({
           <div className="max-h-72 overflow-y-auto py-1">
             {filtered.length === 0 ? (
               <div className="px-3 py-4 text-[11px] text-muted italic text-center">
-                No columns match "{query}"
+                No columns match &ldquo;{query}&rdquo;
               </div>
             ) : (
               [...byGroup.entries()].map(([group, items]) => (
@@ -1657,7 +1657,7 @@ function ActionEditor({
           className="px-2 py-1 rounded-md border border-border bg-background text-[11px] focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
         >
           <option value="slack_dm_owner">DM the AE on matching account</option>
-          <option value="morning_digest">Add to AE's morning digest</option>
+          <option value="morning_digest">Add to AE&apos;s morning digest</option>
           <option value="slack_channel">Post to Slack channel</option>
           <option value="dock_workspace">Create Dock workspace</option>
           <option value="outreach_sequence">Enroll Outreach sequence</option>
@@ -1782,7 +1782,7 @@ function ActionBody({
           <option value="awareness">Awareness section · bottom</option>
         </select>
         <div className="text-[11px] text-muted italic">
-          Includes the matched account in the next morning digest the synthesizer writes for the assigned AE. The LLM merges it with other signals on that AE's book.
+          Includes the matched account in the next morning digest the synthesizer writes for the assigned AE. The LLM merges it with other signals on that AE&apos;s book.
         </div>
       </div>
     );

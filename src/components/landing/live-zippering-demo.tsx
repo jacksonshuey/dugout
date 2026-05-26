@@ -168,13 +168,14 @@ export function LiveZipperingDemo() {
   );
 
   // stepIdx ranges from -1 (intro) through STEPS.length (held final state).
-  const [stepIdx, setStepIdx] = useState(reducedMotion ? STEPS.length : -1);
+  // When reducedMotion is true we don't run the timer; the displayed index
+  // is derived (jumps straight to the held-final state) rather than written
+  // through setState inside an effect.
+  const [stepIdx, setStepIdx] = useState(-1);
+  const displayStepIdx = reducedMotion ? STEPS.length : stepIdx;
 
   useEffect(() => {
-    if (reducedMotion) {
-      setStepIdx(STEPS.length);
-      return;
-    }
+    if (reducedMotion) return;
     const isHold = stepIdx >= STEPS.length;
     const delay = isHold ? RESET_HOLD_MS : STEP_MS;
     const t = setTimeout(() => {
@@ -188,15 +189,15 @@ export function LiveZipperingDemo() {
 
   // Active = the column the spotlight is on right now.
   const activeStep =
-    stepIdx >= 0 && stepIdx < STEPS.length ? STEPS[stepIdx] : null;
+    displayStepIdx >= 0 && displayStepIdx < STEPS.length ? STEPS[displayStepIdx] : null;
 
   // Canonical state: list of {name, type, contributors[]} accumulated through
-  // step stepIdx. Rebuilt from STEPS on every render — cheap, deterministic.
-  const canonical = buildCanonicalState(stepIdx);
+  // step displayStepIdx. Rebuilt from STEPS on every render — cheap, deterministic.
+  const canonical = buildCanonicalState(displayStepIdx);
 
   return (
     <div className="mt-10 rounded-xl border border-border bg-foreground/[0.02] overflow-hidden">
-      <DemoHeader stepIdx={stepIdx} activeStep={activeStep} />
+      <DemoHeader stepIdx={displayStepIdx} activeStep={activeStep} />
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 px-5 sm:px-6 py-6">
         <div className="lg:col-span-7 space-y-3">
           {SOURCES.map((src, sourceIdx) => (
@@ -205,7 +206,7 @@ export function LiveZipperingDemo() {
               source={src}
               sourceIdx={sourceIdx}
               activeStep={activeStep}
-              stepIdx={stepIdx}
+              stepIdx={displayStepIdx}
             />
           ))}
         </div>
