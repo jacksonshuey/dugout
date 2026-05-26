@@ -1,5 +1,7 @@
 # Dugout
 
+![Dugout — Never walk into a meeting cold.](public/dugout-hero.png)
+
 > The operating system for GTM teams.
 
 Dugout unifies every revenue signal across Salesforce, Slack, calendars, newsletters, and the public web, so sales teams spend less time hopping platforms and more time executing deals.
