@@ -285,7 +285,6 @@ export function Console(props: ConsoleData & { basePath?: string }) {
       <Sidebar
         view={view}
         filters={filters}
-        reps={props.reps}
         dealCount={filteredOpps.length}
         openTaskCount={openTasksAll.length}
         onViewChange={(v) => updateUrl({ view: v })}
@@ -324,10 +323,6 @@ export function Console(props: ConsoleData & { basePath?: string }) {
             onAddCoachingNote={handleAddCoachingNote}
           />
         )}
-        {view === "digest" && (
-          <DigestView reps={props.reps} workspace={props.workspace} />
-        )}
-
       </main>
 
       {drawerOppId && (
@@ -648,7 +643,7 @@ function TodayView({
   return (
     <div className="space-y-6">
       <Header
-        title="Today's queue"
+        title="Actions queue"
         sub={`${openOnly.length} open · ${blocking.length} blocking · ${action.length} action${awareness.length > 0 ? ` · ${awareness.length} awareness` : ""}${snoozed.length > 0 ? ` · ${snoozed.length} snoozed` : ""}`}
       />
 
@@ -657,76 +652,134 @@ function TodayView({
       ) : (
         <>
           {blocking.length > 0 && (
-            <section className="space-y-2">
-              <SectionHead label="Blocking" tone="blocking" count={blocking.length} />
-              <div className="space-y-2">
-                {blocking.map((t) => (
-                  <TaskRow
-                    key={t.id}
-                    task={t}
-                    data={data}
-                    viewerId={viewerId}
-                    onOpen={onOpen}
-                    onMarkDone={onMarkDone}
-                    onSnooze={onSnooze}
-                    onMute={onMute}
-                    onReopen={onReopen}
-                    onAddNote={onAddNote}
-                    onAddCoachingNote={onAddCoachingNote}
-                  />
-                ))}
-              </div>
-            </section>
+            <SeverityGroup
+              label="Blocking"
+              tone="blocking"
+              tasks={blocking}
+              data={data}
+              viewerId={viewerId}
+              onOpen={onOpen}
+              onMarkDone={onMarkDone}
+              onSnooze={onSnooze}
+              onMute={onMute}
+              onReopen={onReopen}
+              onAddNote={onAddNote}
+              onAddCoachingNote={onAddCoachingNote}
+            />
           )}
 
           {action.length > 0 && (
-            <section className="space-y-2">
-              <SectionHead label="Action" tone="action" count={action.length} />
-              <div className="space-y-2">
-                {action.map((t) => (
-                  <TaskRow
-                    key={t.id}
-                    task={t}
-                    data={data}
-                    viewerId={viewerId}
-                    onOpen={onOpen}
-                    onMarkDone={onMarkDone}
-                    onSnooze={onSnooze}
-                    onMute={onMute}
-                    onReopen={onReopen}
-                    onAddNote={onAddNote}
-                    onAddCoachingNote={onAddCoachingNote}
-                  />
-                ))}
-              </div>
-            </section>
+            <SeverityGroup
+              label="Action"
+              tone="action"
+              tasks={action}
+              data={data}
+              viewerId={viewerId}
+              onOpen={onOpen}
+              onMarkDone={onMarkDone}
+              onSnooze={onSnooze}
+              onMute={onMute}
+              onReopen={onReopen}
+              onAddNote={onAddNote}
+              onAddCoachingNote={onAddCoachingNote}
+            />
           )}
 
           {awareness.length > 0 && (
-            <section className="space-y-2">
-              <SectionHead label="Awareness" tone="awareness" count={awareness.length} />
-              <div className="space-y-2">
-                {awareness.map((t) => (
-                  <TaskRow
-                    key={t.id}
-                    task={t}
-                    data={data}
-                    viewerId={viewerId}
-                    onOpen={onOpen}
-                    onMarkDone={onMarkDone}
-                    onSnooze={onSnooze}
-                    onMute={onMute}
-                    onReopen={onReopen}
-                    onAddNote={onAddNote}
-                    onAddCoachingNote={onAddCoachingNote}
-                  />
-                ))}
-              </div>
-            </section>
+            <SeverityGroup
+              label="Awareness"
+              tone="awareness"
+              tasks={awareness}
+              data={data}
+              viewerId={viewerId}
+              onOpen={onOpen}
+              onMarkDone={onMarkDone}
+              onSnooze={onSnooze}
+              onMute={onMute}
+              onReopen={onReopen}
+              onAddNote={onAddNote}
+              onAddCoachingNote={onAddCoachingNote}
+            />
           )}
         </>
       )}
     </div>
+  );
+}
+
+// Severity-grouped task list with progressive disclosure. Renders the first
+// PAGE_SIZE items eagerly; subsequent items are revealed PAGE_SIZE at a time
+// via the "Load more" footer button. Keeps the queue legible when a single
+// severity bucket holds 20+ items.
+const SEVERITY_GROUP_PAGE_SIZE = 3;
+
+function SeverityGroup({
+  label,
+  tone,
+  tasks,
+  data,
+  viewerId,
+  onOpen,
+  onMarkDone,
+  onSnooze,
+  onMute,
+  onReopen,
+  onAddNote,
+  onAddCoachingNote,
+}: {
+  label: string;
+  tone: "blocking" | "action" | "awareness";
+  tasks: Task[];
+  data: ConsoleData;
+  viewerId?: string;
+  onOpen: (oppId: string) => void;
+  onMarkDone: (id: string) => void;
+  onSnooze: (id: string, h: number) => void;
+  onMute: (id: string, r: string) => void;
+  onReopen: (id: string) => void;
+  onAddNote: (id: string, text: string) => void;
+  onAddCoachingNote: (id: string, text: string) => void;
+}) {
+  const [visible, setVisible] = useState(SEVERITY_GROUP_PAGE_SIZE);
+  const shown = tasks.slice(0, visible);
+  const remaining = tasks.length - shown.length;
+  return (
+    <section className="space-y-2">
+      <SectionHead label={label} tone={tone} count={tasks.length} />
+      <div className="space-y-2">
+        {shown.map((t) => (
+          <TaskRow
+            key={t.id}
+            task={t}
+            data={data}
+            viewerId={viewerId}
+            onOpen={onOpen}
+            onMarkDone={onMarkDone}
+            onSnooze={onSnooze}
+            onMute={onMute}
+            onReopen={onReopen}
+            onAddNote={onAddNote}
+            onAddCoachingNote={onAddCoachingNote}
+          />
+        ))}
+      </div>
+      {remaining > 0 && (
+        <div className="flex items-center justify-between gap-3 pt-1">
+          <span className="text-[11px] font-mono text-muted">
+            Showing {shown.length} of {tasks.length}
+          </span>
+          <button
+            type="button"
+            onClick={() =>
+              setVisible((v) => v + SEVERITY_GROUP_PAGE_SIZE)
+            }
+            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md border border-border text-[11px] font-medium text-muted hover:text-foreground hover:border-foreground/30 transition-colors"
+          >
+            Load {Math.min(SEVERITY_GROUP_PAGE_SIZE, remaining)} more
+          </button>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -818,194 +871,6 @@ function SortableTh({
   );
 }
 
-// ─────────────────────────────────────────────────────────────────
-// DIGEST VIEW
-// ─────────────────────────────────────────────────────────────────
-
-function DigestView({
-  reps,
-  workspace,
-}: {
-  reps: Rep[];
-  workspace: WorkspaceConfig;
-}) {
-  const aes = reps.filter((r) => r.role === "AE");
-  const [recipientId, setRecipientId] = useState(aes[0]?.id ?? "");
-  const [loading, setLoading] = useState(false);
-  const [digest, setDigest] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const { toasts, push, dismiss } = useToasts();
-  const recipient = reps.find((r) => r.id === recipientId);
-
-  async function generate() {
-    setLoading(true);
-    setError(null);
-    setDigest(null);
-    try {
-      const res = await fetch("/api/digest", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ repId: recipientId }),
-      });
-      if (!res.ok) {
-        const e = await res.json().catch(() => ({}));
-        throw new Error(e.error ?? `HTTP ${res.status}`);
-      }
-      const data = await res.json();
-      setDigest(data.digest);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function sendToSlack() {
-    if (!digest || !recipient) return;
-    try {
-      const res = await fetch("/api/slack", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          repName: recipient.name.split(" ")[0],
-          digest,
-        }),
-      });
-      const data = await res.json();
-      if (data.mode === "live" && data.ok)
-        push({ tone: "success", message: "Posted to Slack" });
-      else if (data.mode === "preview")
-        push({
-          tone: "info",
-          message: "Preview (no SLACK_WEBHOOK_URL set)",
-        });
-      else
-        push({
-          tone: "warn",
-          message: "Slack failed",
-          detail: data.error,
-        });
-    } catch (e) {
-      push({
-        tone: "warn",
-        message: "Slack failed",
-        detail: e instanceof Error ? e.message : String(e),
-      });
-    }
-  }
-
-  return (
-    <div className="space-y-6">
-      <Header
-        title="Morning digest"
-        sub={`Synthesized live by AI (OpenAI) from the current signal state for ${workspace.companyName}.`}
-      />
-
-      <Card className="p-5 space-y-4">
-        <div className="flex items-center gap-3 flex-wrap">
-          <span className="text-sm text-muted">Generate for:</span>
-          <select
-            value={recipientId}
-            onChange={(e) => setRecipientId(e.target.value)}
-            className="text-sm rounded border border-border bg-background px-2 h-8 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
-          >
-            {aes.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name}
-              </option>
-            ))}
-          </select>
-          <Button onClick={generate} disabled={loading}>
-            {loading ? "Synthesizing…" : digest ? "Regenerate" : "Generate"}
-          </Button>
-          {digest && (
-            <Button variant="secondary" onClick={sendToSlack}>
-              Send to Slack
-            </Button>
-          )}
-        </div>
-
-        {error && (
-          <div className="text-xs text-severity-blocking">
-            <div className="font-medium">Generation failed</div>
-            <div className="font-mono opacity-80 mt-0.5">{error}</div>
-          </div>
-        )}
-
-        {digest && (
-          <div className="border-t border-border pt-3">
-            <DigestText markdown={digest} />
-          </div>
-        )}
-
-        {!digest && !loading && !error && (
-          <div className="border-t border-border pt-3 text-sm text-muted italic">
-            Click <span className="font-medium not-italic text-foreground">Generate</span> to run the signal engine and synthesize {recipient?.name?.split(" ")[0]}&apos;s morning briefing.
-          </div>
-        )}
-      </Card>
-
-      <ToastStack toasts={toasts} onDismiss={dismiss} />
-    </div>
-  );
-}
-
-function DigestText({ markdown }: { markdown: string }) {
-  const lines = markdown.split("\n");
-  const out: React.ReactNode[] = [];
-  let key = 0;
-  for (const raw of lines) {
-    const line = raw.trim();
-    if (!line) {
-      out.push(<div key={key++} className="h-2" />);
-      continue;
-    }
-    if (line.startsWith("### ")) {
-      out.push(
-        <h3
-          key={key++}
-          className="text-xs uppercase tracking-wider font-semibold text-muted mt-3 mb-1"
-        >
-          {line.slice(4)}
-        </h3>,
-      );
-    } else if (line.startsWith("## ")) {
-      out.push(
-        <h2 key={key++} className="text-sm font-semibold mt-3 mb-1">
-          {line.slice(3)}
-        </h2>,
-      );
-    } else if (line.startsWith("- ") || line.startsWith("* ")) {
-      out.push(
-        <div key={key++} className="flex gap-2 text-sm leading-relaxed">
-          <span className="text-muted">•</span>
-          <span dangerouslySetInnerHTML={{ __html: inlineMd(line.slice(2)) }} />
-        </div>,
-      );
-    } else {
-      out.push(
-        <p
-          key={key++}
-          className="text-sm leading-relaxed"
-          dangerouslySetInnerHTML={{ __html: inlineMd(line) }}
-        />,
-      );
-    }
-  }
-  return <div className="space-y-1">{out}</div>;
-}
-
-function inlineMd(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(
-      /`(.+?)`/g,
-      '<code class="font-mono text-xs bg-slate-100 px-1 py-0.5 rounded">$1</code>',
-    );
-}
 
 // ─────────────────────────────────────────────────────────────────
 // SHARED BITS

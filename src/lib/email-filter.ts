@@ -96,7 +96,12 @@ function buildToolSchema() {
         reasoning: {
           type: "string",
           minLength: 10,
-          maxLength: 200,
+          // Aligned with validateStage2Output's cap (line ~191). The prompt
+          // still asks for ≤200 chars but Haiku 4.5 routinely overshoots to
+          // 200-300; before this was raised to 500 the schema mismatch was
+          // causing ~5% of decisions to fail-close as "reasoning invalid
+          // (length=2xx)" despite the validator already accepting them.
+          maxLength: 500,
         },
       },
     },

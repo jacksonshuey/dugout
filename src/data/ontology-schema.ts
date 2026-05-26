@@ -26,10 +26,14 @@ export type Comparator =
   | "<"
   | ">="
   | "<="
+  | "between"
+  | "outside_of"
   | "in"
   | "not_in"
   | "contains"
+  | "not_contains"
   | "ai_matches"
+  | "not_ai_matches"
   | "before"
   | "after"
   | "within_days"
@@ -299,12 +303,12 @@ export const ONTOLOGY_SCHEMA: readonly FieldSchema[] = [
 // Which comparators are legal for a given field type. The composer uses this
 // to render only the operators that make sense (no `>=` on a string).
 export const COMPARATORS_BY_TYPE: Record<FieldType, readonly Comparator[]> = {
-  int: ["==", "!=", ">", "<", ">=", "<="],
-  float: ["==", "!=", ">", "<", ">=", "<="],
-  string: ["==", "!=", "contains"],
-  text: ["contains", "ai_matches"],
+  int: ["==", "!=", ">", "<", ">=", "<=", "between", "outside_of"],
+  float: ["==", "!=", ">", "<", ">=", "<=", "between", "outside_of"],
+  string: ["==", "!=", "contains", "not_contains"],
+  text: ["contains", "not_contains", "ai_matches", "not_ai_matches"],
   bool: ["==", "!="],
-  date: ["before", "after", "within_days", "more_than_days_ago"],
+  date: ["before", "after", "within_days", "more_than_days_ago", "between", "outside_of"],
   enum: ["in", "not_in"],
 };
 
@@ -345,14 +349,22 @@ export function comparatorLabel(c: Comparator): string {
       return ">=";
     case "<=":
       return "<=";
+    case "between":
+      return "between";
+    case "outside_of":
+      return "outside of";
     case "in":
       return "is any of";
     case "not_in":
       return "is none of";
     case "contains":
       return "contains";
+    case "not_contains":
+      return "does not contain";
     case "ai_matches":
       return "AI matches";
+    case "not_ai_matches":
+      return "AI does not match";
     case "before":
       return "before";
     case "after":

@@ -266,13 +266,10 @@ type Action =
   | { kind: "outreach_sequence"; template: string }
   | { kind: "send_asset"; asset: string }
   | { kind: "snooze"; days: number }
-  | { kind: "notify_csm" }
-  | { kind: "morning_digest"; section: "blocking" | "action" | "awareness" };
+  | { kind: "notify_csm" };
 
 const ACTION_TEMPLATES: { label: string; action: Action }[] = [
   { label: "DM the AE on the matching account", action: { kind: "slack_dm_owner" } },
-  { label: "Add to AE's morning digest (Blocking)", action: { kind: "morning_digest", section: "blocking" } },
-  { label: "Add to AE's morning digest (Action)", action: { kind: "morning_digest", section: "action" } },
   { label: "Post to channel", action: { kind: "slack_channel", channel: "#deals" } },
   { label: "Create Dock workspace", action: { kind: "dock_workspace", template: "CFO Leave-Behind" } },
   { label: "Enroll Outreach sequence", action: { kind: "outreach_sequence", template: "Champion re-engagement" } },
@@ -306,14 +303,30 @@ function evalOntologyTrigger(acc: Account, t: OntologyTrigger): boolean {
       return !Number.isNaN(lhsNum) && lhsNum >= parseFloat(t.value);
     case "<=":
       return !Number.isNaN(lhsNum) && lhsNum <= parseFloat(t.value);
+    case "between": {
+      if (Number.isNaN(lhsNum)) return false;
+      const [lo, hi] = t.value.split(",").map((v) => parseFloat(v.trim()));
+      if (Number.isNaN(lo!) || Number.isNaN(hi!)) return false;
+      return lhsNum >= lo! && lhsNum <= hi!;
+    }
+    case "outside_of": {
+      if (Number.isNaN(lhsNum)) return false;
+      const [lo, hi] = t.value.split(",").map((v) => parseFloat(v.trim()));
+      if (Number.isNaN(lo!) || Number.isNaN(hi!)) return false;
+      return lhsNum < lo! || lhsNum > hi!;
+    }
     case "in":
       return t.value.split(",").map((v) => v.trim().toLowerCase()).includes(lhsStr.toLowerCase());
     case "not_in":
       return !t.value.split(",").map((v) => v.trim().toLowerCase()).includes(lhsStr.toLowerCase());
     case "contains":
       return lhsStr.toLowerCase().includes(t.value.toLowerCase());
+    case "not_contains":
+      return !lhsStr.toLowerCase().includes(t.value.toLowerCase());
     case "ai_matches":
-      // Demo: AI matches is opaque to the synchronous evaluator.
+    case "not_ai_matches":
+      // Demo: AI-driven matches are opaque to the synchronous evaluator.
+      // The rule still saves; the live preview just can't preview AI hits.
       return false;
     case "before":
     case "after":
@@ -375,6 +388,94 @@ interface ActiveRule {
 }
 
 const SEEDED_RULES: ActiveRule[] = [
+  {
+    id: "rule_kkr_stale_high_value",
+    severity: "action",
+    name: "STALE_HIGH_VALUE_DEAL",
+    title: "Mid-six-figure deal · low meeting velocity",
+    account: "KKR & Co.",
+    triggers: [
+      { kind: "ontology", field: "deal_amount", comparator: "between", value: "150000,500000" },
+      { kind: "ontology", field: "meeting_count_30d", comparator: "<", value: "3" },
+    ],
+    actions: [
+      { kind: "slack_dm_owner" },
+      { kind: "notify_csm" },
+    ],
+    matches: [
+      { field: "deal_amount", value: "$180,000", source: "Salesforce" },
+      { field: "meeting_count_30d", value: "2", source: "Gong" },
+    ],
+    evidence:
+      "Deal crossed the $150K floor where Finance approval is mandatory, but only 2 meetings in 30 days. No CFO loop-in yet.",
+    evidenceFrom: "Pipeline review · May 24",
+    age: "8h ago",
+  },
+  {
+    id: "rule_snowflake_competitor_mention",
+    severity: "blocking",
+    name: "COMPETITOR_MENTIONED",
+    title: "Databricks named on last Snowflake call",
+    account: "Snowflake",
+    triggers: [
+      { kind: "meeting", source: "Gong", mode: "word", pattern: "Databricks, Hightouch, Census" },
+      { kind: "ontology", field: "forecast_category", comparator: "in", value: "Commit,Best Case" },
+    ],
+    actions: [
+      { kind: "slack_dm_owner" },
+      { kind: "send_asset", asset: "Snowflake vs Databricks one-pager" },
+    ],
+    matches: [
+      { field: "meeting_signal", value: "Champion asked how we compare to Databricks", source: "Gong" },
+      { field: "forecast_category", value: "Commit", source: "Salesforce" },
+    ],
+    evidence: "\"We're also evaluating Databricks. What's your story there?\"",
+    evidenceFrom: "Jane Chen, May 23",
+    age: "1d ago",
+  },
+  {
+    id: "rule_sap_high_engagement_awareness",
+    severity: "awareness",
+    name: "HIGH_ENGAGEMENT_LATE_STAGE",
+    title: "SAP · high-engagement late-stage deal",
+    account: "SAP",
+    triggers: [
+      { kind: "ontology", field: "champion_engagement_score", comparator: ">=", value: "0.8" },
+      { kind: "ontology", field: "stage", comparator: "in", value: "Selected Vendor,Contracting" },
+    ],
+    actions: [{ kind: "slack_channel", channel: "#deal-momentum" }],
+    matches: [
+      { field: "champion_engagement_score", value: "0.91", source: "Dugout AI" },
+      { field: "stage", value: "Contracting", source: "Salesforce" },
+    ],
+    evidence:
+      "Champion engagement at 0.91 and already in Contracting. Worth surfacing so the rep maintains pressure on the close.",
+    evidenceFrom: "Engagement model · daily refresh",
+    age: "12h ago",
+  },
+  {
+    id: "rule_stripe_outside_band",
+    severity: "action",
+    name: "ACV_OUTSIDE_TARGET_BAND",
+    title: "Stripe ACV outside $150K–$400K target band",
+    account: "Stripe",
+    triggers: [
+      { kind: "ontology", field: "deal_amount", comparator: "outside_of", value: "150000,400000" },
+      { kind: "ontology", field: "stage", comparator: "in", value: "Qualified,Demo Sat,Evaluating" },
+    ],
+    actions: [
+      { kind: "slack_dm_owner" },
+      { kind: "notify_csm" },
+    ],
+    matches: [
+      { field: "deal_amount", value: "$95,000", source: "Salesforce" },
+      { field: "stage", value: "Qualified", source: "Salesforce" },
+    ],
+    evidence:
+      "Deal sized below our $150K minimum target band. Expand scope (add modules) or reclassify as SMB before progressing.",
+    evidenceFrom: "Pricing playbook · target band $150K–$400K",
+    age: "1d ago",
+  },
   {
     id: "rule_goldman_freeze",
     severity: "blocking",
@@ -496,9 +597,13 @@ export function InteractiveSignals() {
   const [tier, setTier] = useState<Severity | "all">("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [handled, setHandled] = useState<Set<string>>(new Set());
-  const [customRules, setCustomRules] = useState<ActiveRule[]>([]);
+  // All rules — seeded + user-authored — live in one state slice so every
+  // rule is editable through the composer.
+  const [rules, setRules] = useState<ActiveRule[]>(SEEDED_RULES);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
-  const rules: ActiveRule[] = [...customRules, ...SEEDED_RULES];
+  const editingRule = editingId ? rules.find((r) => r.id === editingId) ?? null : null;
+
   const remaining = rules.filter((r) => !handled.has(r.id));
   const visible = remaining.filter((r) => tier === "all" || r.severity === tier);
   const counts = {
@@ -513,13 +618,41 @@ export function InteractiveSignals() {
     if (expandedId === id) setExpandedId(null);
   };
 
+  const handleSave = (rule: ActiveRule) => {
+    if (editingId) {
+      setRules((rs) => rs.map((r) => (r.id === editingId ? { ...rule, id: editingId } : r)));
+      setExpandedId(editingId);
+      setEditingId(null);
+    } else {
+      setRules((rs) => [rule, ...rs]);
+      setExpandedId(rule.id);
+    }
+  };
+
+  const handleEdit = (id: string) => {
+    setEditingId(id);
+    setExpandedId(null);
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: window.scrollY - 50, behavior: "smooth" });
+    }
+  };
+
+  const handleDelete = (id: string) => {
+    setRules((rs) => rs.filter((r) => r.id !== id));
+    if (expandedId === id) setExpandedId(null);
+    if (editingId === id) setEditingId(null);
+  };
+
   return (
     <div className="space-y-6">
       <RuleComposer
-        onSave={(rule) => {
-          setCustomRules((rs) => [rule, ...rs]);
-          setExpandedId(rule.id);
-        }}
+        // Re-mount the composer whenever the edit target changes (or when
+        // switching back to create-new mode). Lets us seed state from
+        // editingRule via useState initializers — no effect-driven syncing.
+        key={editingRule?.id ?? "new"}
+        editingRule={editingRule}
+        onSave={handleSave}
+        onCancelEdit={() => setEditingId(null)}
       />
 
       <div className="space-y-3">
@@ -563,11 +696,9 @@ export function InteractiveSignals() {
                 expanded={expandedId === r.id}
                 onToggle={() => setExpandedId(expandedId === r.id ? null : r.id)}
                 onHandle={() => markHandled(r.id)}
-                onRemove={
-                  r.custom
-                    ? () => setCustomRules((rs) => rs.filter((x) => x.id !== r.id))
-                    : undefined
-                }
+                onEdit={() => handleEdit(r.id)}
+                onRemove={() => handleDelete(r.id)}
+                isEditing={editingId === r.id}
               />
             ))
           )}
@@ -595,17 +726,26 @@ function RuleCard({
   expanded,
   onToggle,
   onHandle,
+  onEdit,
   onRemove,
+  isEditing,
 }: {
   rule: ActiveRule;
   expanded: boolean;
   onToggle: () => void;
   onHandle: () => void;
-  onRemove?: () => void;
+  onEdit: () => void;
+  onRemove: () => void;
+  isEditing: boolean;
 }) {
   const cls = severityClasses(rule.severity);
   return (
-    <div className="rounded-lg border border-border bg-background overflow-hidden">
+    <div
+      className={
+        "rounded-lg border bg-background overflow-hidden transition-colors " +
+        (isEditing ? "border-brand/60 ring-2 ring-brand/20" : "border-border")
+      }
+    >
       <button
         type="button"
         onClick={onToggle}
@@ -623,6 +763,11 @@ function RuleCard({
             {rule.custom && (
               <span className="text-[9px] font-mono uppercase tracking-[0.1em] px-1.5 py-0.5 rounded border border-brand/30 bg-brand/[0.06] text-brand">
                 custom
+              </span>
+            )}
+            {isEditing && (
+              <span className="text-[9px] font-mono uppercase tracking-[0.1em] px-1.5 py-0.5 rounded bg-brand text-background">
+                editing
               </span>
             )}
           </div>
@@ -683,15 +828,20 @@ function RuleCard({
             >
               ✓ Mark handled
             </button>
-            {onRemove && (
-              <button
-                type="button"
-                onClick={onRemove}
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md border border-border text-muted hover:text-foreground hover:border-foreground/30 text-[11px] font-medium transition-colors"
-              >
-                Delete rule
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={onEdit}
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md border border-brand/40 bg-brand/[0.06] text-brand hover:bg-brand/[0.1] text-[11px] font-medium transition-colors"
+            >
+              Edit rule
+            </button>
+            <button
+              type="button"
+              onClick={onRemove}
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md border border-border text-muted hover:text-foreground hover:border-foreground/30 text-[11px] font-medium transition-colors"
+            >
+              Delete rule
+            </button>
           </div>
         </div>
       )}
@@ -812,8 +962,6 @@ function actionKindLabel(a: Action): string {
       return "snooze";
     case "notify_csm":
       return "csm";
-    case "morning_digest":
-      return "digest";
   }
 }
 
@@ -833,8 +981,6 @@ function actionDescription(a: Action): string {
       return `Suppress for ${a.days} day${a.days === 1 ? "" : "s"}`;
     case "notify_csm":
       return "Tag CSM with hand-off note";
-    case "morning_digest":
-      return `Include in AE's morning digest under "${a.section}"`;
   }
 }
 
@@ -842,18 +988,35 @@ function actionDescription(a: Action): string {
 // Composer
 // ===========================================================================
 
-function RuleComposer({ onSave }: { onSave: (rule: ActiveRule) => void }) {
-  const [name, setName] = useState("LOW_MEETING_VELOCITY");
-  const [severity, setSeverity] = useState<Severity>("action");
-  const [triggers, setTriggers] = useState<Trigger[]>([
-    {
-      kind: "ontology",
-      field: "meeting_count_30d",
-      comparator: "<",
-      value: "5",
-    },
-  ]);
-  const [actions, setActions] = useState<Action[]>([{ kind: "slack_dm_owner" }]);
+function RuleComposer({
+  editingRule,
+  onSave,
+  onCancelEdit,
+}: {
+  editingRule: ActiveRule | null;
+  onSave: (rule: ActiveRule) => void;
+  onCancelEdit: () => void;
+}) {
+  // Seed state directly from editingRule via useState initializers. The
+  // parent re-mounts this component (key=editingRule.id) whenever the edit
+  // target changes, so this initialization is always fresh — no effect-
+  // driven syncing required.
+  const [name, setName] = useState(editingRule?.name ?? "LOW_MEETING_VELOCITY");
+  const [triggers, setTriggers] = useState<Trigger[]>(
+    editingRule?.triggers ?? [
+      {
+        kind: "ontology",
+        field: "meeting_count_30d",
+        comparator: "<",
+        value: "5",
+      },
+    ],
+  );
+  const [actions, setActions] = useState<Action[]>(
+    editingRule?.actions ?? [{ kind: "slack_dm_owner" }],
+  );
+
+  const isEditing = editingRule !== null;
 
   const matches = useMemo(
     () => ACCOUNTS.filter((a) => evalRule(a, triggers)),
@@ -873,35 +1036,63 @@ function RuleComposer({ onSave }: { onSave: (rule: ActiveRule) => void }) {
   }, [triggers]);
 
   const handleSave = () => {
-    const rule: ActiveRule = {
-      id: `custom_${Date.now()}`,
-      severity,
-      name: name.trim(),
-      title: draftTitle,
-      account: matches[0]?.name ?? "(no matches yet)",
-      triggers,
-      actions,
-      matches: triggers
-        .filter((t): t is OntologyTrigger => t.kind === "ontology")
-        .map((t) => ({
-          field: t.field,
-          value: `${comparatorLabel(t.comparator)} ${t.value}`,
-        })),
-      evidence: "",
-      evidenceFrom: "",
-      age: "just now",
-      custom: true,
-    };
-    onSave(rule);
+    if (isEditing && editingRule) {
+      // Preserve metadata the composer doesn't author (severity, evidence,
+      // account label, age) so saved edits don't lose the surrounding context.
+      onSave({
+        ...editingRule,
+        name: name.trim(),
+        title: editingRule.title,
+        triggers,
+        actions,
+      });
+    } else {
+      const rule: ActiveRule = {
+        id: `custom_${Date.now()}`,
+        severity: "action",
+        name: name.trim(),
+        title: draftTitle,
+        account: matches[0]?.name ?? "(no matches yet)",
+        triggers,
+        actions,
+        matches: triggers
+          .filter((t): t is OntologyTrigger => t.kind === "ontology")
+          .map((t) => ({
+            field: t.field,
+            value: `${comparatorLabel(t.comparator)} ${t.value}`,
+          })),
+        evidence: "",
+        evidenceFrom: "",
+        age: "just now",
+        custom: true,
+      };
+      onSave(rule);
+    }
   };
 
   return (
-    <div className="rounded-lg border border-brand/30 bg-brand/[0.03] p-4 space-y-4">
+    <div
+      className={
+        "rounded-lg border p-4 space-y-4 " +
+        (isEditing
+          ? "border-brand/60 bg-brand/[0.06] ring-2 ring-brand/20"
+          : "border-brand/30 bg-brand/[0.03]")
+      }
+    >
       <div className="flex items-baseline justify-between flex-wrap gap-2">
         <div>
-          <h4 className="text-sm font-semibold tracking-tight">Build a rule stream</h4>
+          <h4 className="text-sm font-semibold tracking-tight flex items-center gap-2">
+            {isEditing ? `Edit rule · ${editingRule!.name}` : "Build a rule stream"}
+            {isEditing && (
+              <span className="text-[9px] font-mono uppercase tracking-[0.1em] px-1.5 py-0.5 rounded bg-brand text-background">
+                editing
+              </span>
+            )}
+          </h4>
           <p className="text-[11px] text-muted leading-relaxed mt-0.5">
-            Chain triggers from any source: ontology fields, news, meetings, or AI extraction. Then string together actions that run on a hit.
+            {isEditing
+              ? "Modify any trigger or action. Saving updates the rule in place; cancelling discards your changes."
+              : "Chain triggers from any source: ontology fields, news, meetings, or AI extraction. Then string together actions that run on a hit."}
           </p>
         </div>
         <span className="text-[10px] uppercase tracking-[0.15em] font-mono text-muted">
@@ -909,24 +1100,13 @@ function RuleComposer({ onSave }: { onSave: (rule: ActiveRule) => void }) {
         </span>
       </div>
 
-      <div className="grid grid-cols-12 gap-2 text-[12px]">
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value.toUpperCase().replace(/\s+/g, "_"))}
-          placeholder="RULE_NAME"
-          className="col-span-12 sm:col-span-7 px-3 py-1.5 rounded-md border border-border bg-background font-mono uppercase text-[12px] focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
-        />
-        <select
-          value={severity}
-          onChange={(e) => setSeverity(e.target.value as Severity)}
-          className="col-span-12 sm:col-span-5 px-3 py-1.5 rounded-md border border-border bg-background text-[12px] focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
-        >
-          <option value="blocking">Blocking · DM within the hour</option>
-          <option value="action">Action · daily digest</option>
-          <option value="awareness">Awareness · weekly roundup</option>
-        </select>
-      </div>
+      <input
+        type="text"
+        value={name}
+        onChange={(e) => setName(e.target.value.toUpperCase().replace(/\s+/g, "_"))}
+        placeholder="RULE_NAME"
+        className="w-full px-3 py-1.5 rounded-md border border-border bg-background font-mono uppercase text-[12px] focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
+      />
 
       <div className="space-y-2">
         <span className="text-[10px] uppercase tracking-[0.15em] font-mono text-muted">
@@ -1023,13 +1203,22 @@ function RuleComposer({ onSave }: { onSave: (rule: ActiveRule) => void }) {
       </div>
 
       <div className="flex items-center justify-end gap-2">
+        {isEditing && (
+          <button
+            type="button"
+            onClick={onCancelEdit}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-muted hover:text-foreground hover:border-foreground/30 text-[12px] font-medium transition-colors"
+          >
+            Cancel edit
+          </button>
+        )}
         <button
           type="button"
           disabled={!canSave}
           onClick={handleSave}
           className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-md bg-foreground text-background text-[12px] font-medium hover:bg-foreground/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Save rule to stream
+          {isEditing ? "Update rule" : "Save rule to stream"}
         </button>
       </div>
     </div>
@@ -1271,28 +1460,92 @@ function OntologyValueEditor({
       .sort((a, b) => a - b);
     const min = distinct[0];
     const max = distinct[distinct.length - 1];
+    const step = schema.type === "float" ? "0.01" : "1";
+    const isRange = trigger.comparator === "between" || trigger.comparator === "outside_of";
+
+    // For range comparators we serialize the bounds as "lo,hi". When switching
+    // INTO a range comparator from a single-value one, seed lo with the
+    // existing value and hi with the dataset max so the user has a sensible
+    // starting interval. When switching OUT, drop down to the low bound.
+    const onComparatorChange = (next: Comparator) => {
+      const prev = trigger.comparator;
+      const wasRange = prev === "between" || prev === "outside_of";
+      const willBeRange = next === "between" || next === "outside_of";
+      let nextValue = trigger.value;
+      if (!wasRange && willBeRange) {
+        const lo = trigger.value || (min !== undefined ? String(min) : "0");
+        const hi = max !== undefined ? String(max) : lo;
+        nextValue = `${lo},${hi}`;
+      } else if (wasRange && !willBeRange) {
+        nextValue = trigger.value.split(",")[0]?.trim() || "0";
+      }
+      onChange({ ...trigger, comparator: next, value: nextValue });
+    };
+
+    const [loRaw, hiRaw] = isRange
+      ? trigger.value.split(",").map((v) => v.trim())
+      : [trigger.value, ""];
+
     return (
       <div className="space-y-1">
-        <div className="grid grid-cols-12 gap-2 text-[12px]">
-          <select
-            value={trigger.comparator}
-            onChange={(e) => onChange({ ...trigger, comparator: e.target.value as Comparator })}
-            className="col-span-4 px-2 py-1.5 rounded-md border border-border bg-background font-mono text-[12px] focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
-          >
-            {comparators.map((c) => (
-              <option key={c} value={c}>
-                {comparatorLabel(c)}
-              </option>
-            ))}
-          </select>
-          <input
-            type="number"
-            step={schema.type === "float" ? "0.01" : "1"}
-            value={trigger.value}
-            onChange={(e) => onChange({ ...trigger, value: e.target.value })}
-            className="col-span-8 px-3 py-1.5 rounded-md border border-border bg-background text-[12px] focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
-          />
-        </div>
+        {isRange ? (
+          // [lo input] [comparator] [hi input] — the new blank opens to the
+          // left of the comparator when between / outside_of is selected.
+          <div className="grid grid-cols-12 gap-2 text-[12px] items-center">
+            <input
+              type="number"
+              step={step}
+              value={loRaw ?? ""}
+              onChange={(e) =>
+                onChange({ ...trigger, value: `${e.target.value},${hiRaw ?? ""}` })
+              }
+              placeholder="min"
+              className="col-span-4 px-3 py-1.5 rounded-md border border-border bg-background text-[12px] focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
+            />
+            <select
+              value={trigger.comparator}
+              onChange={(e) => onComparatorChange(e.target.value as Comparator)}
+              className="col-span-4 px-2 py-1.5 rounded-md border border-border bg-background font-mono text-[12px] focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
+            >
+              {comparators.map((c) => (
+                <option key={c} value={c}>
+                  {comparatorLabel(c)}
+                </option>
+              ))}
+            </select>
+            <input
+              type="number"
+              step={step}
+              value={hiRaw ?? ""}
+              onChange={(e) =>
+                onChange({ ...trigger, value: `${loRaw ?? ""},${e.target.value}` })
+              }
+              placeholder="max"
+              className="col-span-4 px-3 py-1.5 rounded-md border border-border bg-background text-[12px] focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
+            />
+          </div>
+        ) : (
+          <div className="grid grid-cols-12 gap-2 text-[12px]">
+            <select
+              value={trigger.comparator}
+              onChange={(e) => onComparatorChange(e.target.value as Comparator)}
+              className="col-span-4 px-2 py-1.5 rounded-md border border-border bg-background font-mono text-[12px] focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
+            >
+              {comparators.map((c) => (
+                <option key={c} value={c}>
+                  {comparatorLabel(c)}
+                </option>
+              ))}
+            </select>
+            <input
+              type="number"
+              step={step}
+              value={trigger.value}
+              onChange={(e) => onChange({ ...trigger, value: e.target.value })}
+              className="col-span-8 px-3 py-1.5 rounded-md border border-border bg-background text-[12px] focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
+            />
+          </div>
+        )}
         {distinct.length > 0 && (
           <div className="text-[10px] font-mono text-muted">
             range across accounts: {formatNumber(min!, schema.unit)} → {formatNumber(max!, schema.unit)}
@@ -1650,14 +1903,11 @@ function ActionEditor({
             else if (k === "send_asset")
               onChange({ kind: "send_asset", asset: "Latest SOC 2 packet" });
             else if (k === "snooze") onChange({ kind: "snooze", days: 7 });
-            else if (k === "morning_digest")
-              onChange({ kind: "morning_digest", section: "action" });
             else onChange({ kind: "notify_csm" });
           }}
           className="px-2 py-1 rounded-md border border-border bg-background text-[11px] focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
         >
           <option value="slack_dm_owner">DM the AE on matching account</option>
-          <option value="morning_digest">Add to AE&apos;s morning digest</option>
           <option value="slack_channel">Post to Slack channel</option>
           <option value="dock_workspace">Create Dock workspace</option>
           <option value="outreach_sequence">Enroll Outreach sequence</option>
@@ -1765,26 +2015,6 @@ function ActionBody({
         onChange={(e) => onChange({ ...action, days: parseInt(e.target.value, 10) || 1 })}
         className="w-full px-3 py-1.5 rounded-md border border-border bg-background text-[12px] focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
       />
-    );
-  }
-  if (action.kind === "morning_digest") {
-    return (
-      <div className="space-y-2">
-        <select
-          value={action.section}
-          onChange={(e) =>
-            onChange({ ...action, section: e.target.value as typeof action.section })
-          }
-          className="w-full px-3 py-1.5 rounded-md border border-border bg-background text-[12px] focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
-        >
-          <option value="blocking">Blocking section · top of digest</option>
-          <option value="action">Action section · middle</option>
-          <option value="awareness">Awareness section · bottom</option>
-        </select>
-        <div className="text-[11px] text-muted italic">
-          Includes the matched account in the next morning digest the synthesizer writes for the assigned AE. The LLM merges it with other signals on that AE&apos;s book.
-        </div>
-      </div>
     );
   }
   return (

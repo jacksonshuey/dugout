@@ -8,6 +8,7 @@ import type { ExternalSignal } from "@/lib/external-signals";
 import type { RankedItem } from "@/lib/ranker-types";
 import { displayNameFor } from "@/lib/inbound-publishers";
 import { accounts } from "@/data/seed";
+import { LEGACY_ACCOUNT_ALIASES } from "@/data/legacy-account-aliases";
 
 // Load-more pagination: render the first INITIAL_ROWS rows on mount, then
 // reveal STEP_ROWS more each time the button is clicked. Keeps the initial
@@ -179,6 +180,7 @@ export function AccountNamedTable({
         <tbody>
           {visible.map((s) => {
             const account = accountById.get(s.account_id);
+            const legacyName = LEGACY_ACCOUNT_ALIASES[s.account_id];
             const typeLabel = TYPE_LABELS[s.type] ?? s.type;
             return (
               <tr
@@ -197,7 +199,7 @@ export function AccountNamedTable({
                       {account.name}
                     </Link>
                   ) : (
-                    s.account_id
+                    legacyName ?? s.account_id
                   )}
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap">

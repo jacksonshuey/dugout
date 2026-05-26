@@ -521,11 +521,19 @@ export async function classifyWebScrape(
       source: "web_scrape",
       type: x.type,
       summary: x.summary,
-      occurred_at: x.occurred_at ?? scrape.scraped_at,
+      // occurred_at = "when Dugout learned this", matching the newsletter
+      // adapter convention. The Haiku-extracted event date (e.g. "Q1 FY27
+      // results May 27, 2026") lives in meta.event_date so future-scheduled
+      // events don't sort above today's news in the recency-ordered ticker.
+      occurred_at: scrape.scraped_at,
       url,
       meta: {
         web_scrape_id: scrape.id,
         scraped_url: scrape.url,
+        // When Haiku extracted a date from the page (the date the event is
+        // scheduled or happened, not the scrape time) — preserved here so
+        // upcoming-events surfaces can still read it.
+        event_date: x.occurred_at ?? null,
         // Brief fields live under meta.brief_fields so the AE pre-call
         // surface can read them without a column migration each time we
         // add a structured field. Stored on every signal from this page

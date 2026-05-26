@@ -150,7 +150,7 @@ export function InteractiveDecisions() {
   };
 
   return (
-    <div className="space-y-4 max-w-3xl">
+    <div className="space-y-4">
       {/* Status filter pills */}
       <div className="flex items-center gap-2 flex-wrap">
         {STATUSES.map((s) => {
