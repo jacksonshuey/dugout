@@ -367,7 +367,7 @@ function StepIntegrate() {
           </div>
           <div className="mt-auto pb-2 space-y-2">
             <div className="text-[10px] uppercase tracking-[0.2em] font-mono text-muted">
-              Checkbox stack · {stackBrands.length} tools
+              Integrate any of your tools
             </div>
             <div className="marquee-container relative w-full max-w-full overflow-hidden">
               <div
