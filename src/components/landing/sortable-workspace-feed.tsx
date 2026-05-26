@@ -8,7 +8,9 @@ import type { ExternalSignal } from "@/lib/external-signals";
 // signals and we re-order in memory. Three sort axes:
 //
 //   - Recency: occurred_at desc (default)
-//   - Relevance: workspace_relevance tier (high > medium > low > none)
+//   - Relevance: signals mentioning a tracked account first (the AE's
+//     own company list), then workspace_relevance tier
+//     (high > medium > low > none), tie-broken by recency
 //   - Magnitude: signal type priority (M&A / leadership > funding > earnings
 //     > product/press > competitor/other), tie-broken by recency
 //
@@ -46,11 +48,26 @@ function compareRecency(a: ExternalSignal, b: ExternalSignal): number {
   );
 }
 
-function compareRelevance(a: ExternalSignal, b: ExternalSignal): number {
-  const ra = RELEVANCE_RANK[a.workspace_relevance ?? "none"] ?? 0;
-  const rb = RELEVANCE_RANK[b.workspace_relevance ?? "none"] ?? 0;
-  if (ra !== rb) return rb - ra;
-  return compareRecency(a, b);
+function signalText(s: ExternalSignal): string {
+  return `${s.summary} ${s.email_subject ?? ""}`.toLowerCase();
+}
+
+function mentionsAccount(signal: ExternalSignal, needles: string[]): boolean {
+  if (needles.length === 0) return false;
+  const haystack = signalText(signal);
+  return needles.some((n) => haystack.includes(n));
+}
+
+function makeCompareRelevance(needles: string[]) {
+  return (a: ExternalSignal, b: ExternalSignal): number => {
+    const ma = mentionsAccount(a, needles);
+    const mb = mentionsAccount(b, needles);
+    if (ma !== mb) return ma ? -1 : 1;
+    const ra = RELEVANCE_RANK[a.workspace_relevance ?? "none"] ?? 0;
+    const rb = RELEVANCE_RANK[b.workspace_relevance ?? "none"] ?? 0;
+    if (ra !== rb) return rb - ra;
+    return compareRecency(a, b);
+  };
 }
 
 function compareMagnitude(a: ExternalSignal, b: ExternalSignal): number {
@@ -62,18 +79,30 @@ function compareMagnitude(a: ExternalSignal, b: ExternalSignal): number {
 
 export function SortableWorkspaceFeed({
   signals,
+  trackedAccountNames = [],
 }: {
   signals: ExternalSignal[];
+  // Names + tickers of the AE's tracked accounts. Used by the "Relevance"
+  // sort to float signals that mention a tracked company to the top.
+  trackedAccountNames?: string[];
 }) {
   const [sortBy, setSortBy] = useState<SortKey>("recency");
 
+  const needles = useMemo(
+    () =>
+      trackedAccountNames
+        .map((n) => n.trim().toLowerCase())
+        .filter((n) => n.length > 0),
+    [trackedAccountNames],
+  );
+
   const sorted = useMemo(() => {
     const copy = [...signals];
-    if (sortBy === "relevance") copy.sort(compareRelevance);
+    if (sortBy === "relevance") copy.sort(makeCompareRelevance(needles));
     else if (sortBy === "magnitude") copy.sort(compareMagnitude);
     else copy.sort(compareRecency);
     return copy;
-  }, [signals, sortBy]);
+  }, [signals, sortBy, needles]);
 
   if (signals.length === 0) {
     return (
