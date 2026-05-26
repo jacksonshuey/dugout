@@ -1,4 +1,3 @@
-import Link from "next/link";
 import {
   accounts,
   activities,
@@ -771,16 +770,6 @@ async function MarketIntelLiveSection() {
         </div>
       </div>
       <SortableWorkspaceFeed signals={workspaceSignals} />
-
-      <div className="mt-10">
-        <Link
-          href="/market-intel"
-          className="inline-flex items-center gap-2 text-sm font-medium text-brand hover:underline"
-        >
-          Open the full market intel feed
-          <span aria-hidden>→</span>
-        </Link>
-      </div>
     </section>
   );
 }
