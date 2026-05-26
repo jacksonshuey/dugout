@@ -56,7 +56,7 @@ export default async function ZipperingExplainPage({ searchParams }: PageProps) 
           to scope to a specific workspace.
         </p>
         <p className="mt-4 text-sm text-muted">
-          Each entry shows what Haiku decided, the similarity score, and the reason —
+          Each entry shows what Haiku decided, the similarity score, and the reason,
           so anyone can see exactly how a column got routed.
         </p>
       </div>
@@ -169,19 +169,19 @@ export default async function ZipperingExplainPage({ searchParams }: PageProps) 
                   <td className="px-4 py-3 whitespace-nowrap font-mono text-xs">
                     {d.similarity_score !== null && d.similarity_score !== undefined
                       ? d.similarity_score.toFixed(2)
-                      : <span className="text-muted">—</span>}
+                      : <span className="text-muted">–</span>}
                   </td>
 
                   {/* reason */}
                   <td className="px-4 py-3 max-w-xs text-muted text-xs leading-snug">
-                    {d.reason ?? <span className="text-muted">—</span>}
+                    {d.reason ?? <span className="text-muted">–</span>}
                   </td>
 
                   {/* source_samples */}
                   <td className="px-4 py-3 font-mono text-xs text-muted max-w-[160px] truncate">
                     {d.source_samples && d.source_samples.length > 0
                       ? JSON.stringify(d.source_samples)
-                      : <span>—</span>}
+                      : <span>–</span>}
                   </td>
                 </tr>
               ))}
@@ -209,7 +209,7 @@ export default async function ZipperingExplainPage({ searchParams }: PageProps) 
       {/* Row count */}
       {!fetchError && decisions.length > 0 && (
         <p className="mt-3 text-xs text-muted">
-          {decisions.length} decision{decisions.length !== 1 ? "s" : ""} — newest first.
+          {decisions.length} decision{decisions.length !== 1 ? "s" : ""} · newest first.
         </p>
       )}
     </div>

@@ -74,8 +74,15 @@ export default async function LandingPage() {
     <div className="bg-background">
       <Hero />
       <OnboardingWalkthrough />
-      <DemoDivider />
       <section id="demo" className="border-t border-border bg-foreground/[0.02]">
+        <div className="max-w-6xl mx-auto px-6 pt-12 sm:pt-16 pb-6">
+          <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight">
+            Dashboard
+          </h2>
+          <p className="mt-2 text-sm text-muted">
+            Live console. Pipeline and today&apos;s open tasks, by severity.
+          </p>
+        </div>
         <Console
           basePath="/"
           signals={signals}
@@ -90,8 +97,58 @@ export default async function LandingPage() {
         />
       </section>
       <MarketIntelLiveSection />
+      <NextUpSection />
       <Footer />
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Next up - brief 90-day roadmap. Three workstreams, no detail.
+// ---------------------------------------------------------------------------
+
+function NextUpSection() {
+  const items: { title: string; sub: string }[] = [
+    {
+      title: "Organization-specific integration scaffolding",
+      sub: "Per-customer connectors so each new workspace wires up Salesforce, Slack, Gong, and Outreach through the same setup-reel flow.",
+    },
+    {
+      title: "Workflow automations",
+      sub: "Promote rule streams from preview to firing: Slack DMs, Dock workspace creation, Outreach enrollment, asset delivery on the chain.",
+    },
+    {
+      title: "User account creation",
+      sub: "Multi-tenant auth so individual AEs and managers sign into their own workspace instead of sharing a demo session.",
+    },
+  ];
+  return (
+    <section className="max-w-6xl mx-auto px-6 py-20 sm:py-24 border-t border-border">
+      <SectionEyebrow>90-day plan</SectionEyebrow>
+      <h2 className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight max-w-3xl">
+        What&apos;s next.
+      </h2>
+      <p className="mt-4 text-base text-foreground/70 leading-relaxed max-w-2xl">
+        Three workstreams between now and day 90 to turn the demo into a
+        tool a real team can adopt.
+      </p>
+      <ol className="mt-10 grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {items.map((item, i) => (
+          <li
+            key={item.title}
+            className="rounded-lg border border-border bg-background p-5 space-y-2"
+          >
+            <span className="text-[11px] uppercase tracking-[0.15em] font-mono text-brand">
+              {String(i + 1).padStart(2, "0")}
+            </span>
+            <h3 className="text-sm font-semibold tracking-tight leading-snug">
+              {item.title}
+            </h3>
+            <p className="text-xs text-muted leading-relaxed">{item.sub}</p>
+          </li>
+        ))}
+      </ol>
+    </section>
   );
 }
 
@@ -103,14 +160,9 @@ export default async function LandingPage() {
 // ---------------------------------------------------------------------------
 
 function Footer() {
-  const links: { href: string; label: string; sub: string }[] = [
-    { href: "/console", label: "AE Console", sub: "Pipeline · Today · Digest" },
-    { href: "/manager", label: "Manager view", sub: "Team aggregates · per-rep" },
-    { href: "/market-intel", label: "Market intel", sub: "Workspace-wide news inbox" },
-  ];
   return (
     <footer className="border-t border-border bg-background">
-      <div className="max-w-6xl mx-auto px-6 py-12 space-y-6">
+      <div className="max-w-6xl mx-auto px-6 py-16">
         <div className="flex items-baseline justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-2">
             <span
@@ -147,23 +199,6 @@ function Footer() {
             </a>
           </span>
         </div>
-        <nav
-          aria-label="Operator surfaces"
-          className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 pt-4 border-t border-border"
-        >
-          {links.map((l) => (
-            <Link
-              key={l.href}
-              href={l.href}
-              className="group block space-y-0.5"
-            >
-              <div className="text-sm font-medium group-hover:text-brand transition-colors">
-                {l.label} <span aria-hidden>→</span>
-              </div>
-              <div className="text-[11px] text-muted">{l.sub}</div>
-            </Link>
-          ))}
-        </nav>
       </div>
     </footer>
   );
@@ -185,7 +220,7 @@ function Hero() {
           backgroundSize: "48px 48px",
         }}
       />
-      <div className="relative max-w-6xl mx-auto px-6 py-20 sm:py-24">
+      <div className="relative max-w-6xl mx-auto px-6 py-24 sm:py-32">
         <div className="text-xs uppercase tracking-[0.2em] text-background/60 font-mono mb-5">
           Dugout · the intelligence layer for sales teams
         </div>
@@ -194,25 +229,11 @@ function Hero() {
           <br />
           a meeting cold.
         </h1>
-        <p className="mt-5 text-lg sm:text-xl text-background/70 max-w-2xl leading-relaxed">
+        <p className="mt-6 text-lg sm:text-xl text-background/70 max-w-2xl leading-relaxed">
           Every tool, every signal, every news cycle, synthesized into a
           knowledge layer your AEs and managers rely on before each meeting.
           Deals stop dying because someone walked in unprepared.
         </p>
-        <div className="mt-8 flex flex-wrap gap-3 items-center">
-          <Link
-            href="/plan"
-            className="inline-flex items-center px-5 h-11 rounded-lg bg-background text-foreground text-sm font-semibold hover:bg-background/90 transition-colors"
-          >
-            See the 90-day plan →
-          </Link>
-          <Link
-            href="#demo"
-            className="inline-flex items-center px-5 h-11 rounded-lg border border-background/25 text-background text-sm font-semibold hover:bg-background/10 transition-colors"
-          >
-            Skip to live demo
-          </Link>
-        </div>
       </div>
     </section>
   );
@@ -232,7 +253,7 @@ function Hero() {
 
 function OnboardingWalkthrough() {
   return (
-    <section className="max-w-6xl mx-auto px-6 py-20 sm:py-24 border-b border-border">
+    <section className="max-w-6xl mx-auto px-6 py-20 sm:py-24">
       <SectionEyebrow>How the engine works</SectionEyebrow>
       <h2 className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight max-w-3xl">
         Integrate, zipper, ontology, rules, actions.
@@ -275,7 +296,7 @@ function StepShell({
           <span className="font-mono text-xs text-muted">
             STEP 0{num} / 05
           </span>
-          <h3 className="text-xl sm:text-2xl font-semibold tracking-tight">
+          <h3 className="text-2xl sm:text-3xl font-semibold tracking-tight">
             {title}
           </h3>
           {sub && (
@@ -294,7 +315,7 @@ function StepShell({
             STEP 0{num} / 05
           </span>
         </div>
-        <h3 className="text-xl sm:text-2xl font-semibold tracking-tight">
+        <h3 className="text-2xl sm:text-3xl font-semibold tracking-tight">
           {title}
         </h3>
         <p className="text-sm text-muted leading-relaxed">{sub}</p>
@@ -337,7 +358,7 @@ function StepIntegrate() {
               </span>{" "}
               Each tool plugs in the same way: paste an API key, set sync
               frequency, verify, done. Credentials encrypt in Supabase Vault
-              and never reach the browser. Granola is the example here — the
+              and never reach the browser. Granola is the example here: the
               same flow works for every adapter shown.
             </p>
             <p className="text-sm text-foreground/70 leading-relaxed">
@@ -426,7 +447,7 @@ function StepRules() {
       num={4}
       wide
       title="Rules"
-      sub="Build a rule stream from any source: ontology fields, news, meetings, or AI extraction. Chain triggers with AND, then chain actions to run on a hit (Slack DM, Dock workspace, Outreach sequence, asset delivery, snooze). Three urgency tiers route the output: blocking to Slack within the hour, action to the daily digest, awareness to the weekly roundup."
+      sub="Build a rule stream from any source: ontology fields, news, meetings, or AI extraction. Chain triggers with AND, then chain actions to run on a hit (Slack DM, Dock workspace, Outreach sequence, asset delivery, snooze, CSM notify). Three urgency tiers route the output: blocking to Slack within the hour, action to the queue, awareness to the weekly roundup."
     >
       <InteractiveSignals />
     </StepShell>
@@ -510,7 +531,7 @@ function SignalSampleCard({
 
 function DataSourcesRow() {
   return (
-    <div className="mt-10 grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <SourceCard
         icon="✉"
         name="AgentMail"
@@ -528,6 +549,12 @@ function DataSourcesRow() {
         name="SEC EDGAR"
         role="Public-company filings · 10-K, 8-K, 6-K"
         detail="Filings monitored continuously for tracked public-company accounts. Leadership changes, risk-factor edits, M&A disclosures, and earnings move from filing to drawer within minutes."
+      />
+      <SourceCard
+        icon="F"
+        name="Firecrawl"
+        role="Per-account site scrapes · daily cron"
+        detail="Tracked accounts have their newsrooms, leadership pages, and product pages scraped each day. Markdown lands in web_scrapes, AI extracts material events (earnings dates, conference appearances, product launches) and pins them to the right account drawer."
       />
     </div>
   );
@@ -707,11 +734,14 @@ async function MarketIntelLiveSection() {
         Workspace-wide intel, ranked by relevance.
       </h2>
       <p className="mt-4 text-base text-foreground/70 leading-relaxed max-w-3xl">
-        Subscribe industry newsletters to one workspace inbox. AI classifies
-        every email as it lands: account mentions route to that account&apos;s
-        drawer, market-wide moves surface in the feed below. Your team gets
-        shared, continuously refreshed context on every customer without
-        anyone reading 200 emails a week.
+        Four pipes feed one workspace feed: newsletters land in AgentMail,
+        public-company filings stream from SEC EDGAR, mainstream press from
+        NewsAPI, and per-account newsroom + leadership pages get scraped
+        nightly by Firecrawl. AI classifies every input as it lands: account
+        mentions route to that account&apos;s drawer, market-wide moves
+        surface in the feed below. Your team gets shared, continuously
+        refreshed context on every customer without anyone reading 200
+        emails a week.
       </p>
 
       <DataSourcesRow />
@@ -756,20 +786,6 @@ async function MarketIntelLiveSection() {
           <span aria-hidden>→</span>
         </Link>
       </div>
-    </section>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Demo divider - sets context that the live console is below.
-// ---------------------------------------------------------------------------
-
-function DemoDivider() {
-  return (
-    <section className="max-w-6xl mx-auto px-6 py-16">
-      <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight">
-        Dashboard
-      </h2>
     </section>
   );
 }

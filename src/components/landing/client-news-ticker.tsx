@@ -16,6 +16,7 @@ import { useEffect, useState } from "react";
 
 interface TickerItem {
   id: string;
+  kind: "account" | "workspace";
   summary: string;
   accountName: string;
   occurredAt: string;
@@ -64,8 +65,8 @@ export function ClientNewsTicker() {
   if (items.length === 0) {
     return (
       <div className="mt-4 rounded-lg border border-border bg-foreground/[0.02] p-4 text-xs text-muted">
-        No account-scoped signals in the last 72h. The ticker resumes as
-        soon as the news pipeline tags a new account.
+        No signals in the last 72h. The ticker resumes as soon as the
+        newsletter pipeline tags a new account or market-wide event.
       </div>
     );
   }
@@ -86,13 +87,25 @@ export function ClientNewsTicker() {
 
 function TickerCard({ item }: { item: TickerItem }) {
   const ageLabel = relativeAge(item.occurredAt);
+  // Account-tagged signals get the brand-colored chip (this is a specific
+  // tracked company). Workspace-wide market intel gets a muted chip so the
+  // visual hierarchy stays correct - account hits are the headline.
+  const chipClass =
+    item.kind === "workspace"
+      ? "border-border bg-foreground/[0.04] text-muted"
+      : "border-brand/40 bg-brand/10 text-brand";
   return (
     <div
       className="shrink-0 rounded-lg border border-border bg-background p-4 flex flex-col gap-2"
       style={{ width: `${TICKER_CARD_WIDTH_PX}px` }}
     >
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-[10px] font-mono uppercase tracking-[0.1em] py-0.5 px-2 rounded border border-brand/40 bg-brand/10 text-brand">
+        <span
+          className={
+            "text-[10px] font-mono uppercase tracking-[0.1em] py-0.5 px-2 rounded border " +
+            chipClass
+          }
+        >
           {item.accountName}
         </span>
         <span className="text-[10px] font-mono uppercase tracking-[0.08em] text-muted">

@@ -7,7 +7,7 @@ import type { DealHealth } from "@/lib/types";
 // Console sidebar - primary navigation. Three views + four filter facets.
 // Each filter is multi-select via toggle pills.
 
-export type ConsoleView = "pipeline" | "today" | "digest";
+export type ConsoleView = "pipeline" | "today";
 
 export interface FilterState {
   owners: string[]; // rep ids
@@ -42,7 +42,6 @@ const ALL_SEVERITIES: ("blocking" | "action" | "awareness")[] = [
 export function Sidebar({
   view,
   filters,
-  reps,
   dealCount,
   openTaskCount,
   onViewChange,
@@ -50,7 +49,8 @@ export function Sidebar({
 }: {
   view: ConsoleView;
   filters: FilterState;
-  reps: { id: string; name: string; role: string }[];
+  // `reps` was used by the Owner filter; the filter was removed so the prop
+  // is no longer accepted. Callers may still pass it in via spread (harmless).
   dealCount: number;
   openTaskCount: number;
   onViewChange: (v: ConsoleView) => void;
@@ -60,7 +60,6 @@ export function Sidebar({
     return arr.includes(val) ? arr.filter((x) => x !== val) : [...arr, val];
   }
 
-  const aes = reps.filter((r) => r.role === "AE");
   const hasAnyFilter =
     filters.owners.length > 0 ||
     filters.stages.length > 0 ||
@@ -75,8 +74,7 @@ export function Sidebar({
           {(
             [
               ["pipeline", "Pipeline", "All deals + health"],
-              ["today", "Today", "Open tasks, by severity"],
-              ["digest", "Digest", "Per-rep morning brief"],
+              ["today", "Actions", "Open tasks, by severity"],
             ] as const
           ).map(([id, label, sub]) => (
             <button
@@ -110,23 +108,6 @@ export function Sidebar({
               </button>
             )}
           </div>
-
-          <FilterGroup label="Owner">
-            {aes.map((r) => (
-              <Pill
-                key={r.id}
-                active={filters.owners.includes(r.id)}
-                onClick={() =>
-                  onFiltersChange({
-                    ...filters,
-                    owners: toggle(filters.owners, r.id),
-                  })
-                }
-              >
-                {r.name.split(" ")[0]}
-              </Pill>
-            ))}
-          </FilterGroup>
 
           <FilterGroup label="Stage">
             {ALL_STAGES.map((s) => (

@@ -1,16 +1,16 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-// Top bar. On the landing page (`/`) the link strip is suppressed per the
-// session 5 decision to keep the marketing experience uncluttered (only the
-// logo + "Jump to demo" CTA remain). On every other route we render a
-// discrete row of links to the operator surfaces - Console, Manager, Ask,
-// Market Intel, Settings - so the demo audience can click between
-// surfaces without typing URLs. The current route is highlighted in the
-// brand color.
+// Top bar. On the landing page (`/`) the right side is empty so the
+// marketing experience stays uncluttered (just the logo on the left). On
+// every other route we render a discrete row of links to the operator
+// surfaces (Console, Manager, Ask, Market Intel, Settings) so the demo
+// audience can click between surfaces without typing URLs. The current
+// route is highlighted in the brand color.
 
 const APP_LINKS: { href: string; label: string }[] = [
   { href: "/console", label: "Console" },
@@ -28,41 +28,22 @@ export function Nav() {
     <header className="border-b border-border bg-background sticky top-0 z-30">
       <div className="px-4 h-12 flex items-center justify-between gap-4">
         <Link href="/" className="flex items-center gap-2 shrink-0">
-          {/* Logo mark - a baseball base seen in 3/4 forward perspective.
-              Trapezoidal foreshortening (wider top edge than bottom) reads
-              as a flat tile tilted toward the viewer. Thin inner outline
-              gives subtle dimension without selling it as 3D. */}
-          <span
+          {/* Logo mark - the canonical Dugout brand SVG. Includes the
+              brown rounded-square background and the two stacked parallelogram
+              cards as a single asset. Lives at public/dugout-logo.svg so it
+              can also be used for OG image, favicon, marketing materials. */}
+          <Image
+            src="/dugout-logo.svg"
+            alt=""
             aria-hidden
-            className="w-5 h-5 rounded-[5px] bg-brand flex items-center justify-center"
+            width={20}
+            height={20}
+            className="w-5 h-5"
             title="Dugout - the intelligence layer for sales teams"
-          >
-            <svg
-              viewBox="0 0 24 18"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.6"
-              strokeLinejoin="round"
-              className="w-3.5 h-3.5 text-white"
-            >
-              <polygon points="6,3 21,3 18,14 3,14" />
-              <polygon points="7.8,4.65 18.3,4.65 16.2,12.35 5.7,12.35" strokeOpacity="0.4" />
-            </svg>
-          </span>
+          />
           <span className="font-semibold tracking-tight text-sm">Dugout</span>
         </Link>
-        {isLanding ? (
-          // Landing page: keep the single CTA, no link strip.
-          <nav className="flex items-center gap-1 text-xs">
-            <Link
-              href="#demo"
-              scroll={true}
-              className="inline-flex items-center px-3 h-7 rounded-md bg-foreground text-background font-medium hover:bg-foreground/90 transition-colors"
-            >
-              Jump to demo ↓
-            </Link>
-          </nav>
-        ) : (
+        {isLanding ? null : (
           // Non-landing routes: render the operator-surface link strip. Active
           // route gets a brand-color underline + foreground text; siblings sit
           // in muted weight so the eye lands on "you are here" first.

@@ -1315,6 +1315,93 @@ export const demoSignals: Signal[] = [
     sourceEventId: "correlation_champion_disengagement_opp_sentinel_20260521",
     playbookId: "champion-departure",
   },
+
+  // ─── Action-tier rule fires across the wider book ───────────────────────
+  // These hand-authored signals mirror the THEN action vocabulary surfaced
+  // in the landing page's Rules composer (Slack DM the AE, Dock workspace
+  // creation, Outreach sequence enrollment, asset delivery, morning digest
+  // insertion). Each one is what an AE would see in the Actions queue when
+  // one of those rules fires. Editable in place via the existing Done /
+  // Snooze / Mute / coaching-note controls.
+
+  {
+    id: "demo_hor_asset_request",
+    ruleId: "ASSET_REQUEST",
+    oppId: "opp_horizon",
+    severity: "action",
+    signalType: "lifecycle_milestone",
+    title: "CFO requested SOC 2 update before TCO call",
+    body: "Brendan Kelly (CFO) asked for the latest SOC 2 Type II report before signing off on the TCO model. AI extracted the request from his 5/20 reply. Dock workspace 'Compliance bundle' auto-created; SOC 2 + pen-test summary queued for delivery.",
+    suggestedAction: "Send the SOC 2 packet via Dock today. Confirm Friday TCO walkthrough on calendar.",
+    detectedAt: "2026-05-21T11:15:00Z",
+    sourceTool: "intel",
+    sourceEventId: "ai_extract_asset_request_opp_horizon_20260520",
+  },
+  {
+    id: "demo_apx_stuck_selected_vendor",
+    ruleId: "ASSET_GAP_FINANCE_BRIEF",
+    oppId: "opp_apex",
+    severity: "action",
+    signalType: "momentum_change",
+    title: "Finance brief unsent · 9d in Selected Vendor",
+    body: "Moderna has been in Selected Vendor for 9 days; CFO Leave-Behind playbook calls for the Finance brief by day 5. agent_actions shows no asset delivery. Dock workspace 'CFO Leave-Behind' ready to populate.",
+    suggestedAction: "Create the Dock workspace and send the Finance brief + IT zero-lift one-pager today.",
+    detectedAt: "2026-05-21T08:00:00Z",
+    sourceTool: "intel",
+    sourceEventId: "rule_asset_gap_finance_brief_opp_apex_20260521",
+  },
+  {
+    id: "demo_qnt_low_meeting_velocity",
+    ruleId: "LOW_MEETING_VELOCITY",
+    oppId: "opp_quantum",
+    severity: "action",
+    signalType: "momentum_change",
+    title: "Meeting velocity dropped: 1 meeting in 30d",
+    body: "UPS opportunity averaged 4 meetings/30d through April; last 30 days shows 1. Rule fired: meeting_count_30d < 3 AND deal_amount > $150K. Stage hasn't moved either.",
+    suggestedAction: "Slack-DM has been queued to the deal owner. Add to tomorrow morning digest under 'Action'.",
+    detectedAt: "2026-05-21T09:20:00Z",
+    sourceTool: "gong",
+    sourceEventId: "rule_low_meeting_velocity_opp_quantum_20260521",
+  },
+  {
+    id: "demo_str_outside_acv_band",
+    ruleId: "ACV_OUTSIDE_TARGET_BAND",
+    oppId: "opp_stratos",
+    severity: "action",
+    signalType: "account_health_decline",
+    title: "Civitas ACV below $150K target band",
+    body: "Deal sized at $95K, below the $150K minimum for Mid-Market. Rule fired: deal_amount outside_of $150K–$400K AND stage in (Qualified, Demo Sat, Evaluating). Either expand scope or reclassify as SMB.",
+    suggestedAction: "Schedule a 20-min scope-expansion call with the champion; loop in CSM if reclassification is the call.",
+    detectedAt: "2026-05-21T10:30:00Z",
+    sourceTool: "salesforce",
+    sourceEventId: "rule_acv_outside_band_opp_stratos_20260521",
+  },
+  {
+    id: "demo_vec_competitor_named",
+    ruleId: "COMPETITOR_MENTIONED",
+    oppId: "opp_vector",
+    severity: "action",
+    signalType: "competitive_threat",
+    title: "Ironclad named as alt on the last Boeing call",
+    body: "Champion asked how Dugout compares to Ironclad on the 5/19 Gong call: 'we're also evaluating Ironclad. What's your story there?' Outreach competitive-positioning sequence auto-enrolled.",
+    suggestedAction: "Send the Dugout vs Ironclad one-pager via Dock. Loop in solutions engineer for the next call.",
+    detectedAt: "2026-05-21T09:55:00Z",
+    sourceTool: "gong",
+    sourceEventId: "rule_competitor_mentioned_opp_vector_20260519",
+  },
+  {
+    id: "demo_hel_news_mention",
+    ruleId: "NEWS_MENTION_HIGH_RELEVANCE",
+    oppId: "opp_helios",
+    severity: "action",
+    signalType: "account_context",
+    title: "UnitedHealth 8-K: leadership change in Legal Ops",
+    body: "SEC EDGAR filed UnitedHealth 8-K announcing departure of GC Karen Hsu (was a peer of our champion). Rule fired: news event involves leadership_change AND account_id matches tracked. Morning digest queued under 'Awareness'.",
+    suggestedAction: "Confirm whether our champion's reporting chain shifts; reach out for a low-pressure check-in.",
+    detectedAt: "2026-05-21T07:45:00Z",
+    sourceTool: "intel",
+    sourceEventId: "sec_edgar_8k_unitedhealth_20260520",
+  },
 ];
 
 // ---------------------------------------------------------------------------

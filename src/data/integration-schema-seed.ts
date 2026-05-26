@@ -123,7 +123,7 @@ export const SCHEMA_CATALOG: CatalogField[] = [
   { brand: "chilipiper", object: "Booking", fieldPath: "duration", dataType: "integer", description: "Meeting length, minutes.", candidateCanonicals: ["duration_minutes"] },
   { brand: "chilipiper", object: "Booking", fieldPath: "meetingType", dataType: "text", description: "Type label (demo, discovery, etc.).", candidateCanonicals: ["meeting_type"] },
   { brand: "chilipiper", object: "Booking", fieldPath: "status", dataType: "enum", description: "scheduled / canceled / completed / no_show.", candidateCanonicals: ["meeting_status"] },
-  { brand: "chilipiper", object: "Booking", fieldPath: "attendee.email", dataType: "email", description: "Booker email — the prospect.", candidateCanonicals: ["contact_email"] },
+  { brand: "chilipiper", object: "Booking", fieldPath: "attendee.email", dataType: "email", description: "Booker email · the prospect.", candidateCanonicals: ["contact_email"] },
   { brand: "chilipiper", object: "Booking", fieldPath: "attendee.name", dataType: "text", description: "Booker display name.", candidateCanonicals: ["contact_name"] },
   { brand: "chilipiper", object: "Booking", fieldPath: "assignedRep.email", dataType: "email", description: "Internal rep assigned to the meeting.", candidateCanonicals: ["rep_email"] },
   { brand: "chilipiper", object: "Booking", fieldPath: "assignedRep.name", dataType: "text", description: "Internal rep display name.", candidateCanonicals: ["rep_name"] },

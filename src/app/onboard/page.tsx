@@ -24,13 +24,13 @@ export default function OnboardPage() {
       </h1>
       <p className="mt-3 text-sm text-foreground/70 leading-relaxed max-w-2xl">
         Type a company name. Already-tracked companies surface first.
-        Everything else comes from a public company directory — clicking{" "}
+        Everything else comes from a public company directory. Clicking{" "}
         <span className="font-mono text-foreground/90">Integrate</span> mints
         a primary key for that account. That key is the join across every
         integration the company has: Granola transcripts, SEC filings,
         AgentMail newsletters, Firecrawl scrapes. We call the consolidation
         of those signals into a single account view{" "}
-        <span className="text-brand font-medium">zippering</span> — and the
+        <span className="text-brand font-medium">zippering</span>, and the
         pkey is the thread.
       </p>
       <p className="mt-2 text-xs text-muted leading-relaxed max-w-2xl">
