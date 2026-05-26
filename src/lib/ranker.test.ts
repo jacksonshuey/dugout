@@ -42,7 +42,7 @@ function mkSignal(
 }
 
 const HELIOS: AccountKeyword = {
-  account_id: "acc_helios",
+  account_id: "acc_unitedhealth",
   name: "Helios Manufacturing",
   ticker: "HLOS",
   domain_slug: "helios",
@@ -142,7 +142,7 @@ describe("rankStub · account-named within same tier", () => {
     ];
     const r = rankStub(mkInput(signals), "no_api_key");
     expect(r.items[0].signal_id).toBe("s_helios_fr");
-    expect(r.items[0].related_account_ids).toEqual(["acc_helios"]);
+    expect(r.items[0].related_account_ids).toEqual(["acc_unitedhealth"]);
   });
 });
 

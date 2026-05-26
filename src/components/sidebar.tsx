@@ -69,7 +69,7 @@ export function Sidebar({
 
   return (
     <aside className="w-56 shrink-0 border-r border-border bg-slate-50/50 sticky top-12 h-[calc(100vh-3rem)] overflow-y-auto">
-      <div className="p-3 space-y-5">
+      <div className="p-3 pt-6 space-y-5">
         {/* Views */}
         <div className="space-y-0.5">
           {(

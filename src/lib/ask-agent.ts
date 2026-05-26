@@ -505,7 +505,7 @@ async function runStub(
   if (!isStalling && !isBrief) {
     return {
       answer:
-        "Provider credentials not configured. This is a stub response. The /ask agent will produce live answers from your unified signal store the moment an API key is set. In the meantime, try asking 'Why is acc_sentinel stalling?' or 'Brief me on acc_atlas'.",
+        "Provider credentials not configured. This is a stub response. The /ask agent will produce live answers from your unified signal store the moment an API key is set. In the meantime, try asking 'Why is acc_cna stalling?' or 'Brief me on acc_snowflake'.",
       citations: [],
       toolCalls: [],
       model: "stub-deterministic",

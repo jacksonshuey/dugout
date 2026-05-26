@@ -23,6 +23,7 @@ import {
 } from "./sidebar";
 import { Drawer } from "./drawer";
 import { TaskCard } from "./task-card";
+import { UpcomingMeetingsPanel } from "./upcoming-meetings-panel";
 import { Card, HealthBadge, StageBadge, SeverityBadge, Button } from "./ui";
 import { ToastStack, useToasts } from "./toast";
 import {
@@ -291,7 +292,7 @@ export function Console(props: ConsoleData & { basePath?: string }) {
         onFiltersChange={(f) => updateUrl({ filters: f })}
       />
 
-      <main className="flex-1 min-w-0 p-6 max-w-5xl">
+      <main className="flex-1 min-w-0 p-6 max-w-[88rem]">
         {view === "pipeline" && (
           <PipelineView
             opps={filteredOpps}
@@ -531,13 +532,15 @@ function PipelineView({
         )}
       </div>
 
-      {opps.length === 0 ? (
-        <Empty msg="No deals match your filters." />
-      ) : filtered.length === 0 ? (
-        <Empty msg={`No deals match "${query}".`} />
-      ) : (
-        <div className="rounded-lg border border-border bg-background overflow-hidden">
-          <table className="w-full text-sm">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <div className="lg:col-span-8 min-w-0">
+          {opps.length === 0 ? (
+            <Empty msg="No deals match your filters." />
+          ) : filtered.length === 0 ? (
+            <Empty msg={`No deals match "${query}".`} />
+          ) : (
+            <div className="rounded-lg border border-border bg-background overflow-hidden">
+              <table className="w-full text-sm">
             <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-muted font-semibold sticky top-0">
               <tr className="border-b border-border">
                 <SortableTh sortKey={sortKey} sortDir={sortDir} myKey="account" align="left" onSort={handleSort}>Account</SortableTh>
@@ -556,7 +559,12 @@ function PipelineView({
                   onClick={() => onOpen(opp.id)}
                   className="border-b border-border last:border-0 hover:bg-slate-50 cursor-pointer transition-colors"
                 >
-                  <td className="px-3 py-2.5 font-medium">{account.name}</td>
+                  <td className="px-3 py-2.5 font-medium">
+                    <div>{account.name}</div>
+                    <div className="text-[10px] font-mono text-muted mt-0.5">
+                      pkey = {account.id}
+                    </div>
+                  </td>
                   <td className="px-3 py-2.5">
                     <StageBadge stage={opp.stage} />
                   </td>
@@ -588,8 +596,13 @@ function PipelineView({
               ))}
             </tbody>
           </table>
+            </div>
+          )}
         </div>
-      )}
+        <aside className="lg:col-span-4 min-w-0">
+          <UpcomingMeetingsPanel accounts={data.accounts} />
+        </aside>
+      </div>
     </div>
   );
 }
@@ -885,7 +898,7 @@ function DigestView({
     <div className="space-y-6">
       <Header
         title="Morning digest"
-        sub={`Synthesized live by Claude from the current signal state for ${workspace.companyName}.`}
+        sub={`Synthesized live by AI (OpenAI) from the current signal state for ${workspace.companyName}.`}
       />
 
       <Card className="p-5 space-y-4">

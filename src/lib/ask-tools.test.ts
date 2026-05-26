@@ -230,11 +230,11 @@ describe("listAccounts", () => {
     expect(catalogSlugs).toEqual(seedSlugs);
   });
 
-  test("Moderna resolves to acc_apex", async () => {
+  test("Moderna resolves to acc_moderna", async () => {
     const r = await listAccounts();
     if (!r.ok) throw new Error("unreachable");
     const moderna = r.data.find((e) => e.name === "Moderna");
-    expect(moderna?.slug).toBe("acc_apex");
+    expect(moderna?.slug).toBe("acc_moderna");
   });
 });
 

@@ -54,7 +54,7 @@ export type Industry =
   | "Retail";
 
 // Platform-wide primary key for an account. Two formats coexist:
-//   - Seed accounts use `acc_<slug>` (e.g. `acc_sap`, `acc_apex`). Hand-coded
+//   - Seed accounts use `acc_<slug>` (e.g. `acc_sap`, `acc_moderna`). Hand-coded
 //     in src/data/seed.ts so demo scenarios stay deterministic.
 //   - Production-onboarded accounts use UUIDs from the Supabase `accounts`
 //     table (see supabase/migrations/20260524_accounts_table.sql, which

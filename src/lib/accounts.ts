@@ -3,7 +3,7 @@ import type { Account, AccountSegment, Industry } from "./types";
 
 // DB-backed accounts helper. Pairs with the `accounts` table introduced in
 // supabase/migrations/20260524_accounts_table.sql. seed.ts is still the
-// source of truth for demo scenarios (acc_atlas, acc_meridian, acc_sentinel
+// source of truth for demo scenarios (acc_snowflake, acc_kkr, acc_cna
 // + the 8 other seeded fixtures); this module is the production-addition
 // path, used by POST /api/accounts (Phase 4 onboarding).
 //

@@ -50,3 +50,58 @@ export function getOpenAIClient(): OpenAI | null {
   // few exponential-backoff attempts; the demo shouldn't break on a blip.
   return new OpenAI({ apiKey: key, maxRetries: 4 });
 }
+
+// Model used by the morning-digest synthesizer. Kept separate from ASK_MODEL
+// because the two surfaces have different tuning needs - digest is short,
+// structured markdown synthesis; /ask uses tool calling.
+export const DIGEST_MODEL = "gpt-4o-2024-08-06";
+
+export interface ChatOptions {
+  system?: string;
+  prompt: string;
+  maxTokens?: number;
+  temperature?: number;
+  model?: string;
+}
+
+// Mirror of `chat()` in src/lib/claude.ts so the digest route can swap
+// providers with a one-line import change. Throws on missing key (the digest
+// is not stubbed - it's the demo's headline AI surface).
+export async function chat({
+  system,
+  prompt,
+  maxTokens = 2000,
+  temperature = 0.4,
+  model = DIGEST_MODEL,
+}: ChatOptions): Promise<string> {
+  const client = getOpenAIClient();
+  if (!client) {
+    throw new Error(
+      "OPENAI_API_KEY is not set. Add it to .env.local for local dev or to Vercel env vars for production.",
+    );
+  }
+  const messages: Array<{ role: "system" | "user"; content: string }> = [];
+  if (system) messages.push({ role: "system", content: system });
+  messages.push({ role: "user", content: prompt });
+  try {
+    const completion = await client.chat.completions.create({
+      model,
+      max_tokens: maxTokens,
+      temperature,
+      messages,
+    });
+    return completion.choices[0]?.message.content ?? "";
+  } catch (e) {
+    if (e instanceof OpenAI.APIError) {
+      if (e.status === 429)
+        throw new Error(
+          "OpenAI rate limited. Wait a minute then retry - your account may be hitting per-minute caps.",
+        );
+      if (e.status === 401)
+        throw new Error(
+          "Invalid API key. Check OPENAI_API_KEY in .env.local or Vercel env vars.",
+        );
+    }
+    throw e;
+  }
+}

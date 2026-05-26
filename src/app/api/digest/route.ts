@@ -9,7 +9,7 @@ import {
   reps,
 } from "@/data/seed";
 import { signalsForRep, sortSignals } from "@/lib/signal-engine";
-import { chat } from "@/lib/claude";
+import { chat } from "@/lib/openai";
 import { formatCurrency, daysBetween, lookupBy } from "@/lib/utils";
 import type { Signal } from "@/lib/types";
 import { getWorkspaceConfig } from "@/lib/workspace-server";
@@ -21,8 +21,10 @@ import {
 import { requireUiSession } from "@/lib/ui-auth-server";
 
 // The morning digest synthesizer. The signal engine produces structured
-// signals; this endpoint serializes them into the prompt context Claude
-// needs to write a 60–90 second briefing in the rep's voice.
+// signals; this endpoint serializes them into the prompt context the LLM
+// needs to write a 60–90 second briefing in the rep's voice. Runs on OpenAI
+// (see src/lib/openai.ts) - the /ask route also uses OpenAI, so the morning
+// digest and Q&A surface share the same provider quota.
 //
 // The workspace config (cookie-loaded) supplies the company-specific shape:
 // ICP, kill point, strategic priorities, and asset names. This is what makes
@@ -186,7 +188,7 @@ Write ${rep.name.split(" ")[0]}'s morning digest now.`;
     });
     return NextResponse.json({ digest, signalCount: signals.length });
   } catch (e) {
-    console.error("[digest] Claude API call failed", e);
+    console.error("[digest] OpenAI API call failed", e);
     return NextResponse.json({ error: "Failed to generate digest" }, { status: 500 });
   }
 }

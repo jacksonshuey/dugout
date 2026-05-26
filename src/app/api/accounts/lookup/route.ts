@@ -9,7 +9,7 @@ import type { Account } from "@/lib/types";
 //
 // Name → accountId resolver for the Phase 6 Claude Code skill. The skill
 // takes a freeform string from the AE ("Stripe", "STRIPE", "stripe.com",
-// "acc_cobalt") and needs to map it to a stable accountId before calling
+// "acc_stripe") and needs to map it to a stable accountId before calling
 // /api/firecrawl/company-scope.
 //
 // Why a separate endpoint vs extending /api/accounts: /api/accounts is
@@ -64,7 +64,7 @@ function matchesAccount(account: Account, q: string): boolean {
   const qLower = q.toLowerCase().trim();
   if (qLower.length === 0) return false;
 
-  // Exact id / ticker matches (handles "acc_cobalt", "STRIPE", "SNOW")
+  // Exact id / ticker matches (handles "acc_stripe", "STRIPE", "SNOW")
   if (account.id.toLowerCase() === qLower) return true;
   if (account.ticker && account.ticker.toLowerCase() === qLower) return true;
 

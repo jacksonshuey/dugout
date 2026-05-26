@@ -213,7 +213,7 @@ describe("computeSVHealthScore — critical scenario (~10)", () => {
 
 describe("computeSVHealthScore — Helios worked example", () => {
   test("matches metrics.md worked example (~10, critical)", () => {
-    const account = makeAccount({ id: "acc_helios", name: "Helios Manufacturing" });
+    const account = makeAccount({ id: "acc_unitedhealth", name: "Helios Manufacturing" });
     const champion = makeContact({ id: "c_helios_ch", role: "Champion" });
     const eb = makeContact({ id: "c_helios_eb", role: "Executive Sponsor" });
     // Finance, IT, Legal are deliberately absent — matches the worked example.
@@ -221,7 +221,7 @@ describe("computeSVHealthScore — Helios worked example", () => {
     const opp = withAssets(
       makeOpp({
         id: "opp_helios",
-        accountId: "acc_helios",
+        accountId: "acc_unitedhealth",
         name: "Helios",
         amount: 185_000,
         contactRoleIds: [champion.id, eb.id],

@@ -450,7 +450,7 @@ export const ASK_TOOL_SCHEMAS_OPENAI: OpenAI.Chat.Completions.ChatCompletionTool
           account_slug: {
             type: "string",
             description:
-              "Internal account slug (e.g. 'acc_apex'). Slugs are codenames - they do NOT pattern-match company names. Call list_accounts() first if you don't know the slug.",
+              "Internal account slug (e.g. 'acc_moderna'). Slugs are codenames - they do NOT pattern-match company names. Call list_accounts() first if you don't know the slug.",
           },
           days: {
             type: "number",
@@ -599,7 +599,7 @@ export const ASK_TOOL_SCHEMAS_OPENAI: OpenAI.Chat.Completions.ChatCompletionTool
     function: {
       name: "list_accounts",
       description:
-        "Return every account in this workspace as {slug, name} pairs. Call this FIRST whenever the user names a company and you don't already know its account slug. Slugs are internal codenames - they do NOT pattern-match company names (e.g. Moderna is 'acc_apex', not 'acc_moderna'). Never guess a slug.",
+        "Return every account in this workspace as {slug, name} pairs. Call this FIRST whenever the user names a company and you don't already know its account slug. Slugs are internal codenames - they do NOT pattern-match company names (e.g. Moderna is 'acc_moderna', not 'acc_moderna'). Never guess a slug.",
       parameters: {
         type: "object",
         properties: {},

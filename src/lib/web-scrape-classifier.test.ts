@@ -25,7 +25,7 @@ import type { Account } from "./types";
 function mkScrape(overrides: Partial<WebScrape> = {}): WebScrape {
   return {
     id: overrides.id ?? "scrape_1",
-    account_id: overrides.account_id ?? "acc_helios",
+    account_id: overrides.account_id ?? "acc_unitedhealth",
     url: overrides.url ?? "https://helios.com/news",
     scraped_at: overrides.scraped_at ?? "2026-05-23T12:00:00.000Z",
     scraped_date: overrides.scraped_date ?? "2026-05-23",
@@ -47,7 +47,7 @@ function mkScrape(overrides: Partial<WebScrape> = {}): WebScrape {
 }
 
 const HELIOS: Account = {
-  id: "acc_helios",
+  id: "acc_unitedhealth",
   name: "Helios Manufacturing",
   industry: "Manufacturing",
   segment: "Enterprise",
@@ -285,7 +285,7 @@ describe("web-scrape-classifier · source attribution", () => {
       haikuCall: async () => SAMPLE_TOOL_OUTPUT,
     });
     for (const sig of r.signals) {
-      expect(sig.account_id).toBe("acc_helios");
+      expect(sig.account_id).toBe("acc_unitedhealth");
       expect(sig.source).toBe("web_scrape");
       expect(sig.source_content_kind).toBe("firecrawl_md");
       expect(sig.source_url).toBe("https://helios.com/news");
