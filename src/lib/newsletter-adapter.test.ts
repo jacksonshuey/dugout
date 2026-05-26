@@ -74,6 +74,7 @@ describe("newsletter-adapter · tool schema (Phase 3)", () => {
       "type",
       "summary",
       "workspace_relevance",
+      "impact_score",
     ]);
   });
 
