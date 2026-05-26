@@ -17,6 +17,11 @@ import {
   coerceWorkspaceRelevance,
   type WorkspaceRelevance,
 } from "./workspace-relevance";
+import {
+  IMPACT_SCORE_DEFINITION,
+  IMPACT_SCORE_TOOL_PROPERTY,
+  coerceImpactScore,
+} from "./impact-score";
 
 // Newsletter adapter - takes a stored inbound email, extracts material
 // business signals via Haiku, and maps them to either a tracked account
@@ -132,6 +137,7 @@ interface RawExtraction {
   type: ExternalSignalType;
   summary: string;
   workspace_relevance: WorkspaceRelevance;
+  impact_score: number;
   url?: string;
 }
 
@@ -158,7 +164,13 @@ const TOOL_SCHEMA = {
         items: {
           type: "object" as const,
           additionalProperties: false,
-          required: ["mention", "type", "summary", "workspace_relevance"],
+          required: [
+            "mention",
+            "type",
+            "summary",
+            "workspace_relevance",
+            "impact_score",
+          ],
           properties: {
             mention: {
               type: "string",
@@ -179,6 +191,7 @@ const TOOL_SCHEMA = {
                 "1-2 sentence factual summary (≤200 chars, no markdown).",
             },
             workspace_relevance: WORKSPACE_RELEVANCE_TOOL_PROPERTY,
+            impact_score: IMPACT_SCORE_TOOL_PROPERTY,
             url: {
               type: "string",
               description:
@@ -207,7 +220,8 @@ Extract every material business event mentioned that the sales team should know 
 2. Classify the event type using one of: leadership_change, champion_job_change, ma_acquisition, funding_round, layoff, earnings, product_launch, press_release, competitor_mention, regulatory_action, partnership, other.
 3. Write a 1-2 sentence factual summary (≤200 chars, no markdown).
 4. Tag the workspace_relevance tier per the rubric below - REQUIRED on every extraction.
-5. If a specific URL is referenced for that event, capture it (omit if no URL).
+5. Score the impact_score (0-100 integer) per the rubric below - REQUIRED on every extraction.
+6. If a specific URL is referenced for that event, capture it (omit if no URL).
 
 Skip:
 - Opinion pieces, commentary, predictions, listicles
@@ -216,6 +230,8 @@ Skip:
 - Items that are clearly ads or sponsored content
 
 ${WORKSPACE_RELEVANCE_DEFINITION}
+
+${IMPACT_SCORE_DEFINITION}
 
 # Output format - forced tool-use, mandatory
 You MUST emit your answer via the \`${TOOL_NAME}\` tool. Free-text replies are invalid. Return an empty items array when the newsletter contains no material events. Do not invent facts. No preamble.`;
@@ -308,11 +324,18 @@ async function classifyWithHaiku(
       // treat the item as low-relevance rather than dropping it. The AE
       // Brief filter still hides low/none rows; the drawer still gets them.
       ("low" as WorkspaceRelevance);
+    // Defensive default: when Haiku omits or fudges the score, fall back
+    // to a tier-aligned midpoint so the row still sorts reasonably under
+    // Magnitude. Mapping mirrors the IMPACT_SCORE_DEFINITION anchors.
+    const impact =
+      coerceImpactScore(r.impact_score) ??
+      ({ high: 75, medium: 55, low: 35, none: 10 } as const)[relevance];
     out.push({
       mention: mention.slice(0, 200),
       type,
       summary: summary.slice(0, 500),
       workspace_relevance: relevance,
+      impact_score: impact,
       url,
     });
   }
@@ -454,6 +477,9 @@ export async function classifyNewsletter(
       source_content_kind: email.html_body ? "email_html" : "email_text",
       // Workspace relevance tier set by Haiku - drives the AE Brief filter.
       workspace_relevance: x.workspace_relevance,
+      // AI-determined event magnitude (0-100) set by Haiku - drives the
+      // workspace feed "Magnitude" sort. See impact-score.ts.
+      impact_score: x.impact_score,
     } as NewExternalSignal;
   });
 

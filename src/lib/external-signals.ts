@@ -76,6 +76,12 @@ export interface ExternalSignal {
   // Brief query at /market-intel filters on this; see migration
   // 20260524_news_filter.sql.
   workspace_relevance?: "high" | "medium" | "low" | "none" | null;
+  // AI-determined event magnitude (0-100). Set by the Haiku classifier that
+  // produced the signal. NULL for legacy rows and adapters not yet
+  // migrated; the workspace feed's Magnitude sort falls back to a derived
+  // heuristic when null. See impact-score.ts + migration
+  // 20260526_external_signals_impact_score.sql.
+  impact_score?: number | null;
   created_at: string;
 }
 
@@ -100,6 +106,11 @@ export interface NewExternalSignal {
   // hides NULL rows (treated as 'none'). See migration
   // 20260524_news_filter.sql for the column + check constraint.
   workspace_relevance?: ExternalSignal["workspace_relevance"];
+  // AI-determined event magnitude (0-100) set by the upstream Haiku
+  // classifier. Optional so demo/manual/seed writers don't have to score;
+  // the workspace feed's Magnitude sort falls back to a heuristic for
+  // null values. See impact-score.ts.
+  impact_score?: ExternalSignal["impact_score"];
 }
 
 // ---------------------------------------------------------------------------

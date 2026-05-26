@@ -168,7 +168,7 @@ function SetupCard({ phase }: { phase: Phase }) {
 
       <FieldRow label="Workspace">
         <FillingValue
-          value="Checkbox · Production"
+          value="Your workspace · Production"
           filled={fieldsFilled}
         />
       </FieldRow>

@@ -367,7 +367,7 @@ function StepIntegrate() {
           </div>
           <div className="mt-auto pb-2 space-y-2">
             <div className="text-[10px] uppercase tracking-[0.2em] font-mono text-muted">
-              Checkbox stack · {stackBrands.length} tools
+              Integrate any of your tools
             </div>
             <div className="marquee-container relative w-full max-w-full overflow-hidden">
               <div
@@ -725,6 +725,9 @@ async function fetchWorkspaceFeed(): Promise<ExternalSignal[]> {
 
 async function MarketIntelLiveSection() {
   const workspaceSignals = await fetchWorkspaceFeed();
+  const trackedAccountNames = accounts.flatMap((a) =>
+    a.ticker ? [a.name, a.ticker] : [a.name],
+  );
 
   return (
     <section className="max-w-6xl mx-auto px-6 py-20 sm:py-24 border-t border-border">
@@ -769,7 +772,10 @@ async function MarketIntelLiveSection() {
           <RefreshButton label="Refresh feed" />
         </div>
       </div>
-      <SortableWorkspaceFeed signals={workspaceSignals} />
+      <SortableWorkspaceFeed
+        signals={workspaceSignals}
+        trackedAccountNames={trackedAccountNames}
+      />
     </section>
   );
 }

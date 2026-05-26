@@ -8,9 +8,13 @@ import type { ExternalSignal } from "@/lib/external-signals";
 // signals and we re-order in memory. Three sort axes:
 //
 //   - Recency: occurred_at desc (default)
-//   - Relevance: workspace_relevance tier (high > medium > low > none)
-//   - Magnitude: signal type priority (M&A / leadership > funding > earnings
-//     > product/press > competitor/other), tie-broken by recency
+//   - Relevance: signals mentioning a tracked account first (the AE's
+//     own company list), then workspace_relevance tier
+//     (high > medium > low > none), tie-broken by recency
+//   - Magnitude: top stories from the past 7 days, ranked by AI-determined
+//     impact_score (0-100) set by the upstream Haiku classifier. Falls
+//     back to a (workspace_relevance × type magnitude) heuristic for
+//     legacy rows missing impact_score.
 //
 // Filtering UI doubles as a visible "live system" demonstration — the
 // reordering happens instantly on click, which is the cheapest way to
@@ -40,40 +44,96 @@ const TYPE_MAGNITUDE: Record<string, number> = {
   other: 0,
 };
 
+// Window for the "Magnitude" sort: the top stories from the past N days.
+const MAGNITUDE_WINDOW_DAYS = 7;
+
+// Fallback impact score (0-100) for signals whose Haiku classifier hadn't
+// yet been migrated to emit impact_score. Roughly aligned with the rubric
+// in impact-score.ts so legacy rows still sort sensibly.
+function derivedImpactScore(signal: ExternalSignal): number {
+  const tierBase =
+    ({ high: 70, medium: 50, low: 30, none: 10 } as const)[
+      signal.workspace_relevance ?? "none"
+    ] ?? 10;
+  const typeBoost = (TYPE_MAGNITUDE[signal.type] ?? 0) * 4;
+  return Math.min(100, tierBase + typeBoost);
+}
+
+function effectiveImpactScore(signal: ExternalSignal): number {
+  return signal.impact_score ?? derivedImpactScore(signal);
+}
+
 function compareRecency(a: ExternalSignal, b: ExternalSignal): number {
   return (
     new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime()
   );
 }
 
-function compareRelevance(a: ExternalSignal, b: ExternalSignal): number {
-  const ra = RELEVANCE_RANK[a.workspace_relevance ?? "none"] ?? 0;
-  const rb = RELEVANCE_RANK[b.workspace_relevance ?? "none"] ?? 0;
-  if (ra !== rb) return rb - ra;
-  return compareRecency(a, b);
+function signalText(s: ExternalSignal): string {
+  return `${s.summary} ${s.email_subject ?? ""}`.toLowerCase();
+}
+
+function mentionsAccount(signal: ExternalSignal, needles: string[]): boolean {
+  if (needles.length === 0) return false;
+  const haystack = signalText(signal);
+  return needles.some((n) => haystack.includes(n));
+}
+
+function makeCompareRelevance(needles: string[]) {
+  return (a: ExternalSignal, b: ExternalSignal): number => {
+    const ma = mentionsAccount(a, needles);
+    const mb = mentionsAccount(b, needles);
+    if (ma !== mb) return ma ? -1 : 1;
+    const ra = RELEVANCE_RANK[a.workspace_relevance ?? "none"] ?? 0;
+    const rb = RELEVANCE_RANK[b.workspace_relevance ?? "none"] ?? 0;
+    if (ra !== rb) return rb - ra;
+    return compareRecency(a, b);
+  };
 }
 
 function compareMagnitude(a: ExternalSignal, b: ExternalSignal): number {
-  const ma = TYPE_MAGNITUDE[a.type] ?? 0;
-  const mb = TYPE_MAGNITUDE[b.type] ?? 0;
-  if (ma !== mb) return mb - ma;
+  const ia = effectiveImpactScore(a);
+  const ib = effectiveImpactScore(b);
+  if (ia !== ib) return ib - ia;
   return compareRecency(a, b);
+}
+
+function isWithinMagnitudeWindow(signal: ExternalSignal, nowMs: number): boolean {
+  const ageMs = nowMs - new Date(signal.occurred_at).getTime();
+  return ageMs <= MAGNITUDE_WINDOW_DAYS * 24 * 60 * 60 * 1000;
 }
 
 export function SortableWorkspaceFeed({
   signals,
+  trackedAccountNames = [],
 }: {
   signals: ExternalSignal[];
+  // Names + tickers of the AE's tracked accounts. Used by the "Relevance"
+  // sort to float signals that mention a tracked company to the top.
+  trackedAccountNames?: string[];
 }) {
   const [sortBy, setSortBy] = useState<SortKey>("recency");
 
+  const needles = useMemo(
+    () =>
+      trackedAccountNames
+        .map((n) => n.trim().toLowerCase())
+        .filter((n) => n.length > 0),
+    [trackedAccountNames],
+  );
+
   const sorted = useMemo(() => {
+    if (sortBy === "magnitude") {
+      const nowMs = Date.now();
+      return signals
+        .filter((s) => isWithinMagnitudeWindow(s, nowMs))
+        .sort(compareMagnitude);
+    }
     const copy = [...signals];
-    if (sortBy === "relevance") copy.sort(compareRelevance);
-    else if (sortBy === "magnitude") copy.sort(compareMagnitude);
+    if (sortBy === "relevance") copy.sort(makeCompareRelevance(needles));
     else copy.sort(compareRecency);
     return copy;
-  }, [signals, sortBy]);
+  }, [signals, sortBy, needles]);
 
   if (signals.length === 0) {
     return (
@@ -111,9 +171,14 @@ export function SortableWorkspaceFeed({
       </div>
 
       <div className="space-y-2">
-        {sorted.map((signal) => (
-          <FeedRow key={signal.id} signal={signal} />
-        ))}
+        {sorted.length === 0 && sortBy === "magnitude" ? (
+          <div className="rounded-lg border border-border bg-foreground/[0.02] p-6 text-sm text-muted">
+            No high-impact stories in the past {MAGNITUDE_WINDOW_DAYS} days.
+            Switch back to Recency or Relevance for the full feed.
+          </div>
+        ) : (
+          sorted.map((signal) => <FeedRow key={signal.id} signal={signal} />)
+        )}
       </div>
     </div>
   );
