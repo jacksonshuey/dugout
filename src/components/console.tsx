@@ -273,15 +273,15 @@ export function Console(props: ConsoleData & { basePath?: string }) {
   // ── Render ──────────────────────────────────────────────────────
   if (!hydrated) {
     return (
-      <div className="flex">
+      <div className="max-w-[88rem] mx-auto flex">
         <div className="w-56 shrink-0 border-r border-border bg-slate-50/50 h-[calc(100vh-3rem)]" />
-        <div className="flex-1 p-8 text-sm text-muted">Loading…</div>
+        <div className="flex-1 p-6 text-sm text-muted">Loading…</div>
       </div>
     );
   }
 
   return (
-    <div className="flex">
+    <div className="max-w-[88rem] mx-auto flex">
       <Sidebar
         view={view}
         filters={filters}
@@ -291,7 +291,7 @@ export function Console(props: ConsoleData & { basePath?: string }) {
         onFiltersChange={(f) => updateUrl({ filters: f })}
       />
 
-      <main className="flex-1 min-w-0 p-6 max-w-[88rem]">
+      <main className="flex-1 min-w-0 p-6">
         {view === "pipeline" && (
           <PipelineView
             opps={filteredOpps}

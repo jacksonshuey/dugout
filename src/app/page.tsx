@@ -75,7 +75,7 @@ export default async function LandingPage() {
       <Hero />
       <OnboardingWalkthrough />
       <section id="demo" className="border-t border-border bg-foreground/[0.02]">
-        <div className="max-w-6xl mx-auto px-6 pt-12 sm:pt-16 pb-6">
+        <div className="max-w-6xl mx-auto px-6 py-20 sm:py-24">
           <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight">
             Dashboard
           </h2>
@@ -350,7 +350,7 @@ function StepIntegrate() {
   return (
     <StepShell num={1} wide title="Integrate" sub="">
       <div className="grid md:grid-cols-12 gap-8">
-        <div className="md:col-span-5 flex flex-col">
+        <div className="md:col-span-5 min-w-0 flex flex-col">
           <div className="space-y-3">
             <p className="text-sm text-foreground/70 leading-relaxed">
               <span className="font-semibold text-foreground">
@@ -370,7 +370,7 @@ function StepIntegrate() {
             <div className="text-[10px] uppercase tracking-[0.2em] font-mono text-muted">
               Checkbox stack · {stackBrands.length} tools
             </div>
-            <div className="marquee-container relative overflow-hidden">
+            <div className="marquee-container relative w-full max-w-full overflow-hidden">
               <div
                 aria-hidden
                 className="pointer-events-none absolute inset-y-0 left-0 w-10 z-10"
@@ -398,7 +398,7 @@ function StepIntegrate() {
             </div>
           </div>
         </div>
-        <div className="md:col-span-7">
+        <div className="md:col-span-7 min-w-0">
           <IntegrationSetupReel
             integrations={INTEGRATIONS}
             health={integrationHealth}
@@ -535,26 +535,26 @@ function DataSourcesRow() {
       <SourceCard
         icon="✉"
         name="AgentMail"
-        role="Inbox runtime · Svix-signed webhooks"
-        detail="Every subscribed publisher delivers into one workspace inbox. AgentMail handles signed delivery + dedup; AI runs on top to tag each row to a tracked account or its vertical before the team sees it."
+        role="Newsletter inbox · Svix-signed webhooks"
+        detail="One workspace inbox for every subscribed publisher. AI tags each email by account or vertical."
       />
       <SourceCard
         icon="N"
         name="NewsAPI"
-        role="Material news classification"
-        detail="Daily cron pulls company-mention headlines across major publishers (Reuters, Bloomberg, TechCrunch). AI grades each story for relevance and routes high-confidence hits to the matching account."
+        role="Mainstream press · daily cron"
+        detail="Reuters, Bloomberg, TechCrunch. AI grades relevance and routes high-confidence hits to the matching account."
       />
       <SourceCard
         icon="§"
         name="SEC EDGAR"
-        role="Public-company filings · 10-K, 8-K, 6-K"
-        detail="Filings monitored continuously for tracked public-company accounts. Leadership changes, risk-factor edits, M&A disclosures, and earnings move from filing to drawer within minutes."
+        role="Public filings · 10-K, 8-K, 6-K"
+        detail="Live monitor on tracked public companies. Leadership changes, risk-factor edits, M&A, earnings to the drawer in minutes."
       />
       <SourceCard
         icon="F"
         name="Firecrawl"
-        role="Per-account site scrapes · daily cron"
-        detail="Tracked accounts have their newsrooms, leadership pages, and product pages scraped each day. Markdown lands in web_scrapes, AI extracts material events (earnings dates, conference appearances, product launches) and pins them to the right account drawer."
+        role="Account site scrapes · nightly"
+        detail="Newsrooms + leadership + product pages scraped per account. AI extracts earnings dates, conference talks, product launches."
       />
     </div>
   );
@@ -733,15 +733,10 @@ async function MarketIntelLiveSection() {
       <h2 className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight max-w-3xl">
         Workspace-wide intel, ranked by relevance.
       </h2>
-      <p className="mt-4 text-base text-foreground/70 leading-relaxed max-w-3xl">
-        Four pipes feed one workspace feed: newsletters land in AgentMail,
-        public-company filings stream from SEC EDGAR, mainstream press from
-        NewsAPI, and per-account newsroom + leadership pages get scraped
-        nightly by Firecrawl. AI classifies every input as it lands: account
-        mentions route to that account&apos;s drawer, market-wide moves
-        surface in the feed below. Your team gets shared, continuously
-        refreshed context on every customer without anyone reading 200
-        emails a week.
+      <p className="mt-4 text-base text-foreground/70 leading-relaxed max-w-2xl">
+        Four pipes in, one feed out. AI classifies every input as it lands:
+        account mentions route to the right drawer, market-wide moves bubble
+        below.
       </p>
 
       <DataSourcesRow />
