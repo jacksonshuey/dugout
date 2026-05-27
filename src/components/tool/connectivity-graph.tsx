@@ -462,8 +462,8 @@ function OverviewGraph({
                 dominantBaseline="middle"
                 textAnchor="end"
                 fontSize="12"
-                fill="currentColor"
-                fillOpacity="0.7"
+                fill={color}
+                fillOpacity="0.85"
               >
                 {isExpanded ? "−" : "+"}
               </text>
@@ -493,6 +493,9 @@ function OverviewGraph({
                     className="cg-drop-row"
                     style={{ animationDelay: `${i * 45}ms` }}
                   >
+                    {/* Match the parent source pill's styling exactly -
+                        same fill/stroke opacities, same font sizes -
+                        so the popped-out column reads as one piece. */}
                     <rect
                       x={0}
                       y={0}
@@ -500,15 +503,15 @@ function OverviewGraph({
                       height={NODE_H}
                       rx={8}
                       fill={color}
-                      fillOpacity="0.06"
+                      fillOpacity="0.12"
                       stroke={color}
-                      strokeOpacity="0.45"
+                      strokeOpacity="0.6"
                     />
                     <text
                       x={14}
                       y={NODE_H / 2 - 6}
                       dominantBaseline="middle"
-                      fontSize="12"
+                      fontSize="13"
                       fontWeight="600"
                       fill="currentColor"
                     >
@@ -518,7 +521,7 @@ function OverviewGraph({
                       x={14}
                       y={NODE_H / 2 + 10}
                       dominantBaseline="middle"
-                      fontSize="9"
+                      fontSize="10"
                       fontFamily="ui-monospace, monospace"
                       fill="currentColor"
                       fillOpacity="0.55"
@@ -627,6 +630,10 @@ function OverviewGraph({
                     className="cg-drop-row"
                     style={{ animationDelay: `${i * 25}ms` }}
                   >
+                    {/* Match the canonical pill's default styling -
+                        brand stroke at 0.5, white fill - so the row
+                        reads as a member of the same column. Join
+                        fields get a brand tint to flag the attention. */}
                     <rect
                       x={0}
                       y={0}
@@ -636,17 +643,17 @@ function OverviewGraph({
                       fill={isJoin ? "var(--brand)" : "var(--background)"}
                       fillOpacity={isJoin ? 0.08 : 1}
                       stroke="var(--brand)"
-                      strokeOpacity={isJoin ? 0.55 : isOrphan ? 0.2 : 0.35}
+                      strokeOpacity={isOrphan ? 0.25 : 0.5}
                     />
                     <text
                       x={14}
                       y={NODE_H / 2 - 6}
                       dominantBaseline="middle"
-                      fontSize="11"
+                      fontSize="13"
                       fontFamily="ui-monospace, monospace"
-                      fontWeight={isJoin ? 700 : 500}
+                      fontWeight={isJoin ? 700 : 600}
                       fill="currentColor"
-                      fillOpacity={isOrphan ? 0.4 : 1}
+                      fillOpacity={isOrphan ? 0.45 : 1}
                     >
                       {row.key}
                       {row.isArray ? "[]" : ""}
@@ -655,10 +662,10 @@ function OverviewGraph({
                       x={14}
                       y={NODE_H / 2 + 10}
                       dominantBaseline="middle"
-                      fontSize="9"
+                      fontSize="10"
                       fontFamily="ui-monospace, monospace"
                       fill={isJoin ? "var(--brand)" : "currentColor"}
-                      fillOpacity={isOrphan ? 0.4 : isJoin ? 0.9 : 0.55}
+                      fillOpacity={isOrphan ? 0.45 : isJoin ? 0.9 : 0.55}
                     >
                       {row.type}
                       {row.unit ? ` · ${row.unit}` : ""}
