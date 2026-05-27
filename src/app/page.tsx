@@ -433,9 +433,7 @@ function StepIntegrate() {
                 Integrate with your existing tools.
               </span>{" "}
               Each tool plugs in the same way: paste an API key, set sync
-              frequency, verify, done. Credentials encrypt in Supabase Vault
-              and never reach the browser. Granola is the example here: the
-              same flow works for every adapter shown.
+              frequency, verify, done.
             </p>
             <p className="text-sm text-foreground/70 leading-relaxed">
               No per-source schema design. The adapter resolves the account
@@ -512,7 +510,7 @@ function StepOntology() {
       num={3}
       wide
       title="Ontology"
-      sub="Every raw API field from every source zippers into a canonical object. One Account, one Contact, one Meeting, regardless of how many tools recorded it. Drill into any object to see exactly which fields converge - and where multiple sources need a source-of-truth rule."
+      sub="Every raw API field from every source zippers into a canonical object. One Account, one Contact, one Meeting, regardless of how many tools recorded it."
     >
       <div className="rounded-xl border border-border bg-foreground/[0.02] p-4">
         <ConnectivityGraph />
