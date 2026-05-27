@@ -77,8 +77,8 @@ export default async function LandingPage() {
   return (
     <div className="bg-background">
       <Hero />
-      <MarketIntelLiveSection />
       <OnboardingWalkthrough />
+      <MarketIntelLiveSection />
       <section id="demo" className="border-t border-border bg-foreground/[0.02]">
         <div className="max-w-6xl mx-auto px-6 py-20 sm:py-24">
           <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight">
