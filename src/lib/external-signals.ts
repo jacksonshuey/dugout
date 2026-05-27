@@ -83,6 +83,12 @@ export interface ExternalSignal {
   // 20260526_external_signals_impact_score.sql.
   impact_score?: number | null;
   created_at: string;
+  // ---------------------------------------------------------------------------
+  // Display-time fields populated by signal-moderator.ts. Never persisted to
+  // the DB — set transiently on signal objects before they reach components.
+  // ---------------------------------------------------------------------------
+  // GPT-4o confidence tier after the moderation pass.
+  moderated_confidence?: "verified_primary" | "verified_secondary" | "inferred" | "needs_review";
 }
 
 export interface NewExternalSignal {

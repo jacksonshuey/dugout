@@ -147,6 +147,7 @@ function NewsBullet({
 }) {
   const isVertical = isVerticalMatch(signal);
   const publisher = publisherOverride ?? signal.publisher_canonical_name ?? "source";
+  const conf = signal.moderated_confidence;
   return (
     <li className="flex gap-2 text-[12px] leading-snug">
       <span aria-hidden className="text-muted shrink-0 mt-1 text-[6px]">
@@ -158,6 +159,14 @@ function NewsBullet({
           <span className="font-mono">{publisher}</span>
           <span>·</span>
           <span>{formatRelative(signal.occurred_at)}</span>
+          {conf && (
+            <>
+              <span>·</span>
+              <span className={confidenceBadgeClass(conf)} title={confidenceLabel(conf)}>
+                {confidenceLabel(conf)}
+              </span>
+            </>
+          )}
           {isVertical && (
             <>
               <span>·</span>
@@ -170,6 +179,21 @@ function NewsBullet({
       </div>
     </li>
   );
+}
+
+function confidenceLabel(conf: NonNullable<ExternalSignal["moderated_confidence"]>): string {
+  if (conf === "verified_primary") return "primary source";
+  if (conf === "verified_secondary") return "verified";
+  if (conf === "inferred") return "inferred";
+  return "needs review";
+}
+
+function confidenceBadgeClass(conf: NonNullable<ExternalSignal["moderated_confidence"]>): string {
+  if (conf === "verified_primary") return "font-mono text-severity-green uppercase tracking-[0.1em]";
+  if (conf === "verified_secondary") return "font-mono text-brand uppercase tracking-[0.1em]";
+  if (conf === "inferred") return "font-mono text-muted uppercase tracking-[0.1em]";
+  // needs_review
+  return "font-mono text-severity-action uppercase tracking-[0.1em]";
 }
 
 function isVerticalMatch(s: ExternalSignal): boolean {
