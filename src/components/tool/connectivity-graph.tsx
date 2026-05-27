@@ -255,13 +255,11 @@ function OverviewGraph({
   }
 
   return (
-    <div className="w-full overflow-x-auto rounded-lg border border-border bg-foreground/[0.02] p-2">
+    <div className="w-full rounded-lg border border-border bg-foreground/[0.02] p-2">
       <svg
-        width={WIDTH}
-        height={HEIGHT}
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-        className="block"
-        style={{ minWidth: WIDTH }}
+        preserveAspectRatio="xMidYMid meet"
+        className="block w-full h-auto"
       >
         {/* Edges */}
         {edges.map((e, i) => {
@@ -522,13 +520,11 @@ function DrilldownGraph({ canonicalKey }: { canonicalKey: string }) {
   const HEIGHT = Math.max(rawCursor, canCursor) + PADDING;
 
   return (
-    <div className="w-full overflow-x-auto rounded-lg border border-border bg-foreground/[0.02] p-2">
+    <div className="w-full rounded-lg border border-border bg-foreground/[0.02] p-2">
       <svg
-        width={WIDTH}
-        height={HEIGHT}
         viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-        className="block"
-        style={{ minWidth: WIDTH }}
+        preserveAspectRatio="xMidYMid meet"
+        className="block w-full h-auto"
       >
         {/* Edges: source -> raw field (short fanout) */}
         {rawPositions.map((r, i) => {

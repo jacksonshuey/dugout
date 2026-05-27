@@ -85,6 +85,10 @@ export default async function LandingPage() {
           </h2>
           <p className="mt-2 text-sm text-muted">
             Live console. Pipeline and today&apos;s open tasks, by severity.
+            The pre-meeting brief on the right pulls fresh news for
+            upcoming meetings on every refresh — SEC filings, funding
+            announcements, exec changes — so an AE never walks into a
+            meeting cold on what their account just did publicly.
           </p>
         </div>
         <Console
