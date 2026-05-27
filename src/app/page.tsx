@@ -136,11 +136,11 @@ function NextUpSection() {
       <h2 className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight max-w-3xl">
         What&apos;s next.
       </h2>
-      <ol className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-5">
+      <ol className="mt-10 grid grid-cols-1 sm:grid-cols-3 gap-4 auto-rows-fr">
         {items.map((item, i) => (
           <li
             key={item.title}
-            className="rounded-xl border border-border bg-background p-6 min-h-[340px] flex flex-col"
+            className="rounded-xl border border-border bg-background p-5 flex flex-col gap-4"
           >
             <div className="flex items-center justify-between">
               <span className="text-[11px] uppercase tracking-[0.15em] font-mono text-brand">
@@ -150,10 +150,10 @@ function NextUpSection() {
                 Coming soon
               </span>
             </div>
-            <h3 className="mt-3 text-base font-semibold tracking-tight leading-snug">
+            <h3 className="text-base font-semibold tracking-tight leading-snug">
               {item.title}
             </h3>
-            <div className="mt-auto pt-6 flex items-center justify-center">
+            <div className="mt-auto pt-2 flex items-center justify-center">
               {item.viz}
             </div>
           </li>
@@ -168,13 +168,17 @@ function NextUpSection() {
 
 function IntegrationScaffoldingViz() {
   // Four integration nodes around a central Dugout hub. Dashed lines
-  // flow from each integration toward the hub - the "wiring up" motion.
+  // end at the hub's outer edge (x=84 on the left side, x=136 on the
+  // right side) so they don't slice through the centered "dugout"
+  // text. Hub is wider than the original (52 vs 36) to give the label
+  // breathing room and to match the visual weight of the integration
+  // pills next to it.
   return (
-    <svg viewBox="0 0 220 120" className="w-full h-32" aria-hidden>
-      <line x1="44" y1="28" x2="100" y2="60" stroke="var(--brand)" strokeWidth="1.4" strokeDasharray="4 4" className="flow-path" />
-      <line x1="176" y1="28" x2="120" y2="60" stroke="var(--brand)" strokeWidth="1.4" strokeDasharray="4 4" className="flow-path" />
-      <line x1="44" y1="92" x2="100" y2="60" stroke="var(--brand)" strokeWidth="1.4" strokeDasharray="4 4" className="flow-path" />
-      <line x1="176" y1="92" x2="120" y2="60" stroke="var(--brand)" strokeWidth="1.4" strokeDasharray="4 4" className="flow-path" />
+    <svg viewBox="0 0 220 120" className="w-full h-28" aria-hidden>
+      <line x1="44" y1="28" x2="84" y2="54" stroke="var(--brand)" strokeWidth="1.4" strokeDasharray="4 4" className="flow-path" />
+      <line x1="176" y1="28" x2="136" y2="54" stroke="var(--brand)" strokeWidth="1.4" strokeDasharray="4 4" className="flow-path" />
+      <line x1="44" y1="92" x2="84" y2="66" stroke="var(--brand)" strokeWidth="1.4" strokeDasharray="4 4" className="flow-path" />
+      <line x1="176" y1="92" x2="136" y2="66" stroke="var(--brand)" strokeWidth="1.4" strokeDasharray="4 4" className="flow-path" />
       <circle cx="32" cy="28" r="14" fill="#00A1E0" fillOpacity="0.18" stroke="#00A1E0" strokeWidth="1.5" />
       <text x="32" y="32" textAnchor="middle" fontSize="9" fontFamily="ui-monospace, monospace" fill="#00A1E0">SF</text>
       <circle cx="188" cy="28" r="14" fill="#FF7A59" fillOpacity="0.18" stroke="#FF7A59" strokeWidth="1.5" />
@@ -183,8 +187,8 @@ function IntegrationScaffoldingViz() {
       <text x="32" y="96" textAnchor="middle" fontSize="9" fontFamily="ui-monospace, monospace" fill="#7C3AED">GN</text>
       <circle cx="188" cy="92" r="14" fill="#F97316" fillOpacity="0.18" stroke="#F97316" strokeWidth="1.5" />
       <text x="188" y="96" textAnchor="middle" fontSize="9" fontFamily="ui-monospace, monospace" fill="#F97316">OR</text>
-      <rect x="92" y="48" width="36" height="24" rx="6" fill="var(--brand)" fillOpacity="0.12" stroke="var(--brand)" strokeWidth="1.5" />
-      <text x="110" y="64" textAnchor="middle" fontSize="9" fontFamily="ui-monospace, monospace" fontWeight="600" fill="var(--brand)">dugout</text>
+      <rect x="84" y="48" width="52" height="24" rx="6" fill="var(--brand)" fillOpacity="0.12" stroke="var(--brand)" strokeWidth="1.5" />
+      <text x="110" y="63" textAnchor="middle" fontSize="9" fontFamily="ui-monospace, monospace" fontWeight="600" fill="var(--brand)">dugout</text>
     </svg>
   );
 }
@@ -193,7 +197,7 @@ function WorkflowAutomationsViz() {
   // Trigger pill on left, action pill on right, dashed flow between -
   // the "if X then Y" automation chain.
   return (
-    <svg viewBox="0 0 260 100" className="w-full h-32" aria-hidden>
+    <svg viewBox="0 0 260 100" className="w-full h-28" aria-hidden>
       <rect x="10" y="36" width="76" height="28" rx="6" fill="#7C3AED" fillOpacity="0.12" stroke="#7C3AED" strokeWidth="1.5" />
       <text x="48" y="48" textAnchor="middle" fontSize="9" fontFamily="ui-monospace, monospace" fontWeight="600" fill="#7C3AED">trigger</text>
       <text x="48" y="59" textAnchor="middle" fontSize="8" fontFamily="ui-monospace, monospace" fill="#7C3AED" fillOpacity="0.7">SF stage = SV</text>
@@ -209,7 +213,7 @@ function WorkflowAutomationsViz() {
 function UserAccountsViz() {
   // Three avatars pulsing in sequence - the "multi-tenant sign-in" feel.
   return (
-    <svg viewBox="0 0 220 100" className="w-full h-32" aria-hidden>
+    <svg viewBox="0 0 220 100" className="w-full h-28" aria-hidden>
       <circle cx="50" cy="50" r="22" fill="var(--brand)" fillOpacity="0.10" stroke="var(--brand)" strokeOpacity="0.4" strokeWidth="1.4" />
       <circle cx="50" cy="44" r="6" fill="var(--brand)" className="pulse-stagger" />
       <rect x="40" y="52" width="20" height="10" rx="5" fill="var(--brand)" className="pulse-stagger" />
