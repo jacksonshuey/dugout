@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useRef, useState } from "react";
 import { Console, type ConsoleData } from "@/components/console";
 import { InteractiveSignals } from "@/components/landing/interactive-signals";
 import { InteractiveDecisions } from "@/components/landing/interactive-decisions";
@@ -16,12 +16,9 @@ import { CANONICAL_OBJECTS, type CanonicalObject } from "@/data/canonical-object
 import {
   rawFieldsContributingTo,
   contributorsFor,
-  totalMappingCount,
-  joinPointFields,
-  unmappedRawFields,
 } from "@/data/object-mappings";
-import { totalRawFieldCount, getUniqueSources, getRawObjectsBySource } from "@/data/raw-fields";
-import { INTEGRATION_SPECS } from "@/data/integration-specs";
+import { getRawObjectsBySource } from "@/data/raw-fields";
+import { INTEGRATION_SPECS, getSpec } from "@/data/integration-specs";
 import { cn } from "@/lib/utils";
 
 // Tabbed shell for the operator tool surface. Tab state is local only (no
@@ -341,118 +338,106 @@ function ActionsTab() {
 }
 
 function OntologyTab() {
-  const [graphOpen, setGraphOpen] = useState(false);
-  const sources = getUniqueSources();
+  // Controlled state for the inline data zipper so card clicks below
+  // can drive it (e.g., clicking a canonical object card jumps the
+  // graph into drill-in mode for that object).
+  const [graphMode, setGraphMode] = useState<"overview" | "drilldown">(
+    "overview",
+  );
+  const [graphSelectedObject, setGraphSelectedObject] = useState<string>(
+    CANONICAL_OBJECTS[0]?.key ?? "Account",
+  );
+  // Source clicks open the integration connect modal.
+  const [openSpec, setOpenSpec] = useState<IntegrationConnectSpec | null>(
+    null,
+  );
+  // Ref so card clicks scroll the graph back into view.
+  const graphRef = useRef<HTMLDivElement | null>(null);
+
+  function openCanonicalDrillIn(key: string) {
+    setGraphSelectedObject(key);
+    setGraphMode("drilldown");
+    graphRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function openSourceConnect(source: string) {
+    const spec = getSpec(source);
+    if (spec) setOpenSpec(spec);
+  }
+
   return (
     <div>
       <TabHeader
         title="Ontology"
-        sub="Raw API fields from every source zipper into canonical objects. One Meeting, one Account, one Deal, regardless of how many tools recorded it."
+        sub="Raw API fields from every source zipper into canonical objects. Click any source to connect it; click any canonical object to see the join."
       />
-      <div className="max-w-6xl mx-auto px-6 pb-6">
-        <button
-          type="button"
-          onClick={() => setGraphOpen(true)}
-          className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm hover:border-brand hover:text-brand transition-colors"
-        >
-          <svg
-            aria-hidden
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            className="w-4 h-4"
-          >
-            <circle cx="3" cy="4" r="1.5" />
-            <circle cx="3" cy="12" r="1.5" />
-            <circle cx="13" cy="8" r="1.5" />
-            <path d="M4.5 4 L11.5 7.5" />
-            <path d="M4.5 12 L11.5 8.5" />
-          </svg>
-          Visualize data zipper
-        </button>
-      </div>
-      <div className="max-w-6xl mx-auto px-6 pb-6">
-        <OntologyStatsRow sourceCount={sources.length} />
+      <div className="max-w-6xl mx-auto px-6 pb-8" ref={graphRef}>
+        <div className="text-[10px] uppercase tracking-[0.2em] font-mono text-muted mb-2">
+          Data zipper · sources → canonical objects
+        </div>
+        <div className="rounded-xl border border-border bg-foreground/[0.02] p-4">
+          <ConnectivityGraph
+            mode={graphMode}
+            selectedObject={graphSelectedObject}
+            onModeChange={setGraphMode}
+            onSelectedObjectChange={setGraphSelectedObject}
+            onSelectSource={openSourceConnect}
+          />
+        </div>
       </div>
       <div className="max-w-6xl mx-auto px-6 pb-8">
-        <CanonicalObjectsGrid />
+        <CanonicalObjectsGrid onSelect={openCanonicalDrillIn} />
       </div>
       <div className="max-w-6xl mx-auto px-6 pb-12">
         <WorkspaceTree />
       </div>
-      {graphOpen && <ConnectivityGraphModal onClose={() => setGraphOpen(false)} />}
+      {openSpec && (
+        <IntegrationConnectModal
+          spec={openSpec}
+          onClose={() => setOpenSpec(null)}
+        />
+      )}
     </div>
   );
 }
 
-function OntologyStatsRow({ sourceCount }: { sourceCount: number }) {
-  const joins = joinPointFields();
-  const orphans = unmappedRawFields();
-  return (
-    <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
-      <Stat label="Sources" value={String(sourceCount)} />
-      <Stat label="Raw fields" value={String(totalRawFieldCount())} />
-      <Stat label="Canonical objects" value={String(CANONICAL_OBJECTS.length)} />
-      <Stat label="Mappings" value={String(totalMappingCount())} accent />
-      <Stat label="Join points" value={String(joins.length)} sub={`${orphans.length} orphans`} accent />
-    </div>
-  );
-}
-
-function Stat({
-  label,
-  value,
-  sub,
-  accent,
+function CanonicalObjectsGrid({
+  onSelect,
 }: {
-  label: string;
-  value: string;
-  sub?: string;
-  accent?: boolean;
+  onSelect: (canonicalKey: string) => void;
 }) {
-  return (
-    <div
-      className={
-        "rounded-md border px-3 py-2 " +
-        (accent
-          ? "border-brand/40 bg-brand/[0.04]"
-          : "border-border bg-background")
-      }
-    >
-      <div className="text-[10px] uppercase tracking-[0.15em] font-mono text-muted">
-        {label}
-      </div>
-      <div className="text-xl font-semibold tabular-nums mt-0.5">{value}</div>
-      {sub && <div className="text-[10px] text-muted mt-0.5">{sub}</div>}
-    </div>
-  );
-}
-
-function CanonicalObjectsGrid() {
   return (
     <div>
       <div className="text-[10px] uppercase tracking-[0.2em] font-mono text-muted mb-2">
-        Canonical objects
+        Canonical objects · click to drill into the zipper above
       </div>
       <div className="grid sm:grid-cols-2 gap-3">
         {CANONICAL_OBJECTS.map((obj) => (
-          <CanonicalObjectCard key={obj.key} obj={obj} />
+          <CanonicalObjectCard key={obj.key} obj={obj} onSelect={onSelect} />
         ))}
       </div>
     </div>
   );
 }
 
-function CanonicalObjectCard({ obj }: { obj: CanonicalObject }) {
+function CanonicalObjectCard({
+  obj,
+  onSelect,
+}: {
+  obj: CanonicalObject;
+  onSelect: (canonicalKey: string) => void;
+}) {
   const contribs = rawFieldsContributingTo(obj.key);
   const sources = Array.from(new Set(contribs.map((c) => c.source)));
   const joinFields = obj.fields.filter(
     (f) => contributorsFor(obj.key, f.key).length > 1,
   ).length;
   return (
-    <div className="rounded-lg border border-border bg-background p-3">
+    <button
+      type="button"
+      onClick={() => onSelect(obj.key)}
+      className="rounded-lg border border-border bg-background p-3 text-left hover:border-brand hover:shadow-sm transition-all w-full focus:outline-none focus:ring-2 focus:ring-brand/40"
+    >
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-sm font-semibold tracking-tight">{obj.label}</div>
@@ -495,74 +480,7 @@ function CanonicalObjectCard({ obj }: { obj: CanonicalObject }) {
           </span>
         )}
       </div>
-    </div>
+    </button>
   );
 }
 
-function ConnectivityGraphModal({ onClose }: { onClose: () => void }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prev;
-    };
-  }, [onClose]);
-  return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label="Data zipper graph"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-foreground/50 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        className="bg-background rounded-xl border border-border shadow-xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <header className="flex items-start justify-between gap-4 border-b border-border px-5 py-3 shrink-0">
-          <div>
-            <div className="text-[10px] uppercase tracking-[0.2em] font-mono text-muted">
-              Data zipper
-            </div>
-            <h3 className="text-base font-semibold tracking-tight mt-0.5">
-              Sources → canonical objects
-            </h3>
-            <p className="text-xs text-muted mt-0.5 max-w-2xl">
-              Overview shows how each source contributes to the canonical
-              objects. Drill in to see exactly which raw fields converge on
-              each canonical field. Join-point fields (multiple sources
-              agree or disagree on the same value) are flagged.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="shrink-0 rounded-md border border-border w-7 h-7 inline-flex items-center justify-center hover:border-brand hover:text-brand transition-colors"
-          >
-            <svg
-              aria-hidden
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              className="w-4 h-4"
-            >
-              <path d="M4 4 L12 12" />
-              <path d="M12 4 L4 12" />
-            </svg>
-          </button>
-        </header>
-        <div className="overflow-auto p-5">
-          <ConnectivityGraph />
-        </div>
-      </div>
-    </div>
-  );
-}

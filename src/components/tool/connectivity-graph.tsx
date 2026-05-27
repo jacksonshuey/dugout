@@ -54,13 +54,33 @@ function colorForSource(source: string): string {
   return SOURCE_COLORS[source] ?? "#6B7280";
 }
 
-type Mode = "overview" | "drilldown";
+export type Mode = "overview" | "drilldown";
 
-export function ConnectivityGraph() {
-  const [mode, setMode] = useState<Mode>("overview");
-  const [selectedObject, setSelectedObject] = useState<string>(
+export interface ConnectivityGraphProps {
+  // Controlled state. Pass these from the parent to drive the graph
+  // from outside (e.g., clicking a canonical-object card below the
+  // graph that should jump-into-drill-in). When omitted, the graph
+  // manages its own internal state.
+  mode?: Mode;
+  selectedObject?: string;
+  onModeChange?: (mode: Mode) => void;
+  onSelectedObjectChange?: (key: string) => void;
+  // Source pill clicks in Overview mode. When set, clicking a source
+  // bubbles up here instead of doing nothing - typical use is opening
+  // the integration connect modal for that source.
+  onSelectSource?: (source: string) => void;
+}
+
+export function ConnectivityGraph(props: ConnectivityGraphProps = {}) {
+  const [internalMode, setInternalMode] = useState<Mode>("overview");
+  const [internalSelected, setInternalSelected] = useState<string>(
     CANONICAL_OBJECTS[0]?.key ?? "Account",
   );
+  const mode = props.mode ?? internalMode;
+  const selectedObject = props.selectedObject ?? internalSelected;
+  const setMode = props.onModeChange ?? setInternalMode;
+  const setSelectedObject =
+    props.onSelectedObjectChange ?? setInternalSelected;
 
   function openDrilldown(canonicalKey: string) {
     setSelectedObject(canonicalKey);
@@ -75,12 +95,17 @@ export function ConnectivityGraph() {
         selectedObject={selectedObject}
         onSelectedObjectChange={setSelectedObject}
       />
+      {/* Stats first so headline numbers are always above the fold even
+          when the SVG below scrolls. */}
+      <StatsStrip mode={mode} canonicalKey={selectedObject} />
       {mode === "overview" ? (
-        <OverviewGraph onSelectObject={openDrilldown} />
+        <OverviewGraph
+          onSelectObject={openDrilldown}
+          onSelectSource={props.onSelectSource}
+        />
       ) : (
         <DrilldownGraph canonicalKey={selectedObject} />
       )}
-      <StatsStrip mode={mode} canonicalKey={selectedObject} />
     </div>
   );
 }
@@ -171,8 +196,10 @@ interface OverviewEdge {
 
 function OverviewGraph({
   onSelectObject,
+  onSelectSource,
 }: {
   onSelectObject: (canonicalKey: string) => void;
+  onSelectSource?: (source: string) => void;
 }) {
   const sources = useMemo(() => getUniqueSources(), []);
   const sourceCounts = useMemo(() => sourceContributionCounts(), []);
@@ -195,11 +222,13 @@ function OverviewGraph({
     { kind: "source" | "canonical"; key: string } | null
   >(null);
 
-  // Layout: two columns
-  const PADDING = 24;
+  // Layout: two columns. Node heights kept tight so all 15 sources +
+  // 13 canonical objects fit inside the modal without aggressive
+  // scrolling on a typical laptop viewport (~720px modal body).
+  const PADDING = 16;
   const COL_W = 200;
-  const NODE_H = 48;
-  const NODE_GAP = 12;
+  const NODE_H = 36;
+  const NODE_GAP = 8;
   const COL_GAP = 360;
   const SRC_X = 24;
   const CAN_X = SRC_X + COL_W + COL_GAP;
@@ -276,7 +305,12 @@ function OverviewGraph({
               key={r.source}
               onMouseEnter={() => setHover({ kind: "source", key: r.source })}
               onMouseLeave={() => setHover(null)}
-              style={{ opacity: active ? 1 : 0.35, transition: "opacity 120ms" }}
+              onClick={() => onSelectSource?.(r.source)}
+              style={{
+                opacity: active ? 1 : 0.35,
+                transition: "opacity 120ms",
+                cursor: onSelectSource ? "pointer" : "default",
+              }}
             >
               <rect
                 x={SRC_X}
