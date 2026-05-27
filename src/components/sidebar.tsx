@@ -23,7 +23,7 @@ export const EMPTY_FILTERS: FilterState = {
   severities: [],
 };
 
-const ALL_STAGES: Stage[] = [
+export const ALL_STAGES: Stage[] = [
   "Intro",
   "Qualified",
   "Demo Sat",
@@ -32,9 +32,9 @@ const ALL_STAGES: Stage[] = [
   "Contracting",
 ];
 
-const ALL_HEALTHS: DealHealth[] = ["Critical", "At Risk", "Monitor", "Healthy"];
+export const ALL_HEALTHS: DealHealth[] = ["Critical", "At Risk", "Monitor", "Healthy"];
 
-const ALL_SEVERITIES: ("blocking" | "action" | "awareness")[] = [
+export const ALL_SEVERITIES: ("blocking" | "action" | "awareness")[] = [
   "blocking",
   "action",
 ];
@@ -61,10 +61,6 @@ export function Sidebar({
   // pre-meeting brief in the same column without breaking sticky/scroll.
   footer?: React.ReactNode;
 }) {
-  function toggle<T>(arr: T[], val: T): T[] {
-    return arr.includes(val) ? arr.filter((x) => x !== val) : [...arr, val];
-  }
-
   const hasAnyFilter =
     filters.owners.length > 0 ||
     filters.stages.length > 0 ||
@@ -98,74 +94,24 @@ export function Sidebar({
           ))}
         </div>
 
-        {/* Filters */}
-        <div className="space-y-3">
+        {/* Filters moved into the table's column headers (Stage / Health
+            / Severity dropdowns). Sidebar is now: tabs → pre-meeting
+            brief → bottom stats. Clear-all link only renders when at
+            least one filter is active. */}
+        {hasAnyFilter && (
           <div className="flex items-center justify-between px-2.5">
             <span className="text-[10px] uppercase tracking-wider text-muted font-semibold">
-              Filters
+              Active filters
             </span>
-            {hasAnyFilter && (
-              <button
-                onClick={() => onFiltersChange(EMPTY_FILTERS)}
-                className="text-[10px] text-muted hover:text-foreground"
-              >
-                Clear
-              </button>
-            )}
+            <button
+              onClick={() => onFiltersChange(EMPTY_FILTERS)}
+              className="text-[10px] text-muted hover:text-foreground"
+            >
+              Clear all
+            </button>
           </div>
-
-          <FilterGroup label="Stage">
-            {ALL_STAGES.map((s) => (
-              <Pill
-                key={s}
-                active={filters.stages.includes(s)}
-                onClick={() =>
-                  onFiltersChange({
-                    ...filters,
-                    stages: toggle(filters.stages, s),
-                  })
-                }
-              >
-                {s}
-              </Pill>
-            ))}
-          </FilterGroup>
-
-          <FilterGroup label="Health">
-            {ALL_HEALTHS.map((h) => (
-              <Pill
-                key={h}
-                active={filters.healths.includes(h)}
-                onClick={() =>
-                  onFiltersChange({
-                    ...filters,
-                    healths: toggle(filters.healths, h),
-                  })
-                }
-              >
-                {h}
-              </Pill>
-            ))}
-          </FilterGroup>
-
-          <FilterGroup label="Severity">
-            {ALL_SEVERITIES.map((s) => (
-              <Pill
-                key={s}
-                active={filters.severities.includes(s)}
-                onClick={() =>
-                  onFiltersChange({
-                    ...filters,
-                    severities: toggle(filters.severities, s),
-                  })
-                }
-              >
-                {s}
-              </Pill>
-            ))}
-          </FilterGroup>
-        </div>
-        {footer && <div className="pt-2">{footer}</div>}
+        )}
+        {footer && <div>{footer}</div>}
       </div>
 
       <div className="sticky bottom-0 border-t border-border bg-slate-50/95 backdrop-blur p-3 text-[11px] text-muted">
@@ -180,7 +126,7 @@ export function Sidebar({
   );
 }
 
-function FilterGroup({
+export function FilterGroup({
   label,
   children,
 }: {
@@ -195,7 +141,7 @@ function FilterGroup({
   );
 }
 
-function Pill({
+export function Pill({
   active,
   onClick,
   children,

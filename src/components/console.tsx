@@ -18,6 +18,8 @@ import { STAGE_ORDER } from "@/lib/types";
 import type { WorkspaceConfig } from "@/lib/workspace";
 import {
   Sidebar,
+  ALL_STAGES,
+  ALL_HEALTHS,
   type ConsoleView,
   type FilterState,
 } from "./sidebar";
@@ -321,6 +323,8 @@ export function Console(
             tasks={tasks}
             onOpen={(id) => setDrawerOppId(id)}
             title={props.pipelineTitle}
+            filters={filters}
+            onFiltersChange={(f) => updateUrl({ filters: f })}
           />
         )}
         {view === "today" && (
@@ -395,6 +399,8 @@ function PipelineView({
   tasks,
   onOpen,
   title,
+  filters,
+  onFiltersChange,
 }: {
   opps: Opportunity[];
   data: ConsoleData;
@@ -404,6 +410,12 @@ function PipelineView({
   // "Dashboard" so the surface reads as one thing instead of stacking a
   // tab label, a tab header, and a "Pipeline" view label all together.
   title?: string;
+  // Filter state lives in Console; the column header dropdowns mutate
+  // through onFiltersChange. Filters are intentionally in the headers
+  // (not the sidebar) so the pre-meeting brief takes the sidebar
+  // real estate.
+  filters: FilterState;
+  onFiltersChange: (f: FilterState) => void;
 }) {
   const [sortKey, setSortKey] = useState<SortKey>("health");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -567,8 +579,20 @@ function PipelineView({
             <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-muted font-semibold sticky top-0">
               <tr className="border-b border-border">
                 <SortableTh sortKey={sortKey} sortDir={sortDir} myKey="account" align="left" onSort={handleSort}>Account</SortableTh>
-                <SortableTh sortKey={sortKey} sortDir={sortDir} myKey="stage" align="left" onSort={handleSort}>Stage</SortableTh>
-                <SortableTh sortKey={sortKey} sortDir={sortDir} myKey="health" align="left" onSort={handleSort}>Health</SortableTh>
+                <FilterableTh
+                  sortKey={sortKey} sortDir={sortDir} myKey="stage" onSort={handleSort}
+                  label="Stage"
+                  options={ALL_STAGES}
+                  selected={filters.stages}
+                  onChange={(next) => onFiltersChange({ ...filters, stages: next as typeof filters.stages })}
+                />
+                <FilterableTh
+                  sortKey={sortKey} sortDir={sortDir} myKey="health" onSort={handleSort}
+                  label="Health"
+                  options={ALL_HEALTHS}
+                  selected={filters.healths}
+                  onChange={(next) => onFiltersChange({ ...filters, healths: next as typeof filters.healths })}
+                />
                 <SortableTh sortKey={sortKey} sortDir={sortDir} myKey="amount" align="right" onSort={handleSort}>Amount</SortableTh>
                 <SortableTh sortKey={sortKey} sortDir={sortDir} myKey="days" align="right" onSort={handleSort}>Days</SortableTh>
                 <SortableTh sortKey={sortKey} sortDir={sortDir} myKey="owner" align="left" onSort={handleSort}>Owner</SortableTh>
@@ -854,6 +878,122 @@ function TaskRow({
 
 // Sortable table header. Renders an arrow indicator on the active column,
 // a subtle muted arrow on the others as an affordance.
+// Column header that combines sort + filter. The label area clicks
+// through to sort like SortableTh; a separate funnel button to the
+// right of the label opens a checkbox dropdown. Filter pill on the
+// header lights up when a filter is active.
+function FilterableTh<T extends string>({
+  myKey,
+  sortKey,
+  sortDir,
+  onSort,
+  label,
+  options,
+  selected,
+  onChange,
+}: {
+  myKey: SortKey;
+  sortKey: SortKey;
+  sortDir: SortDir;
+  onSort: (k: SortKey) => void;
+  label: string;
+  options: readonly T[];
+  selected: readonly T[];
+  onChange: (next: T[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const isActive = sortKey === myKey;
+  const arrow = isActive ? (sortDir === "asc" ? "↑" : "↓") : "·";
+  const hasFilter = selected.length > 0;
+  return (
+    <th className="px-3 py-2 font-semibold select-none">
+      <span className="inline-flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => onSort(myKey)}
+          className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+        >
+          <span>{label}</span>
+          <span className={cn("text-[10px]", isActive ? "text-foreground" : "text-muted/40")}>
+            {arrow}
+          </span>
+        </button>
+        <span className="relative">
+          <button
+            type="button"
+            onClick={() => setOpen((o) => !o)}
+            aria-label={`Filter ${label}`}
+            aria-expanded={open}
+            className={cn(
+              "inline-flex items-center justify-center w-4 h-4 rounded border text-[8px] transition-colors",
+              hasFilter
+                ? "border-brand bg-brand text-white"
+                : "border-border bg-background text-muted hover:border-foreground/40",
+            )}
+          >
+            {hasFilter ? selected.length : "▾"}
+          </button>
+          {open && (
+            <>
+              <div
+                className="fixed inset-0 z-30"
+                onClick={() => setOpen(false)}
+                aria-hidden
+              />
+              <div className="absolute left-0 mt-1 w-44 bg-background border border-border rounded-md shadow-lg z-40 py-1">
+                {options.map((opt) => {
+                  const on = selected.includes(opt);
+                  return (
+                    <button
+                      key={opt}
+                      type="button"
+                      onClick={() =>
+                        onChange(
+                          on
+                            ? selected.filter((s) => s !== opt)
+                            : [...selected, opt],
+                        )
+                      }
+                      className="w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-foreground/[0.04] text-left font-normal"
+                    >
+                      <span
+                        aria-hidden
+                        className={cn(
+                          "w-3 h-3 rounded-sm border inline-flex items-center justify-center",
+                          on ? "border-brand bg-brand" : "border-border bg-background",
+                        )}
+                      >
+                        {on && (
+                          <svg viewBox="0 0 12 12" fill="none" stroke="white" strokeWidth="2" className="w-2.5 h-2.5">
+                            <path d="M2 6 L5 9 L10 3" />
+                          </svg>
+                        )}
+                      </span>
+                      {opt}
+                    </button>
+                  );
+                })}
+                {hasFilter && (
+                  <>
+                    <div className="border-t border-border my-1" />
+                    <button
+                      type="button"
+                      onClick={() => onChange([])}
+                      className="w-full px-3 py-1.5 text-xs text-muted hover:text-foreground hover:bg-foreground/[0.04] text-left font-normal"
+                    >
+                      Clear
+                    </button>
+                  </>
+                )}
+              </div>
+            </>
+          )}
+        </span>
+      </span>
+    </th>
+  );
+}
+
 function SortableTh({
   myKey,
   sortKey,
