@@ -36,15 +36,28 @@
   --color-severity-awareness-bg: var(--severity-awareness-bg);
   --color-severity-green: var(--severity-green);
   --color-severity-green-bg: var(--severity-green-bg);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Font tokens. --font-sans / --font-serif / --font-mono are wired up
+     in layout.tsx via next/font (Inter + Fraunces + Geist Mono). The
+     CSS-variable indirection lets Tailwind's font-sans / font-serif /
+     font-mono utilities resolve to the right family. */
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --font-serif: var(--font-serif);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  font-feature-settings: "cv11", "ss01";
+  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+/* Display headings get the serif. Body labels and copy stay on Inter
+   for legibility; serif is reserved for top-level page titles + section
+   hero text so the brand has a clear typographic signature without
+   feeling overwrought. */
+h1, h2 {
+  font-family: var(--font-serif), Georgia, serif;
+  letter-spacing: -0.02em;
 }
 
 /* Subtle grain for a less templated feel. */
