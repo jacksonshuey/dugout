@@ -65,12 +65,12 @@ export function ExampleRules() {
   return (
     <div>
       <div className="text-[10px] uppercase tracking-[0.2em] font-mono text-muted mb-2">
-        Example cross-integration rules · {RULES.length}
+        Starter rule templates · {RULES.length}
       </div>
       <p className="text-sm text-foreground/80 leading-relaxed max-w-3xl mb-4">
-        Once a team connects their stack, managers and AEs write rules
-        that chain trigger sources to delivery channels. Reps act on
-        things they would have otherwise missed.
+        Each card is a complete rule: trigger + action. Click &ldquo;Use
+        template&rdquo; to drop it into the composer below, or build your
+        own from scratch.
       </p>
       <div className="grid md:grid-cols-3 gap-3 auto-rows-fr">
         {RULES.map((r) => (

@@ -311,9 +311,15 @@ function RulesTab() {
     <div>
       <TabHeader
         title="Rules"
-        sub="Build a rule from ontology fields, news, meetings, or AI extraction. Chain triggers with AND, then chain actions to run on a hit."
+        sub="A rule is a trigger plus the action it fires. Build one from ontology fields, news, meetings, or AI extraction. Every rule must end in an action — Slack ping, Calendly link, drafted email."
       />
+      <div className="max-w-6xl mx-auto px-6 pb-6">
+        <ExampleRules />
+      </div>
       <div className="max-w-6xl mx-auto px-6 pb-12">
+        <div className="text-[10px] uppercase tracking-[0.2em] font-mono text-muted mb-2">
+          Rule composer
+        </div>
         <InteractiveSignals />
       </div>
     </div>
@@ -325,15 +331,9 @@ function ActionsTab() {
     <div>
       <TabHeader
         title="Actions"
-        sub="Every rule lands with a specific next step. Acted, skipped, or snoozed. All logged, all auditable."
+        sub="The log of what rules have fired. Every row traces back to the rule that triggered it. Acted, skipped, or snoozed — all auditable."
       />
-      <div className="max-w-6xl mx-auto px-6 pb-6">
-        <ExampleRules />
-      </div>
       <div className="max-w-6xl mx-auto px-6 pb-12">
-        <div className="text-[10px] uppercase tracking-[0.2em] font-mono text-muted mb-2">
-          Live action queue
-        </div>
         <InteractiveDecisions />
       </div>
     </div>
