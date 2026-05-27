@@ -287,7 +287,7 @@ export function Console(
     return (
       <div className="max-w-6xl mx-auto px-6 flex">
         {!props.hideSidebar && (
-          <div className="w-56 shrink-0 border-r border-border bg-slate-50/50 h-[calc(100vh-3rem)]" />
+          <div className="w-56 shrink-0 border-r border-border bg-slate-50/50" />
         )}
         <div className="flex-1 p-6 text-sm text-muted">Loading…</div>
       </div>

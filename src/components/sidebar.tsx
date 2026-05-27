@@ -68,7 +68,7 @@ export function Sidebar({
     filters.severities.length > 0;
 
   return (
-    <aside className="w-56 shrink-0 border-r border-border bg-slate-50/50 sticky top-12 h-[calc(100vh-3rem)] overflow-y-auto">
+    <aside className="w-56 shrink-0 border-r border-border bg-slate-50/50 sticky top-12 self-start">
       <div className="p-3 pt-6 space-y-5">
         {/* Views */}
         <div className="space-y-0.5">
@@ -113,7 +113,7 @@ export function Sidebar({
         {footer && <div>{footer}</div>}
       </div>
 
-      <div className="sticky bottom-0 border-t border-border bg-slate-50/95 backdrop-blur p-3 text-[11px] text-muted">
+      <div className="border-t border-border bg-slate-50/80 p-3 text-[11px] text-muted">
         <div>
           <span className="font-mono font-medium text-foreground">{dealCount}</span> deals
         </div>

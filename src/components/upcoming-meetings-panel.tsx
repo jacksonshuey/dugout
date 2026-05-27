@@ -45,7 +45,7 @@ export function UpcomingMeetingsPanel({ accounts }: Props) {
           // section where they have their own pool.
           const signals = getSeedSignalsForAccount(m.account_id)
             .filter((s) => !isVerticalMatch(s))
-            .slice(0, 3);
+            .slice(0, 2);
           const vertical = getVerticalForAccount(m.account_id);
           return (
             <li key={m.id} className="p-4 space-y-2.5">
