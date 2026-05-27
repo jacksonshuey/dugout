@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import {
   CANONICAL_OBJECTS,
   getCanonicalObject,
-  type CanonicalField,
 } from "@/data/canonical-objects";
 import {
   getUniqueSources,
@@ -19,9 +18,7 @@ import {
   sourceContributionCounts,
   totalMappingCount,
   unmappedRawFields,
-  type CanonicalContribution,
 } from "@/data/object-mappings";
-import { BrandLogo, type BrandKey } from "@/components/landing/logos";
 
 // Sources → canonical objects Sankey diagram with inline expansion.
 //
@@ -58,13 +55,6 @@ function colorForSource(source: string): string {
   return SOURCE_COLORS[source] ?? "#6B7280";
 }
 
-function sourceToBrandKey(source: string): BrandKey {
-  return source
-    .toLowerCase()
-    .replace(/\s+/g, "")
-    .replace(/[^a-z0-9]/g, "") as BrandKey;
-}
-
 export interface ConnectivityGraphProps {
   // Optional callback when the user clicks a canonical object pill. If
   // omitted, clicking expands the canonical's detail card inline below
@@ -73,61 +63,41 @@ export interface ConnectivityGraphProps {
   onSelectObject?: (canonicalKey: string) => void;
 }
 
+// Single-expansion: only one source OR one canonical can be open at a
+// time. Clicking a different pill collapses the previously expanded one
+// (drops up its contents, returns to primary position) and expands the
+// new one. Clicking the same pill collapses it.
+export type Expanded =
+  | { kind: "source"; key: string }
+  | { kind: "canonical"; key: string }
+  | null;
+
 export function ConnectivityGraph(_props: ConnectivityGraphProps = {}) {
-  // Sources currently expanded into their detail card. A Set so multiple
-  // can be open at once; toggle the same key to close.
-  const [expandedSources, setExpandedSources] = useState<Set<string>>(
-    new Set(),
-  );
-  const [expandedObjects, setExpandedObjects] = useState<Set<string>>(
-    new Set(),
-  );
+  const [expanded, setExpanded] = useState<Expanded>(null);
 
   function toggleSource(source: string) {
-    setExpandedSources((prev) => {
-      const next = new Set(prev);
-      if (next.has(source)) next.delete(source);
-      else next.add(source);
-      return next;
-    });
+    setExpanded((prev) =>
+      prev?.kind === "source" && prev.key === source
+        ? null
+        : { kind: "source", key: source },
+    );
   }
-
   function toggleObject(key: string) {
-    setExpandedObjects((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+    setExpanded((prev) =>
+      prev?.kind === "canonical" && prev.key === key
+        ? null
+        : { kind: "canonical", key },
+    );
   }
 
   return (
     <div className="space-y-4">
       <StatsStrip />
       <OverviewGraph
-        expandedSources={expandedSources}
-        expandedObjects={expandedObjects}
+        expanded={expanded}
         onToggleSource={toggleSource}
         onToggleObject={toggleObject}
       />
-      {(expandedSources.size > 0 || expandedObjects.size > 0) && (
-        <div className="space-y-3">
-          {Array.from(expandedSources).map((src) => (
-            <SourceDetailCard
-              key={`src-${src}`}
-              source={src}
-              onClose={() => toggleSource(src)}
-            />
-          ))}
-          {Array.from(expandedObjects).map((key) => (
-            <CanonicalDetailCard
-              key={`obj-${key}`}
-              canonicalKey={key}
-              onClose={() => toggleObject(key)}
-            />
-          ))}
-        </div>
-      )}
     </div>
   );
 }
@@ -204,13 +174,11 @@ interface OverviewEdge {
 }
 
 function OverviewGraph({
-  expandedSources,
-  expandedObjects,
+  expanded,
   onToggleSource,
   onToggleObject,
 }: {
-  expandedSources: Set<string>;
-  expandedObjects: Set<string>;
+  expanded: Expanded;
   onToggleSource: (source: string) => void;
   onToggleObject: (key: string) => void;
 }) {
@@ -243,18 +211,82 @@ function OverviewGraph({
   const SRC_X = 24;
   const CAN_X = SRC_X + COL_W + COL_GAP;
   const WIDTH = CAN_X + COL_W + 24;
+  // Pop-out displacement when expanded. Source pops left; canonical
+  // pops right.
+  const SHIFT = 56;
+  // Dropdown layout below a popped-out pill.
+  const DROP_PAD_TOP = 6;
+  const DROP_ROW_H = 20;
+  const DROP_PAD_BOTTOM = 10;
+  const DROP_W = COL_W + SHIFT; // dropdown is the popped-out pill's width
 
-  const sourceRows = sources.map((s, i) => ({
-    source: s,
-    y: PADDING + i * (NODE_H + NODE_GAP),
-  }));
-  const canonicalRows = CANONICAL_OBJECTS.map((o, i) => ({
-    obj: o,
-    y: PADDING + i * (NODE_H + NODE_GAP),
-  }));
+  // For the expanded item, compute its dropdown row count so we know how
+  // far to push subsequent items below it.
+  const expandedSourceDropdownRows = useMemo(() => {
+    if (expanded?.kind !== "source") return 0;
+    return getRawObjectsBySource(expanded.key).length;
+  }, [expanded]);
 
-  const maxRows = Math.max(sourceRows.length, canonicalRows.length);
-  const HEIGHT = PADDING * 2 + maxRows * (NODE_H + NODE_GAP) - NODE_GAP;
+  const expandedCanonicalDropdownRows = useMemo(() => {
+    if (expanded?.kind !== "canonical") return 0;
+    const co = getCanonicalObject(expanded.key);
+    return co?.fields.length ?? 0;
+  }, [expanded]);
+
+  const sourceDropdownHeight =
+    expandedSourceDropdownRows > 0
+      ? DROP_PAD_TOP + expandedSourceDropdownRows * DROP_ROW_H + DROP_PAD_BOTTOM
+      : 0;
+  const canonicalDropdownHeight =
+    expandedCanonicalDropdownRows > 0
+      ? DROP_PAD_TOP +
+        expandedCanonicalDropdownRows * DROP_ROW_H +
+        DROP_PAD_BOTTOM
+      : 0;
+
+  // Source y positions. If a source is expanded, everything below it is
+  // shifted down by the dropdown height to make room.
+  const sourceRows = useMemo(() => {
+    const expandedIdx =
+      expanded?.kind === "source" ? sources.indexOf(expanded.key) : -1;
+    return sources.map((s, i) => {
+      let y = PADDING + i * (NODE_H + NODE_GAP);
+      if (expandedIdx >= 0 && i > expandedIdx) y += sourceDropdownHeight;
+      return { source: s, y };
+    });
+  }, [sources, expanded, sourceDropdownHeight]);
+
+  const canonicalRows = useMemo(() => {
+    const expandedIdx =
+      expanded?.kind === "canonical"
+        ? CANONICAL_OBJECTS.findIndex((o) => o.key === expanded.key)
+        : -1;
+    return CANONICAL_OBJECTS.map((o, i) => {
+      let y = PADDING + i * (NODE_H + NODE_GAP);
+      if (expandedIdx >= 0 && i > expandedIdx) y += canonicalDropdownHeight;
+      return { obj: o, y };
+    });
+  }, [expanded, canonicalDropdownHeight]);
+
+  const sourceBottom =
+    sourceRows.length > 0
+      ? sourceRows[sourceRows.length - 1].y + NODE_H
+      : PADDING;
+  const canonicalBottom =
+    canonicalRows.length > 0
+      ? canonicalRows[canonicalRows.length - 1].y + NODE_H
+      : PADDING;
+  const HEIGHT = Math.max(sourceBottom, canonicalBottom) + PADDING;
+
+  // viewBox grows left when a source is expanded (popped left) and grows
+  // right when a canonical is expanded (popped right). The container has
+  // preserveAspectRatio so the whole thing scales down to fit - this is
+  // the "zoom out" effect.
+  const viewBoxMinX = expanded?.kind === "source" ? -SHIFT : 0;
+  const viewBoxWidth =
+    WIDTH +
+    (expanded?.kind === "source" ? SHIFT : 0) +
+    (expanded?.kind === "canonical" ? SHIFT : 0);
 
   const maxWeight = Math.max(...edges.map((e) => e.weight), 1);
 
@@ -264,21 +296,80 @@ function OverviewGraph({
     return hover.key === canKey;
   }
 
+  // Compute pop-out positions
+  const expandedSourceRow =
+    expanded?.kind === "source"
+      ? sourceRows.find((r) => r.source === expanded.key)
+      : undefined;
+  const expandedCanonicalRow =
+    expanded?.kind === "canonical"
+      ? canonicalRows.find((r) => r.obj.key === expanded.key)
+      : undefined;
+
+  // For an expanded source, breakdown of its raw objects + canonical targets
+  const sourceDropdown = useMemo(() => {
+    if (expanded?.kind !== "source") return null;
+    const rawObjects = getRawObjectsBySource(expanded.key);
+    return rawObjects.map((ro) => {
+      const destMap = new Map<string, number>();
+      for (const [s, o, , co] of FIELD_MAPPINGS) {
+        if (s !== expanded.key || o !== ro.object) continue;
+        destMap.set(co, (destMap.get(co) ?? 0) + 1);
+      }
+      const dests = Array.from(destMap.entries())
+        .map(([k, n]) => `${k}·${n}`)
+        .join(", ");
+      const mappedCount = Array.from(destMap.values()).reduce(
+        (n, v) => n + v,
+        0,
+      );
+      return {
+        object: ro.object,
+        totalFields: ro.fields.length,
+        mappedCount,
+        destinations: dests || "—",
+      };
+    });
+  }, [expanded]);
+
+  // For an expanded canonical, fields + contributor count
+  const canonicalDropdown = useMemo(() => {
+    if (expanded?.kind !== "canonical") return null;
+    const co = getCanonicalObject(expanded.key);
+    if (!co) return null;
+    return co.fields.map((f) => {
+      const contribs = contributorsFor(co.key, f.key);
+      return {
+        key: f.key,
+        type: f.type,
+        unit: f.unit,
+        isArray: f.isArray ?? false,
+        contribCount: contribs.length,
+        sources: Array.from(new Set(contribs.map((c) => c.source))),
+      };
+    });
+  }, [expanded]);
+
   return (
     <div className="w-full rounded-lg border border-border bg-foreground/[0.02] p-2">
       <svg
-        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+        viewBox={`${viewBoxMinX} 0 ${viewBoxWidth} ${HEIGHT}`}
         preserveAspectRatio="xMidYMid meet"
         className="block w-full h-auto"
+        style={{ transition: "all 200ms ease" }}
       >
         {/* Edges */}
         {edges.map((e, i) => {
           const src = sourceRows.find((r) => r.source === e.source);
           const can = canonicalRows.find((r) => r.obj.key === e.canonical);
           if (!src || !can) return null;
-          const startX = SRC_X + COL_W;
+          const isSrcExpanded =
+            expanded?.kind === "source" && expanded.key === e.source;
+          const isCanExpanded =
+            expanded?.kind === "canonical" && expanded.key === e.canonical;
+          const startX = (isSrcExpanded ? SRC_X - SHIFT : SRC_X) + COL_W;
           const startY = src.y + NODE_H / 2;
-          const endX = CAN_X;
+          const endX = isCanExpanded ? CAN_X + SHIFT : CAN_X;
           const endY = can.y + NODE_H / 2;
           const midX = (startX + endX) / 2;
           const color = colorForSource(e.source);
@@ -301,7 +392,9 @@ function OverviewGraph({
         {sourceRows.map((r) => {
           const color = colorForSource(r.source);
           const count = sourceCounts.get(r.source) ?? 0;
-          const isExpanded = expandedSources.has(r.source);
+          const isExpanded =
+            expanded?.kind === "source" && expanded.key === r.source;
+          const nodeX = isExpanded ? SRC_X - SHIFT : SRC_X;
           const active =
             !hover ||
             (hover.kind === "source" && hover.key === r.source) ||
@@ -322,7 +415,7 @@ function OverviewGraph({
               }}
             >
               <rect
-                x={SRC_X}
+                x={nodeX}
                 y={r.y}
                 width={COL_W}
                 height={NODE_H}
@@ -332,9 +425,10 @@ function OverviewGraph({
                 stroke={color}
                 strokeOpacity={isExpanded ? 1 : 0.6}
                 strokeWidth={isExpanded ? 2 : 1}
+                style={{ transition: "x 200ms ease" }}
               />
               <text
-                x={SRC_X + 14}
+                x={nodeX + 14}
                 y={r.y + NODE_H / 2 - 6}
                 dominantBaseline="middle"
                 fontSize="13"
@@ -344,7 +438,7 @@ function OverviewGraph({
                 {r.source}
               </text>
               <text
-                x={SRC_X + 14}
+                x={nodeX + 14}
                 y={r.y + NODE_H / 2 + 10}
                 dominantBaseline="middle"
                 fontSize="10"
@@ -355,7 +449,7 @@ function OverviewGraph({
                 {count} mapped field{count === 1 ? "" : "s"}
               </text>
               <text
-                x={SRC_X + COL_W - 14}
+                x={nodeX + COL_W - 14}
                 y={r.y + NODE_H / 2}
                 dominantBaseline="middle"
                 textAnchor="end"
@@ -369,10 +463,61 @@ function OverviewGraph({
           );
         })}
 
+        {/* Source dropdown (one expanded source at most) */}
+        {expandedSourceRow && sourceDropdown && (
+          <g>
+            {sourceDropdown.map((row, i) => {
+              const y =
+                expandedSourceRow.y +
+                NODE_H +
+                DROP_PAD_TOP +
+                i * DROP_ROW_H;
+              return (
+                <g key={row.object}>
+                  <rect
+                    x={SRC_X - SHIFT + 6}
+                    y={y}
+                    width={DROP_W - 12}
+                    height={DROP_ROW_H - 2}
+                    rx={3}
+                    fill="var(--background)"
+                    stroke={colorForSource(expanded!.key)}
+                    strokeOpacity="0.25"
+                  />
+                  <text
+                    x={SRC_X - SHIFT + 12}
+                    y={y + (DROP_ROW_H - 2) / 2}
+                    dominantBaseline="middle"
+                    fontSize="10"
+                    fontFamily="ui-monospace, monospace"
+                    fill="currentColor"
+                  >
+                    {row.object}
+                  </text>
+                  <text
+                    x={SRC_X - SHIFT + DROP_W - 18}
+                    y={y + (DROP_ROW_H - 2) / 2}
+                    dominantBaseline="middle"
+                    textAnchor="end"
+                    fontSize="9"
+                    fontFamily="ui-monospace, monospace"
+                    fill="currentColor"
+                    fillOpacity="0.55"
+                  >
+                    {row.mappedCount}/{row.totalFields} → {row.destinations}
+                  </text>
+                </g>
+              );
+            })}
+          </g>
+        )}
+
         {/* Canonical nodes */}
         {canonicalRows.map((r) => {
           const count = rawFieldsContributingTo(r.obj.key).length;
-          const isExpanded = expandedObjects.has(r.obj.key);
+          const isExpanded =
+            expanded?.kind === "canonical" && expanded.key === r.obj.key;
+          const nodeX = isExpanded ? CAN_X + SHIFT : CAN_X;
           const active =
             !hover ||
             (hover.kind === "canonical" && hover.key === r.obj.key) ||
@@ -395,7 +540,7 @@ function OverviewGraph({
               }}
             >
               <rect
-                x={CAN_X}
+                x={nodeX}
                 y={r.y}
                 width={COL_W}
                 height={NODE_H}
@@ -405,9 +550,10 @@ function OverviewGraph({
                 stroke="var(--brand)"
                 strokeOpacity={isExpanded ? 1 : 0.5}
                 strokeWidth={isExpanded ? 2 : 1}
+                style={{ transition: "x 200ms ease" }}
               />
               <text
-                x={CAN_X + 14}
+                x={nodeX + 14}
                 y={r.y + NODE_H / 2 - 6}
                 dominantBaseline="middle"
                 fontSize="13"
@@ -417,7 +563,7 @@ function OverviewGraph({
                 {r.obj.label}
               </text>
               <text
-                x={CAN_X + 14}
+                x={nodeX + 14}
                 y={r.y + NODE_H / 2 + 10}
                 dominantBaseline="middle"
                 fontSize="10"
@@ -428,7 +574,7 @@ function OverviewGraph({
                 {r.obj.fields.length} fields · {count} raw contrib
               </text>
               <text
-                x={CAN_X + COL_W - 14}
+                x={nodeX + COL_W - 14}
                 y={r.y + NODE_H / 2}
                 dominantBaseline="middle"
                 textAnchor="end"
@@ -441,335 +587,75 @@ function OverviewGraph({
             </g>
           );
         })}
-      </svg>
-      <div className="mt-2 px-1 text-[11px] text-muted text-center">
-        Click any source or canonical object to expand its mappings below.
-      </div>
-    </div>
-  );
-}
 
-// ── Source detail card ────────────────────────────────────────────
-
-function SourceDetailCard({
-  source,
-  onClose,
-}: {
-  source: string;
-  onClose: () => void;
-}) {
-  const color = colorForSource(source);
-  const brand = sourceToBrandKey(source);
-  // For this source, list each raw object and the canonical destinations
-  // its fields feed. e.g., Salesforce.Opportunity → Deal (18 fields),
-  // Salesforce.Task → Activity (10), Call (3).
-  const rawObjects = getRawObjectsBySource(source);
-  const breakdown = useMemo(() => {
-    const out: {
-      rawObject: string;
-      totalFields: number;
-      mappedFields: number;
-      destinations: { canonicalObject: string; fieldCount: number }[];
-    }[] = [];
-    for (const ro of rawObjects) {
-      const destMap = new Map<string, number>();
-      for (const [s, o, , co] of FIELD_MAPPINGS) {
-        if (s !== source || o !== ro.object) continue;
-        destMap.set(co, (destMap.get(co) ?? 0) + 1);
-      }
-      const destinations = Array.from(destMap.entries()).map(
-        ([canonicalObject, fieldCount]) => ({ canonicalObject, fieldCount }),
-      );
-      destinations.sort((a, b) => b.fieldCount - a.fieldCount);
-      const mappedFields = destinations.reduce((n, d) => n + d.fieldCount, 0);
-      out.push({
-        rawObject: ro.object,
-        totalFields: ro.fields.length,
-        mappedFields,
-        destinations,
-      });
-    }
-    out.sort((a, b) => b.mappedFields - a.mappedFields);
-    return out;
-  }, [source, rawObjects]);
-
-  return (
-    <div
-      className="rounded-lg border bg-background p-4"
-      style={{ borderColor: color + "55" }}
-    >
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <span
-            className="shrink-0 w-9 h-9 inline-flex items-center justify-center rounded-md"
-            style={{ background: color + "1a" }}
-          >
-            <BrandLogo brand={brand} size={22} />
-          </span>
-          <div>
-            <div className="text-[10px] uppercase tracking-[0.2em] font-mono text-muted">
-              Source
-            </div>
-            <div className="text-sm font-semibold tracking-tight">
-              {source}
-            </div>
-          </div>
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Collapse"
-          className="shrink-0 rounded-md border border-border w-6 h-6 inline-flex items-center justify-center hover:border-foreground/40 text-xs"
-        >
-          ×
-        </button>
-      </div>
-      <div className="space-y-2">
-        {breakdown.map((b) => (
-          <div
-            key={b.rawObject}
-            className="rounded-md border border-border bg-foreground/[0.02] px-3 py-2"
-          >
-            <div className="flex items-baseline justify-between gap-3">
-              <span className="font-mono text-xs font-semibold">
-                {source}.{b.rawObject}
-              </span>
-              <span className="text-[10px] font-mono uppercase tracking-[0.1em] text-muted">
-                {b.mappedFields}/{b.totalFields} mapped
-              </span>
-            </div>
-            {b.destinations.length === 0 ? (
-              <div className="text-[11px] text-muted italic mt-1">
-                Unmapped — fields land in the raw catalog only.
-              </div>
-            ) : (
-              <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
-                {b.destinations.map((d) => (
-                  <span
-                    key={d.canonicalObject}
-                    className="inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 rounded border border-brand/40 bg-brand/[0.06] text-brand"
-                  >
-                    → {d.canonicalObject}
-                    <span className="text-muted">·</span>
-                    <span>{d.fieldCount}</span>
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ── Canonical detail card ─────────────────────────────────────────
-
-function CanonicalDetailCard({
-  canonicalKey,
-  onClose,
-}: {
-  canonicalKey: string;
-  onClose: () => void;
-}) {
-  const obj = getCanonicalObject(canonicalKey);
-  // Fields with their contributor lists. Sorted by join-point weight so
-  // the high-attention fields (most sources) surface first.
-  const fieldStats = useMemo(() => {
-    if (!obj) return [];
-    return obj.fields
-      .map((f) => ({
-        field: f,
-        contributors: contributorsFor(obj.key, f.key),
-      }))
-      .sort((a, b) => b.contributors.length - a.contributors.length);
-  }, [obj]);
-
-  const [selectedField, setSelectedField] = useState<string | null>(null);
-  if (!obj) return null;
-
-  const selectedStat = fieldStats.find((s) => s.field.key === selectedField);
-
-  return (
-    <div className="rounded-lg border border-brand/40 bg-brand/[0.03] p-4">
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div>
-          <div className="text-[10px] uppercase tracking-[0.2em] font-mono text-muted">
-            Canonical object
-          </div>
-          <div className="text-sm font-semibold tracking-tight">
-            {obj.label}
-          </div>
-          <p className="text-[11px] text-muted mt-0.5 leading-snug max-w-2xl">
-            {obj.description}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Collapse"
-          className="shrink-0 rounded-md border border-border w-6 h-6 inline-flex items-center justify-center hover:border-foreground/40 text-xs"
-        >
-          ×
-        </button>
-      </div>
-
-      <div className="grid md:grid-cols-2 gap-2">
-        {fieldStats.map((s) => {
-          const isJoin = s.contributors.length > 1;
-          const isUnmapped = s.contributors.length === 0;
-          const isSelected = selectedField === s.field.key;
-          return (
-            <button
-              key={s.field.key}
-              type="button"
-              onClick={() =>
-                setSelectedField(isSelected ? null : s.field.key)
-              }
-              className={
-                "text-left rounded-md border px-2.5 py-1.5 transition-colors " +
-                (isSelected
-                  ? "border-brand bg-brand/10"
-                  : isJoin
-                    ? "border-brand/30 bg-brand/[0.04] hover:border-brand"
-                    : isUnmapped
-                      ? "border-border bg-foreground/[0.02] text-muted"
-                      : "border-border bg-background hover:border-brand")
-              }
-            >
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="font-mono text-[11px] font-semibold truncate">
-                  {s.field.key}
-                  {s.field.isArray ? "[]" : ""}
-                </span>
-                <span className="text-[9px] font-mono uppercase text-muted shrink-0">
-                  {s.field.type}
-                </span>
-              </div>
-              <div className="text-[10px] mt-0.5 flex items-center gap-2">
-                {isUnmapped ? (
-                  <span className="text-muted italic">unmapped</span>
-                ) : isJoin ? (
-                  <span className="text-brand">
-                    ⚠ {s.contributors.length} sources
-                  </span>
-                ) : (
-                  <span className="text-muted">
-                    {s.contributors.length} source
-                  </span>
-                )}
-              </div>
-            </button>
-          );
-        })}
-      </div>
-
-      {selectedStat && (
-        <FieldDrillCard
-          field={selectedStat.field}
-          contributors={selectedStat.contributors}
-          onClose={() => setSelectedField(null)}
-        />
-      )}
-    </div>
-  );
-}
-
-function FieldDrillCard({
-  field,
-  contributors,
-  onClose,
-}: {
-  field: CanonicalField;
-  contributors: CanonicalContribution[];
-  onClose: () => void;
-}) {
-  // Group by source so multiple-rawfields-from-same-source share one
-  // brand chip. Hover the chip to see the full RawObject.field paths.
-  const bySource = new Map<string, CanonicalContribution[]>();
-  for (const c of contributors) {
-    const arr = bySource.get(c.source) ?? [];
-    arr.push(c);
-    bySource.set(c.source, arr);
-  }
-  return (
-    <div className="mt-3 rounded-md border border-brand/50 bg-background p-3">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <div className="flex items-baseline gap-2 flex-wrap">
-            <span className="font-mono text-sm font-semibold">
-              {field.key}
-              {field.isArray ? "[]" : ""}
-            </span>
-            <span className="text-[10px] font-mono uppercase tracking-[0.1em] text-muted">
-              {field.type}
-              {field.unit ? ` · ${field.unit}` : ""}
-            </span>
-            {field.relationTo && (
-              <span className="text-[10px] font-mono uppercase tracking-[0.1em] text-brand">
-                → {field.relationTo}
-              </span>
-            )}
-          </div>
-          <p className="text-xs text-foreground/80 mt-1 leading-snug">
-            {field.description}
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          className="shrink-0 text-xs text-muted hover:text-foreground"
-        >
-          ×
-        </button>
-      </div>
-      {contributors.length === 0 ? (
-        <div className="mt-2 text-[11px] text-muted italic">
-          Unmapped — no raw source contributes to this canonical field yet.
-        </div>
-      ) : (
-        <div className="mt-2.5">
-          <div className="text-[10px] uppercase tracking-[0.15em] font-mono text-muted mb-1.5">
-            {contributors.length} contributing source
-            {contributors.length === 1 ? "" : "s"} · hover an icon
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            {Array.from(bySource.entries()).map(([source, items]) => {
-              const brand = sourceToBrandKey(source);
-              const tooltipText = `${source}\n${items
-                .map((i) => `${i.rawObject}.${i.rawField}`)
-                .join("\n")}`;
+        {/* Canonical dropdown */}
+        {expandedCanonicalRow && canonicalDropdown && (
+          <g>
+            {canonicalDropdown.map((row, i) => {
+              const y =
+                expandedCanonicalRow.y +
+                NODE_H +
+                DROP_PAD_TOP +
+                i * DROP_ROW_H;
+              const isJoin = row.contribCount > 1;
+              const isOrphan = row.contribCount === 0;
               return (
-                <div
-                  key={source}
-                  title={tooltipText}
-                  className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md border border-border bg-background hover:border-brand transition-colors cursor-default"
-                >
-                  <span
-                    aria-hidden
-                    className="w-5 h-5 inline-flex items-center justify-center rounded bg-foreground/[0.04]"
+                <g key={row.key}>
+                  <rect
+                    x={CAN_X + SHIFT + 6}
+                    y={y}
+                    width={DROP_W - 12}
+                    height={DROP_ROW_H - 2}
+                    rx={3}
+                    fill={isJoin ? "var(--brand)" : "var(--background)"}
+                    fillOpacity={isJoin ? 0.08 : 1}
+                    stroke="var(--brand)"
+                    strokeOpacity={isJoin ? 0.5 : isOrphan ? 0.15 : 0.3}
+                  />
+                  <text
+                    x={CAN_X + SHIFT + 12}
+                    y={y + (DROP_ROW_H - 2) / 2}
+                    dominantBaseline="middle"
+                    fontSize="10"
+                    fontFamily="ui-monospace, monospace"
+                    fontWeight={isJoin ? 600 : 400}
+                    fill="currentColor"
+                    fillOpacity={isOrphan ? 0.4 : 1}
                   >
-                    <BrandLogo brand={brand} size={16} />
-                  </span>
-                  <span className="text-[11px] font-semibold">{source}</span>
-                  <span className="text-[10px] font-mono text-muted">
-                    ×{items.length}
-                  </span>
-                </div>
+                    {row.key}
+                    {row.isArray ? "[]" : ""}
+                  </text>
+                  <text
+                    x={CAN_X + SHIFT + DROP_W - 18}
+                    y={y + (DROP_ROW_H - 2) / 2}
+                    dominantBaseline="middle"
+                    textAnchor="end"
+                    fontSize="9"
+                    fontFamily="ui-monospace, monospace"
+                    fill={
+                      isJoin
+                        ? "var(--brand)"
+                        : "currentColor"
+                    }
+                    fillOpacity={isOrphan ? 0.4 : isJoin ? 0.85 : 0.55}
+                  >
+                    {row.type}
+                    {row.unit ? ` · ${row.unit}` : ""}
+                    {" · "}
+                    {isOrphan
+                      ? "unmapped"
+                      : `${row.contribCount} src${row.contribCount === 1 ? "" : "s"}`}
+                  </text>
+                </g>
               );
             })}
-          </div>
-        </div>
-      )}
-      {field.joinNote && (
-        <div className="mt-2.5 rounded-md border border-border bg-foreground/[0.02] px-2.5 py-2">
-          <div className="text-[10px] uppercase tracking-[0.15em] font-mono text-muted mb-0.5">
-            Join resolution
-          </div>
-          <p className="text-[11px] leading-snug">{field.joinNote}</p>
-        </div>
-      )}
+          </g>
+        )}
+      </svg>
+      <div className="mt-2 px-1 text-[11px] text-muted text-center">
+        Click any source or canonical object to unravel its mappings inline.
+      </div>
     </div>
   );
 }
+
