@@ -100,6 +100,33 @@ body {
   .flow-path { animation: none; }
 }
 
+/* Connectivity graph expansion animations. Pill pop-out uses smooth
+   transform interpolation; dropdown rows stagger in for a continuous
+   feel rather than appearing all at once. */
+.cg-pill {
+  transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.cg-drop-row {
+  opacity: 0;
+  animation: cg-drop-in 260ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  transform-box: fill-box;
+  transform-origin: 0 0;
+}
+@keyframes cg-drop-in {
+  from {
+    opacity: 0;
+    transform: translate(0, -4px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cg-pill { transition: none; }
+  .cg-drop-row { animation: none; opacity: 1; }
+}
+
 /* Markdown rendering for SourcePreviewModal (non-email signals). Reading-
    width typography — newsletter-style, not docs-style. Kept tight so the
    modal feels like an article, not a Confluence page. */

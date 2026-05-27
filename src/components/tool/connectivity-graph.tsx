@@ -405,18 +405,20 @@ function OverviewGraph({
           return (
             <g
               key={r.source}
+              transform={`translate(${nodeX}, ${r.y})`}
               onMouseEnter={() => setHover({ kind: "source", key: r.source })}
               onMouseLeave={() => setHover(null)}
               onClick={() => onToggleSource(r.source)}
               style={{
                 cursor: "pointer",
                 opacity: active ? 1 : 0.35,
-                transition: "opacity 120ms",
+                transition:
+                  "transform 320ms cubic-bezier(0.22, 1, 0.36, 1), opacity 120ms",
               }}
             >
               <rect
-                x={nodeX}
-                y={r.y}
+                x={0}
+                y={0}
                 width={COL_W}
                 height={NODE_H}
                 rx={8}
@@ -425,11 +427,10 @@ function OverviewGraph({
                 stroke={color}
                 strokeOpacity={isExpanded ? 1 : 0.6}
                 strokeWidth={isExpanded ? 2 : 1}
-                style={{ transition: "x 200ms ease" }}
               />
               <text
-                x={nodeX + 14}
-                y={r.y + NODE_H / 2 - 6}
+                x={14}
+                y={NODE_H / 2 - 6}
                 dominantBaseline="middle"
                 fontSize="13"
                 fontWeight="600"
@@ -438,8 +439,8 @@ function OverviewGraph({
                 {r.source}
               </text>
               <text
-                x={nodeX + 14}
-                y={r.y + NODE_H / 2 + 10}
+                x={14}
+                y={NODE_H / 2 + 10}
                 dominantBaseline="middle"
                 fontSize="10"
                 fontFamily="ui-monospace, monospace"
@@ -449,8 +450,8 @@ function OverviewGraph({
                 {count} mapped field{count === 1 ? "" : "s"}
               </text>
               <text
-                x={nodeX + COL_W - 14}
-                y={r.y + NODE_H / 2}
+                x={COL_W - 14}
+                y={NODE_H / 2}
                 dominantBaseline="middle"
                 textAnchor="end"
                 fontSize="12"
@@ -463,20 +464,22 @@ function OverviewGraph({
           );
         })}
 
-        {/* Source dropdown (one expanded source at most) */}
+        {/* Source dropdown - rows stagger in for a continuous unravel */}
         {expandedSourceRow && sourceDropdown && (
-          <g>
+          <g key={`src-drop-${expanded?.key}`}>
             {sourceDropdown.map((row, i) => {
-              const y =
-                expandedSourceRow.y +
-                NODE_H +
-                DROP_PAD_TOP +
-                i * DROP_ROW_H;
+              const baseY =
+                expandedSourceRow.y + NODE_H + DROP_PAD_TOP + i * DROP_ROW_H;
               return (
-                <g key={row.object}>
+                <g
+                  key={row.object}
+                  className="cg-drop-row"
+                  style={{ animationDelay: `${i * 35}ms` }}
+                  transform={`translate(${SRC_X - SHIFT + 6}, ${baseY})`}
+                >
                   <rect
-                    x={SRC_X - SHIFT + 6}
-                    y={y}
+                    x={0}
+                    y={0}
                     width={DROP_W - 12}
                     height={DROP_ROW_H - 2}
                     rx={3}
@@ -485,8 +488,8 @@ function OverviewGraph({
                     strokeOpacity="0.25"
                   />
                   <text
-                    x={SRC_X - SHIFT + 12}
-                    y={y + (DROP_ROW_H - 2) / 2}
+                    x={6}
+                    y={(DROP_ROW_H - 2) / 2}
                     dominantBaseline="middle"
                     fontSize="10"
                     fontFamily="ui-monospace, monospace"
@@ -495,8 +498,8 @@ function OverviewGraph({
                     {row.object}
                   </text>
                   <text
-                    x={SRC_X - SHIFT + DROP_W - 18}
-                    y={y + (DROP_ROW_H - 2) / 2}
+                    x={DROP_W - 24}
+                    y={(DROP_ROW_H - 2) / 2}
                     dominantBaseline="middle"
                     textAnchor="end"
                     fontSize="9"
@@ -528,6 +531,7 @@ function OverviewGraph({
           return (
             <g
               key={r.obj.key}
+              transform={`translate(${nodeX}, ${r.y})`}
               onMouseEnter={() =>
                 setHover({ kind: "canonical", key: r.obj.key })
               }
@@ -536,12 +540,13 @@ function OverviewGraph({
               style={{
                 cursor: "pointer",
                 opacity: active ? 1 : 0.35,
-                transition: "opacity 120ms",
+                transition:
+                  "transform 320ms cubic-bezier(0.22, 1, 0.36, 1), opacity 120ms",
               }}
             >
               <rect
-                x={nodeX}
-                y={r.y}
+                x={0}
+                y={0}
                 width={COL_W}
                 height={NODE_H}
                 rx={8}
@@ -550,11 +555,10 @@ function OverviewGraph({
                 stroke="var(--brand)"
                 strokeOpacity={isExpanded ? 1 : 0.5}
                 strokeWidth={isExpanded ? 2 : 1}
-                style={{ transition: "x 200ms ease" }}
               />
               <text
-                x={nodeX + 14}
-                y={r.y + NODE_H / 2 - 6}
+                x={14}
+                y={NODE_H / 2 - 6}
                 dominantBaseline="middle"
                 fontSize="13"
                 fontWeight="600"
@@ -563,8 +567,8 @@ function OverviewGraph({
                 {r.obj.label}
               </text>
               <text
-                x={nodeX + 14}
-                y={r.y + NODE_H / 2 + 10}
+                x={14}
+                y={NODE_H / 2 + 10}
                 dominantBaseline="middle"
                 fontSize="10"
                 fontFamily="ui-monospace, monospace"
@@ -574,8 +578,8 @@ function OverviewGraph({
                 {r.obj.fields.length} fields · {count} raw contrib
               </text>
               <text
-                x={nodeX + COL_W - 14}
-                y={r.y + NODE_H / 2}
+                x={COL_W - 14}
+                y={NODE_H / 2}
                 dominantBaseline="middle"
                 textAnchor="end"
                 fontSize="12"
@@ -588,22 +592,24 @@ function OverviewGraph({
           );
         })}
 
-        {/* Canonical dropdown */}
+        {/* Canonical dropdown - rows stagger in for a continuous unravel */}
         {expandedCanonicalRow && canonicalDropdown && (
-          <g>
+          <g key={`can-drop-${expanded?.key}`}>
             {canonicalDropdown.map((row, i) => {
-              const y =
-                expandedCanonicalRow.y +
-                NODE_H +
-                DROP_PAD_TOP +
-                i * DROP_ROW_H;
+              const baseY =
+                expandedCanonicalRow.y + NODE_H + DROP_PAD_TOP + i * DROP_ROW_H;
               const isJoin = row.contribCount > 1;
               const isOrphan = row.contribCount === 0;
               return (
-                <g key={row.key}>
+                <g
+                  key={row.key}
+                  className="cg-drop-row"
+                  style={{ animationDelay: `${i * 20}ms` }}
+                  transform={`translate(${CAN_X + SHIFT + 6}, ${baseY})`}
+                >
                   <rect
-                    x={CAN_X + SHIFT + 6}
-                    y={y}
+                    x={0}
+                    y={0}
                     width={DROP_W - 12}
                     height={DROP_ROW_H - 2}
                     rx={3}
@@ -613,8 +619,8 @@ function OverviewGraph({
                     strokeOpacity={isJoin ? 0.5 : isOrphan ? 0.15 : 0.3}
                   />
                   <text
-                    x={CAN_X + SHIFT + 12}
-                    y={y + (DROP_ROW_H - 2) / 2}
+                    x={6}
+                    y={(DROP_ROW_H - 2) / 2}
                     dominantBaseline="middle"
                     fontSize="10"
                     fontFamily="ui-monospace, monospace"
@@ -626,17 +632,13 @@ function OverviewGraph({
                     {row.isArray ? "[]" : ""}
                   </text>
                   <text
-                    x={CAN_X + SHIFT + DROP_W - 18}
-                    y={y + (DROP_ROW_H - 2) / 2}
+                    x={DROP_W - 24}
+                    y={(DROP_ROW_H - 2) / 2}
                     dominantBaseline="middle"
                     textAnchor="end"
                     fontSize="9"
                     fontFamily="ui-monospace, monospace"
-                    fill={
-                      isJoin
-                        ? "var(--brand)"
-                        : "currentColor"
-                    }
+                    fill={isJoin ? "var(--brand)" : "currentColor"}
                     fillOpacity={isOrphan ? 0.4 : isJoin ? 0.85 : 0.55}
                   >
                     {row.type}
