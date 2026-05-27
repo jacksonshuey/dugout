@@ -261,7 +261,7 @@ function Footer() {
             </span>
             <span className="font-semibold tracking-tight">Dugout</span>
             <span className="text-xs text-muted ml-1">
-              · the intelligence layer for sales teams
+              · joining sales tools into an automation platform
             </span>
           </div>
           <span className="text-[11px] text-muted font-mono">
@@ -297,7 +297,7 @@ function Hero() {
       />
       <div className="relative max-w-6xl mx-auto px-6 py-24 sm:py-32">
         <div className="text-xs uppercase tracking-[0.2em] text-background/60 font-mono mb-5">
-          Dugout · the intelligence layer for sales teams
+          Dugout · joining sales tools into an automation platform
         </div>
         <h1 className="text-4xl sm:text-6xl font-semibold tracking-tight leading-[1.05] max-w-4xl">
           Never walk into
@@ -305,9 +305,10 @@ function Hero() {
           a meeting cold.
         </h1>
         <p className="mt-6 text-lg sm:text-xl text-background/70 max-w-2xl leading-relaxed">
-          Every tool, every signal, every news cycle, synthesized into a
-          knowledge layer your AEs and managers rely on before each meeting.
-          Deals stop dying because someone walked in unprepared.
+          Connect Salesforce, Outreach, Gong, Chili Piper, and every other
+          tool in your stack. Dugout joins them into one ontology and runs
+          automations off the signals each tool produces, so your reps walk
+          into every meeting already briefed.
         </p>
       </div>
     </section>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   CANONICAL_OBJECTS,
   getCanonicalObject,
@@ -231,34 +231,152 @@ function OverviewGraph({
   // so they align row-for-row with the unmoved sources/canonicals.
   const DROP_ROW_STEP = NODE_H + NODE_GAP;
 
-  // When a source is expanded it slides to the top of its column and
-  // the OTHER sources are hidden - the column becomes a dedicated
-  // detail view for that source: pill, then raw-object rows, then
-  // (optionally) field rows when a raw object is itself expanded.
-  // Click the source again to collapse and bring everyone back.
+  // When a source is expanded it slides to the top of its column;
+  // its dropdown rows (raw objects + optional field rows for an
+  // expanded raw object) occupy positions 1..N immediately below.
+  // The OTHER sources stay visible and push down past the dropdown
+  // so their curves remain attached. Same for canonical.
+  const FIELD_ROW_H_EARLY = 22;
+  const FIELD_ROW_GAP_EARLY = 2;
+  const FIELD_ROW_STEP_EARLY = FIELD_ROW_H_EARLY + FIELD_ROW_GAP_EARLY;
+
+  const expandedRawObjectFieldCountEarly = useMemo(() => {
+    if (expanded?.kind !== "source" || !expandedRawObject) return 0;
+    const rawObjects = getRawObjectsBySource(expanded.key);
+    return (
+      rawObjects.find((r) => r.object === expandedRawObject)?.fields.length ?? 0
+    );
+  }, [expanded, expandedRawObject]);
+
+  // Total vertical reach below an expanded source pill = raw-object
+  // rows + (optionally) field rows. Convert to "extra source slots"
+  // so other sources push down by an integer number of DROP_ROW_STEP.
+  const sourceDropdownHeight =
+    expanded?.kind === "source"
+      ? getRawObjectsBySource(expanded.key).length * DROP_ROW_STEP +
+        expandedRawObjectFieldCountEarly * FIELD_ROW_STEP_EARLY +
+        (expandedRawObjectFieldCountEarly > 0 ? 8 : 0)
+      : 0;
+  const canonicalDropdownHeight =
+    expanded?.kind === "canonical"
+      ? (getCanonicalObject(expanded.key)?.fields.length ?? 0) * DROP_ROW_STEP
+      : 0;
+
   const sourceRows = useMemo(() => {
     if (expanded?.kind === "source") {
-      return [{ source: expanded.key, y: PADDING }];
+      const expandedKey = expanded.key;
+      const others = sources.filter((s) => s !== expandedKey);
+      return [
+        { source: expandedKey, y: PADDING },
+        ...others.map((s, i) => ({
+          source: s,
+          y: PADDING + DROP_ROW_STEP + sourceDropdownHeight + i * DROP_ROW_STEP,
+        })),
+      ];
     }
     return sources.map((s, i) => ({
       source: s,
       y: PADDING + i * DROP_ROW_STEP,
     }));
-  }, [sources, expanded, DROP_ROW_STEP]);
+  }, [sources, expanded, DROP_ROW_STEP, sourceDropdownHeight]);
 
-  // Mirrored for canonical: when expanded, the canonical column shows
-  // only that object + its field-row dropdown below.
   const canonicalRows = useMemo(() => {
     if (expanded?.kind === "canonical") {
-      const co = CANONICAL_OBJECTS.find((o) => o.key === expanded.key);
-      if (!co) return [];
-      return [{ obj: co, y: PADDING }];
+      const expandedKey = expanded.key;
+      const expandedObj = CANONICAL_OBJECTS.find((o) => o.key === expandedKey);
+      if (!expandedObj) return [];
+      const others = CANONICAL_OBJECTS.filter((o) => o.key !== expandedKey);
+      return [
+        { obj: expandedObj, y: PADDING },
+        ...others.map((o, i) => ({
+          obj: o,
+          y: PADDING + DROP_ROW_STEP + canonicalDropdownHeight + i * DROP_ROW_STEP,
+        })),
+      ];
     }
     return CANONICAL_OBJECTS.map((o, i) => ({
       obj: o,
       y: PADDING + i * DROP_ROW_STEP,
     }));
-  }, [expanded, DROP_ROW_STEP]);
+  }, [expanded, DROP_ROW_STEP, canonicalDropdownHeight]);
+
+  // Smooth-attach animation. Both the pill positions AND the Sankey
+  // curve endpoints are driven from sourceLiveY / canonicalLiveY, so
+  // when an expansion shifts pills around the connecting strings move
+  // in lockstep with their cards instead of snapping. Single RAF loop,
+  // ~560ms ease-out, snapped instantly when prefers-reduced-motion.
+  const sourceTargetY = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const r of sourceRows) map[r.source] = r.y;
+    return map;
+  }, [sourceRows]);
+  const canonicalTargetY = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const r of canonicalRows) map[r.obj.key] = r.y;
+    return map;
+  }, [canonicalRows]);
+
+  const [sourceLiveY, setSourceLiveY] = useState<Record<string, number>>(
+    () => ({ ...sourceTargetY }),
+  );
+  const [canonicalLiveY, setCanonicalLiveY] = useState<Record<string, number>>(
+    () => ({ ...canonicalTargetY }),
+  );
+  const rafRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const reduce =
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+    // Read live y maps via closure — they hold the latest committed
+    // values from the previous RAF tick, so an interrupted animation
+    // resumes from its current visual position instead of snapping back.
+    const fromSrc: Record<string, number> = { ...sourceLiveY };
+    const fromCan: Record<string, number> = { ...canonicalLiveY };
+    for (const k of Object.keys(sourceTargetY)) {
+      if (fromSrc[k] === undefined) fromSrc[k] = sourceTargetY[k];
+    }
+    for (const k of Object.keys(canonicalTargetY)) {
+      if (fromCan[k] === undefined) fromCan[k] = canonicalTargetY[k];
+    }
+    const start = performance.now();
+    // Reduce-motion users get a duration=0 path which collapses to a
+    // single-frame snap inside RAF (still async, so state updates don't
+    // happen synchronously in the effect body).
+    const duration = reduce ? 0 : 560;
+    // Approximation of cubic-bezier(0.22, 1, 0.36, 1) used elsewhere —
+    // a soft ease-out that decelerates into target without overshoot.
+    const ease = (t: number) => 1 - Math.pow(1 - t, 4);
+    const step = (now: number) => {
+      const t = duration === 0 ? 1 : Math.min(1, (now - start) / duration);
+      const e = ease(t);
+      const nextSrc: Record<string, number> = {};
+      for (const k of Object.keys(sourceTargetY)) {
+        nextSrc[k] = fromSrc[k] + (sourceTargetY[k] - fromSrc[k]) * e;
+      }
+      const nextCan: Record<string, number> = {};
+      for (const k of Object.keys(canonicalTargetY)) {
+        nextCan[k] = fromCan[k] + (canonicalTargetY[k] - fromCan[k]) * e;
+      }
+      setSourceLiveY(nextSrc);
+      setCanonicalLiveY(nextCan);
+      if (t < 1) {
+        rafRef.current = requestAnimationFrame(step);
+      } else {
+        rafRef.current = null;
+      }
+    };
+    rafRef.current = requestAnimationFrame(step);
+    return () => {
+      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    };
+    // sourceLiveY / canonicalLiveY are intentionally read via closure;
+    // including them in deps would re-fire the animation on every tick.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourceTargetY, canonicalTargetY]);
 
   // Dropdown row counts to figure out the vertical extent the SVG needs.
   const expandedSourceDropdownRows = useMemo(() => {
@@ -350,18 +468,48 @@ function OverviewGraph({
         destMap.set(co, (destMap.get(co) ?? 0) + 1);
         mappedFieldKeys.add(f);
       }
-      const dests = Array.from(destMap.entries())
-        .map(([k, n]) => `${k}·${n}`)
-        .join(", ");
-      const mappedCount = Array.from(destMap.values()).reduce(
-        (n, v) => n + v,
-        0,
-      );
+      const destEntries = Array.from(destMap.entries()).map(([k, n]) => ({
+        name: k,
+        count: n,
+      }));
+      const destFull =
+        destEntries.map((d) => `${d.name}·${d.count}`).join(", ") || "—";
+      const mappedCount = destEntries.reduce((n, d) => n + d.count, 0);
+      // Keep the whole subline within COL_W=200 at 10px ui-monospace.
+      // Usable text width is ~172px / ~6px per glyph = ~28 chars; we
+      // cap at 26 with headroom. Truncated destinations get a "+N"
+      // suffix and the full list lives in a <title> tooltip.
+      const prefix = `${mappedCount}/${ro.fields.length} → `;
+      const TOTAL_BUDGET = 26;
+      const destBudget = Math.max(6, TOTAL_BUDGET - prefix.length);
+      const parts: string[] = [];
+      let used = 0;
+      let truncated = destEntries.length;
+      for (let i = 0; i < destEntries.length; i++) {
+        const piece = `${destEntries[i].name}·${destEntries[i].count}`;
+        const sep = parts.length ? ", " : "";
+        if (used + sep.length + piece.length > destBudget) {
+          truncated = destEntries.length - i;
+          break;
+        }
+        parts.push(piece);
+        used += sep.length + piece.length;
+        truncated = destEntries.length - (i + 1);
+      }
+      const joined = parts.join(", ");
+      const destShort = destEntries.length
+        ? truncated > 0
+          ? joined
+            ? `${joined} +${truncated}`
+            : `+${truncated}`
+          : joined
+        : "—";
       return {
         object: ro.object,
         totalFields: ro.fields.length,
         mappedCount,
-        destinations: dests || "—",
+        destinations: destShort,
+        destinationsFull: destFull,
         fields: ro.fields.map((f) => ({
           key: f.key,
           type: f.type,
@@ -406,9 +554,9 @@ function OverviewGraph({
           // slides up to the top of its column instead of out to the
           // side. Curves originate/terminate at the column edges.
           const startX = SRC_X + COL_W;
-          const startY = src.y + NODE_H / 2;
+          const startY = (sourceLiveY[e.source] ?? src.y) + NODE_H / 2;
           const endX = CAN_X;
-          const endY = can.y + NODE_H / 2;
+          const endY = (canonicalLiveY[e.canonical] ?? can.y) + NODE_H / 2;
           const midX = (startX + endX) / 2;
           const color = colorForSource(e.source);
           const active = edgeActive(e.source, e.canonical);
@@ -443,15 +591,14 @@ function OverviewGraph({
           return (
             <g
               key={r.source}
-              transform={`translate(${nodeX}, ${r.y})`}
+              transform={`translate(${nodeX}, ${sourceLiveY[r.source] ?? r.y})`}
               onMouseEnter={() => setHover({ kind: "source", key: r.source })}
               onMouseLeave={() => setHover(null)}
               onClick={() => onToggleSource(r.source)}
               style={{
                 cursor: "pointer",
                 opacity: active ? 1 : 0.35,
-                transition:
-                  "transform 560ms cubic-bezier(0.22, 1, 0.36, 1), opacity 180ms",
+                transition: "opacity 180ms",
               }}
             >
               <rect
@@ -510,11 +657,10 @@ function OverviewGraph({
           <g key={`src-drop-${expanded?.key}`}>
             {(() => {
               const color = colorForSource(expanded!.key);
-              const FIELD_ROW_H = 22;
-              const FIELD_ROW_GAP = 2;
-              const FIELD_ROW_STEP = FIELD_ROW_H + FIELD_ROW_GAP;
               const elements: React.ReactNode[] = [];
-              let y = expandedSourceRow.y + DROP_ROW_STEP;
+              const expandedLiveY =
+                sourceLiveY[expanded!.key] ?? expandedSourceRow.y;
+              let y = expandedLiveY + DROP_ROW_STEP;
               sourceDropdown.forEach((row, i) => {
                 const isOpen = expandedRawObject === row.object;
                 elements.push(
@@ -526,6 +672,9 @@ function OverviewGraph({
                       className="cg-drop-row"
                       style={{ animationDelay: `${i * 60}ms` }}
                     >
+                      <title>
+                        {row.object} · {row.mappedCount}/{row.totalFields} mapped → {row.destinationsFull}
+                      </title>
                       <rect
                         x={0}
                         y={0}
@@ -655,7 +804,7 @@ function OverviewGraph({
           return (
             <g
               key={r.obj.key}
-              transform={`translate(${nodeX}, ${r.y})`}
+              transform={`translate(${nodeX}, ${canonicalLiveY[r.obj.key] ?? r.y})`}
               onMouseEnter={() =>
                 setHover({ kind: "canonical", key: r.obj.key })
               }
@@ -664,8 +813,7 @@ function OverviewGraph({
               style={{
                 cursor: "pointer",
                 opacity: active ? 1 : 0.35,
-                transition:
-                  "transform 560ms cubic-bezier(0.22, 1, 0.36, 1), opacity 180ms",
+                transition: "opacity 180ms",
               }}
             >
               <rect
@@ -721,8 +869,9 @@ function OverviewGraph({
         {expandedCanonicalRow && canonicalDropdown && (
           <g key={`can-drop-${expanded?.key}`}>
             {canonicalDropdown.map((row, i) => {
-              const baseY =
-                expandedCanonicalRow.y + (i + 1) * DROP_ROW_STEP;
+              const expandedLiveY =
+                canonicalLiveY[expanded!.key] ?? expandedCanonicalRow.y;
+              const baseY = expandedLiveY + (i + 1) * DROP_ROW_STEP;
               const isJoin = row.contribCount > 1;
               const isOrphan = row.contribCount === 0;
               return (
