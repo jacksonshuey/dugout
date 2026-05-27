@@ -18,6 +18,11 @@ import {
 } from "@/components/landing/logos";
 import { IntegrationSetupReel } from "@/components/landing/integration-setup-reel";
 import { LiveZipperingDemo } from "@/components/landing/live-zippering-demo";
+import {
+  STEP_GRID_CLASS,
+  STEP_LEFT_COL_CLASS,
+  STEP_RIGHT_COL_CLASS,
+} from "@/components/landing/step-layout";
 import { InteractiveZipperedTable } from "@/components/landing/interactive-zippered-table";
 import { InteractiveSignals } from "@/components/landing/interactive-signals";
 import { InteractiveDecisions } from "@/components/landing/interactive-decisions";
@@ -348,8 +353,9 @@ function StepIntegrate() {
   const integrationHealth = checkAllHealth();
   return (
     <StepShell num={1} wide title="Integrate" sub="">
-      <div className="grid md:grid-cols-12 gap-8">
-        <div className="md:col-span-5 min-w-0 flex flex-col">
+      {/* Canonical step split: 5 left / 7 right. See step-layout.ts. */}
+      <div className={`${STEP_GRID_CLASS} gap-8`}>
+        <div className={`${STEP_LEFT_COL_CLASS} min-w-0 flex flex-col`}>
           <div className="space-y-3">
             <p className="text-sm text-foreground/70 leading-relaxed">
               <span className="font-semibold text-foreground">
@@ -397,7 +403,7 @@ function StepIntegrate() {
             </div>
           </div>
         </div>
-        <div className="md:col-span-7 min-w-0">
+        <div className={`${STEP_RIGHT_COL_CLASS} min-w-0`}>
           <IntegrationSetupReel
             integrations={INTEGRATIONS}
             health={integrationHealth}

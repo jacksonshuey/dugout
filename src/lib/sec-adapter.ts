@@ -41,8 +41,6 @@ const TICKER_TO_CIK: Record<string, string> = {
   UNH: "0000731766", // UnitedHealth Group
   CNA: "0000021175", // CNA Financial Corp
   BA: "0000012927", // Boeing Co
-  UPS: "0001090727", // United Parcel Service
-  CIVI: "0001509589", // Civitas Resources
 };
 
 // 8-K Item code → signal classification + human label. Codes from SEC Form 8-K

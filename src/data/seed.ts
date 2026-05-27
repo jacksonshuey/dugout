@@ -448,20 +448,6 @@ export const accounts: Account[] = [
     },
   },
   {
-    id: "acc_ups",
-    name: "UPS",
-    industry: "Logistics",
-    segment: "Enterprise",
-    hqLocation: "Atlanta, GA",
-    legalTeamSize: 50,
-    trackable: true,
-    linkedinSlug: "ups",
-    website: "ups.com",
-    domain: "ups.com",
-    ticker: "UPS",
-    isDemoScenario: true,
-  },
-  {
     id: "acc_atlassian",
     name: "Atlassian",
     industry: "SaaS",
@@ -475,21 +461,6 @@ export const accounts: Account[] = [
     ticker: "TEAM",
     isDemoScenario: true,
   },
-  {
-    id: "acc_civitas",
-    name: "Civitas Resources",
-    industry: "Energy",
-    segment: "Mid-Market",
-    hqLocation: "Denver, CO",
-    legalTeamSize: 12,
-    trackable: true,
-    linkedinSlug: "civitas-resources",
-    website: "civitasresources.com",
-    domain: "civitasresources.com",
-    ticker: "CIVI",
-    isDemoScenario: true,
-  },
-
   // Checkbox customers spread in from `checkboxBundles` above. Add new
   // customers via the same helper instead of inline literals.
   ...checkboxBundles.map((b) => b.account),
@@ -586,17 +557,11 @@ export const contacts: Contact[] = [
   { id: "c_atl_5", accountId: "acc_snowflake", name: "Devon Pierce", title: "VP Information Security", role: "IT/Security" },
   { id: "c_atl_6", accountId: "acc_snowflake", name: "Hiroshi Tanaka", title: "President, Data Cloud BU", role: "Executive Sponsor" },
 
-  // UPS (Marcus) - Evaluating, SINGLE THREAD: only champion
-  { id: "c_qua_1", accountId: "acc_ups", name: "Yusuf Abadi", title: "Senior Counsel", role: "Champion" },
-
   // Atlassian (Jenna) - Contracting, healthy
   { id: "c_hor_1", accountId: "acc_atlassian", name: "Diane Mercer", title: "Deputy GC", role: "Champion" },
   { id: "c_hor_2", accountId: "acc_atlassian", name: "Frank Olson", title: "VP Legal", role: "GC" },
   { id: "c_hor_3", accountId: "acc_atlassian", name: "Anita Krishnan", title: "Director Finance", role: "Finance/CFO" },
   { id: "c_hor_4", accountId: "acc_atlassian", name: "Carlos Vega", title: "IT Security Manager", role: "IT/Security" },
-
-  // Civitas (Jenna) - Qualified, stalled
-  { id: "c_str_1", accountId: "acc_civitas", name: "Tracy Bell", title: "Legal Manager", role: "Champion" },
 
   // Checkbox customers spread in from `checkboxBundles`.
   ...checkboxBundles.flatMap((b) => b.contacts),
@@ -757,18 +722,6 @@ export const opportunities: Opportunity[] = [
     },
   },
   {
-    id: "opp_quantum",
-    accountId: "acc_ups",
-    name: "UPS - Matter Management",
-    ownerId: "rep_mw",
-    stage: "Evaluating",
-    amount: 120000,
-    enteredStageAt: "2026-05-06",
-    createdAt: "2026-03-15",
-    closeDate: "2026-08-01",
-    contactRoleIds: ["c_qua_1"],
-  },
-  {
     id: "opp_horizon",
     accountId: "acc_atlassian",
     name: "Atlassian - Full Platform",
@@ -779,18 +732,6 @@ export const opportunities: Opportunity[] = [
     createdAt: "2026-01-28",
     closeDate: "2026-06-12",
     contactRoleIds: ["c_hor_1", "c_hor_2", "c_hor_3", "c_hor_4"],
-  },
-  {
-    id: "opp_stratos",
-    accountId: "acc_civitas",
-    name: "Civitas Resources - NDA Automation",
-    ownerId: "rep_jp",
-    stage: "Qualified",
-    amount: 60000,
-    enteredStageAt: "2026-04-30", // 21 days, way past Qualified benchmark of 14
-    createdAt: "2026-04-08",
-    closeDate: "2026-07-31",
-    contactRoleIds: ["c_str_1"],
   },
   // Second Atlassian opp at Contracting - exercises the three new
   // Contracting-stage signal rules (LEGAL_REDLINE_AGE, SSO_SETUP_PENDING,
@@ -887,18 +828,9 @@ export const activities: Activity[] = [
   { id: "a_atl_5", oppId: "opp_atlas", contactId: "c_atl_6", type: "email_received", occurredAt: "2026-05-20", summary: "EB Hiroshi Tanaka: 'Approved. Ready to move on terms this week.'" },
   { id: "a_atl_6", oppId: "opp_atlas", contactId: "c_atl_1", type: "email_received", occurredAt: "2026-05-20", summary: "Champion Roberto Diaz: 'Forwarding to Anika in Procurement - let's hit signature by Friday.'" },
 
-  // UPS - single-thread, champion responsive but alone
-  { id: "a_qua_1", oppId: "opp_quantum", contactId: "c_qua_1", type: "call", occurredAt: "2026-05-15", summary: "Trial check-in with Yusuf - using daily" },
-  { id: "a_qua_2", oppId: "opp_quantum", contactId: "c_qua_1", type: "dock_visit", occurredAt: "2026-05-19", summary: "Yusuf reviewed pricing" },
-
   // Atlassian - Contracting, legal review active
   { id: "a_hor_1", oppId: "opp_horizon", contactId: "c_hor_2", type: "email_received", occurredAt: "2026-05-18", summary: "GC Frank Olson: redlines on MSA section 7.3" },
   { id: "a_hor_2", oppId: "opp_horizon", contactId: "c_hor_4", type: "meeting", occurredAt: "2026-05-19", summary: "IT security: SSO setup confirmed, ready for signature" },
-
-  // Civitas - stalled, single contact, no movement
-  { id: "a_str_1", oppId: "opp_stratos", contactId: "c_str_1", type: "call", occurredAt: "2026-05-02", summary: "Discovery - Tracy is interested but unsure of budget process" },
-  { id: "a_str_2", oppId: "opp_stratos", contactId: "c_str_1", type: "email_sent", occurredAt: "2026-05-11", summary: "Sent recap + pricing tiers" },
-  // 19 days since last meaningful activity
 
   // Snowflake Data Cloud BU (opp_atlas_2) - Contracting, stuck.
   // Pattern: buyer-side paperwork landed 12d ago, our in-house counsel
@@ -1112,11 +1044,6 @@ export const assetDeliveries: AssetDelivery[] = [
   { oppId: "opp_atlas_2", asset: "kpi_assessment", deliveredAt: "2026-02-05" },
   { oppId: "opp_atlas_2", asset: "dock_room", deliveredAt: "2026-02-01" },
 
-  // UPS - only trial brief sent
-  { oppId: "opp_quantum", asset: "outcome_first_trial_brief", deliveredAt: "2026-04-15" },
-  { oppId: "opp_quantum", asset: "kpi_assessment", deliveredAt: "2026-04-20" },
-  { oppId: "opp_quantum", asset: "dock_room", deliveredAt: "2026-04-15" },
-
   // Atlassian - full execution all the way to Contracting
   { oppId: "opp_horizon", asset: "outcome_first_trial_brief", deliveredAt: "2026-02-15" },
   { oppId: "opp_horizon", asset: "kpi_assessment", deliveredAt: "2026-02-20" },
@@ -1126,8 +1053,6 @@ export const assetDeliveries: AssetDelivery[] = [
   { oppId: "opp_horizon", asset: "it_zero_lift_one_pager", deliveredAt: "2026-04-25" },
   { oppId: "opp_horizon", asset: "dock_room", deliveredAt: "2026-02-15" },
 
-  // Civitas - early stage, just initial materials
-  { oppId: "opp_stratos", asset: "dock_room", deliveredAt: "2026-04-30" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -1349,32 +1274,6 @@ export const demoSignals: Signal[] = [
     detectedAt: "2026-05-21T08:00:00Z",
     sourceTool: "intel",
     sourceEventId: "rule_asset_gap_finance_brief_opp_apex_20260521",
-  },
-  {
-    id: "demo_qnt_low_meeting_velocity",
-    ruleId: "LOW_MEETING_VELOCITY",
-    oppId: "opp_quantum",
-    severity: "action",
-    signalType: "momentum_change",
-    title: "Meeting velocity dropped: 1 meeting in 30d",
-    body: "UPS opportunity averaged 4 meetings/30d through April; last 30 days shows 1. Rule fired: meeting_count_30d < 3 AND deal_amount > $150K. Stage hasn't moved either.",
-    suggestedAction: "Slack-DM has been queued to the deal owner. Add to tomorrow morning digest under 'Action'.",
-    detectedAt: "2026-05-21T09:20:00Z",
-    sourceTool: "gong",
-    sourceEventId: "rule_low_meeting_velocity_opp_quantum_20260521",
-  },
-  {
-    id: "demo_str_outside_acv_band",
-    ruleId: "ACV_OUTSIDE_TARGET_BAND",
-    oppId: "opp_stratos",
-    severity: "action",
-    signalType: "account_health_decline",
-    title: "Civitas ACV below $150K target band",
-    body: "Deal sized at $95K, below the $150K minimum for Mid-Market. Rule fired: deal_amount outside_of $150K–$400K AND stage in (Qualified, Demo Sat, Evaluating). Either expand scope or reclassify as SMB.",
-    suggestedAction: "Schedule a 20-min scope-expansion call with the champion; loop in CSM if reclassification is the call.",
-    detectedAt: "2026-05-21T10:30:00Z",
-    sourceTool: "salesforce",
-    sourceEventId: "rule_acv_outside_band_opp_stratos_20260521",
   },
   {
     id: "demo_vec_competitor_named",

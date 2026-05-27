@@ -2,6 +2,11 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { BrandLogo, getBrandName, type BrandKey } from "./logos";
+import {
+  STEP_GRID_CLASS,
+  STEP_LEFT_COL_CLASS,
+  STEP_RIGHT_COL_CLASS,
+} from "./step-layout";
 
 // Dynamic zippering demo. Cycles through a simulated ingest where three
 // integrations land rows on the same account (acc_snowflake / Snowflake), and
@@ -198,8 +203,11 @@ export function LiveZipperingDemo() {
   return (
     <div className="mt-10 rounded-xl border border-border bg-foreground/[0.02] overflow-hidden">
       <DemoHeader stepIdx={displayStepIdx} activeStep={activeStep} />
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 px-5 sm:px-6 py-6">
-        <div className="lg:col-span-7 space-y-3">
+      {/* Canonical step split: 5 left / 7 right. See step-layout.ts.
+          The right-column boundary aligns vertically with Step 01's
+          Connect Granola popup. */}
+      <div className={`${STEP_GRID_CLASS} gap-6 px-5 sm:px-6 py-6`}>
+        <div className={`${STEP_LEFT_COL_CLASS} space-y-3`}>
           {SOURCES.map((src, sourceIdx) => (
             <SourceTable
               key={src.brand}
@@ -210,7 +218,7 @@ export function LiveZipperingDemo() {
             />
           ))}
         </div>
-        <div className="lg:col-span-5">
+        <div className={STEP_RIGHT_COL_CLASS}>
           <CanonicalWideRow canonical={canonical} activeStep={activeStep} />
         </div>
       </div>

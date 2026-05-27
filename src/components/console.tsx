@@ -50,7 +50,17 @@ export interface ConsoleData {
   workspace: WorkspaceConfig;
 }
 
-export function Console(props: ConsoleData & { basePath?: string }) {
+export function Console(
+  props: ConsoleData & {
+    basePath?: string;
+    // /tool's Dashboard tab renders Console without the filter+view sidebar
+    // and labels the table as "Dashboard" instead of "Pipeline". Default
+    // (false / undefined) preserves the standalone /console and landing
+    // embed look.
+    hideSidebar?: boolean;
+    pipelineTitle?: string;
+  },
+) {
   const router = useRouter();
   const params = useSearchParams();
   // basePath lets the Console live at any route - /console for the
@@ -273,23 +283,27 @@ export function Console(props: ConsoleData & { basePath?: string }) {
   // ── Render ──────────────────────────────────────────────────────
   if (!hydrated) {
     return (
-      <div className="max-w-[88rem] mx-auto flex">
-        <div className="w-56 shrink-0 border-r border-border bg-slate-50/50 h-[calc(100vh-3rem)]" />
+      <div className="max-w-6xl mx-auto px-6 flex">
+        {!props.hideSidebar && (
+          <div className="w-56 shrink-0 border-r border-border bg-slate-50/50 h-[calc(100vh-3rem)]" />
+        )}
         <div className="flex-1 p-6 text-sm text-muted">Loading…</div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-[88rem] mx-auto flex">
-      <Sidebar
-        view={view}
-        filters={filters}
-        dealCount={filteredOpps.length}
-        openTaskCount={openTasksAll.length}
-        onViewChange={(v) => updateUrl({ view: v })}
-        onFiltersChange={(f) => updateUrl({ filters: f })}
-      />
+    <div className="max-w-6xl mx-auto px-6 flex">
+      {!props.hideSidebar && (
+        <Sidebar
+          view={view}
+          filters={filters}
+          dealCount={filteredOpps.length}
+          openTaskCount={openTasksAll.length}
+          onViewChange={(v) => updateUrl({ view: v })}
+          onFiltersChange={(f) => updateUrl({ filters: f })}
+        />
+      )}
 
       <main className="flex-1 min-w-0 p-6">
         {view === "pipeline" && (
@@ -298,6 +312,7 @@ export function Console(props: ConsoleData & { basePath?: string }) {
             data={props}
             tasks={tasks}
             onOpen={(id) => setDrawerOppId(id)}
+            title={props.pipelineTitle}
           />
         )}
         {view === "today" && (
@@ -371,11 +386,16 @@ function PipelineView({
   data,
   tasks,
   onOpen,
+  title,
 }: {
   opps: Opportunity[];
   data: ConsoleData;
   tasks: Task[];
   onOpen: (oppId: string) => void;
+  // Optional override for the column header. /tool's Dashboard tab passes
+  // "Dashboard" so the surface reads as one thing instead of stacking a
+  // tab label, a tab header, and a "Pipeline" view label all together.
+  title?: string;
 }) {
   const [sortKey, setSortKey] = useState<SortKey>("health");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -490,7 +510,7 @@ function PipelineView({
   return (
     <div className="space-y-4">
       <Header
-        title="Pipeline"
+        title={title ?? "Pipeline"}
         sub={`${filtered.length} deal${filtered.length === 1 ? "" : "s"}${q ? ` (of ${opps.length})` : ""} · ${formatCurrency(filteredPipeline)} · ${criticalCount} Critical · ${atRiskCount} At Risk`}
       />
 

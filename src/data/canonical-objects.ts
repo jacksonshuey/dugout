@@ -1,0 +1,372 @@
+// Canonical objects. The "right side" of the zipper. Each object
+// consolidates fields from one or more raw sources via object-mappings.ts.
+//
+// Why object-oriented (not flat columns): raw API surfaces have ~900
+// fields. Forcing every meaningful one into a flat ontology hides the
+// real joins (e.g., a Meeting is built from Gong Call + Salesforce Event
+// joined on calendar event ID + fuzzy datetime + attendee match — that
+// join is the interesting story, and it lives at the object level).
+
+import type { FieldType } from "@/data/ontology-schema";
+
+export interface CanonicalField {
+  key: string;
+  type: FieldType;
+  unit?: string;
+  description: string;
+  enumValues?: readonly string[];
+  // For relationship fields, the canonical object this field references.
+  // E.g., Deal.account_id has relationTo="Account".
+  relationTo?: string;
+  // True for "attendees: Contact[]" style fields. With relationTo set, the
+  // field is a foreign-key collection; without it, just a primitive array.
+  isArray?: boolean;
+  // When set, this canonical field's join is the "remedy point" - multiple
+  // sources contribute and reconciliation requires source-of-truth rules.
+  joinNote?: string;
+}
+
+export interface CanonicalObject {
+  key: string;
+  label: string;
+  description: string;
+  fields: readonly CanonicalField[];
+}
+
+export const CANONICAL_OBJECTS: readonly CanonicalObject[] = [
+  {
+    key: "Account",
+    label: "Account",
+    description: "The customer company. Consolidates CRM, enrichment, and regulatory identity into one record per legal entity.",
+    fields: [
+      { key: "id", type: "string", description: "Canonical account ID" },
+      { key: "name", type: "string", description: "Display name", joinNote: "Salesforce.name wins when present; falls back to Apollo.name, then EDGAR.registrant_name" },
+      { key: "domain", type: "string", description: "Primary email domain (the join key for source reconciliation)", joinNote: "Used to merge Salesforce.website, Apollo.primary_domain, Outreach.domain" },
+      { key: "website", type: "string", description: "Account website URL" },
+      { key: "industry", type: "string", description: "Industry classification", joinNote: "Multiple sources disagree often: Salesforce industry vs Apollo industry vs SEC sic_description. Apollo wins on freshness." },
+      { key: "naics_code", type: "string", description: "NAICS industry code" },
+      { key: "sic_code", type: "string", description: "SIC industry code" },
+      { key: "annual_revenue", type: "float", unit: "USD", description: "Estimated annual revenue", joinNote: "Apollo (enrichment) vs Salesforce (manual entry). Apollo usually fresher." },
+      { key: "total_funding", type: "float", unit: "USD", description: "Cumulative funding raised" },
+      { key: "latest_funding_stage", type: "enum", description: "Most recent funding stage", enumValues: ["seed", "series_a", "series_b", "series_c", "series_d", "series_e", "series_f", "series_g", "private_equity", "debt_financing", "ipo", "post_ipo", "acquired"] },
+      { key: "employee_count", type: "int", unit: "count", description: "Headcount", joinNote: "Salesforce.number_of_employees vs Apollo.estimated_num_employees. Apollo usually fresher." },
+      { key: "founded_year", type: "int", unit: "year", description: "Year founded" },
+      { key: "hq_city", type: "string", description: "Headquarters city" },
+      { key: "hq_state", type: "string", description: "Headquarters state/region" },
+      { key: "hq_country", type: "string", description: "Headquarters country" },
+      { key: "ticker_symbol", type: "string", description: "Stock ticker (for public companies)" },
+      { key: "exchange", type: "string", description: "Stock exchange code" },
+      { key: "cik", type: "string", description: "SEC Central Index Key (for public companies)" },
+      { key: "linkedin_url", type: "string", description: "Company LinkedIn URL" },
+      { key: "twitter_url", type: "string", description: "Company Twitter/X URL" },
+      { key: "logo_url", type: "string", description: "Company logo image URL" },
+      { key: "account_type", type: "enum", description: "Customer relationship type", enumValues: ["Prospect", "Customer - Direct", "Customer - Channel", "Channel Partner", "Other"] },
+      { key: "is_partner", type: "bool", description: "True if enabled as a partner account" },
+      { key: "intent_strength", type: "enum", description: "Buying intent signal", enumValues: ["none", "low", "medium", "high"] },
+      { key: "technology_stack", type: "string", isArray: true, description: "Detected technology stack labels" },
+      { key: "parent_account_id", type: "string", relationTo: "Account", description: "Parent account if subsidiary" },
+      { key: "owner_user_id", type: "string", relationTo: "User", description: "Account executive" },
+      { key: "last_activity_date", type: "date", description: "Most recent engagement", joinNote: "Max over Salesforce.last_activity_date, Outreach.touched_at, Apollo.last_activity_date" },
+    ],
+  },
+  {
+    key: "Contact",
+    label: "Contact",
+    description: "A person at an Account. Consolidates Salesforce Contact + Lead + Apollo Person + Outreach Prospect.",
+    fields: [
+      { key: "id", type: "string", description: "Canonical contact ID" },
+      { key: "first_name", type: "string", description: "Given name" },
+      { key: "last_name", type: "string", description: "Family name" },
+      { key: "full_name", type: "string", description: "Concatenated display name" },
+      { key: "email", type: "string", description: "Primary work email (also the join key)", joinNote: "Email is the canonical match across Salesforce, Apollo, Outreach. Conflicts resolve by recency." },
+      { key: "phone", type: "string", description: "Work phone number" },
+      { key: "mobile_phone", type: "string", description: "Mobile phone" },
+      { key: "title", type: "string", description: "Job title", joinNote: "Apollo (enrichment) vs Salesforce (manual). Apollo wins on freshness." },
+      { key: "department", type: "string", description: "Functional department" },
+      { key: "seniority", type: "enum", description: "Career level", enumValues: ["owner", "founder", "c_suite", "partner", "vp", "head", "director", "manager", "senior", "entry", "intern"] },
+      { key: "linkedin_url", type: "string", description: "LinkedIn profile URL" },
+      { key: "twitter_url", type: "string", description: "Twitter/X profile URL" },
+      { key: "photo_url", type: "string", description: "Profile photo URL" },
+      { key: "account_id", type: "string", relationTo: "Account", description: "Employer account" },
+      { key: "reports_to_id", type: "string", relationTo: "Contact", description: "Reports-to contact" },
+      { key: "email_status", type: "enum", description: "Email verification state", enumValues: ["verified", "unverified", "likely_to_engage", "bounced", "unavailable"] },
+      { key: "opted_out", type: "bool", description: "Globally opted out of outreach" },
+      { key: "do_not_call", type: "bool", description: "Do-not-call flag" },
+      { key: "intent_strength", type: "enum", description: "Buying intent signal", enumValues: ["none", "low", "medium", "high"] },
+      { key: "engagement_score", type: "float", description: "Cumulative engagement (opens + clicks + replies)" },
+      { key: "last_contacted_at", type: "date", description: "Last outbound contact" },
+      { key: "last_engaged_at", type: "date", description: "Last inbound engagement (open/click/reply)" },
+      { key: "owner_user_id", type: "string", relationTo: "User", description: "Owning rep" },
+      { key: "is_lead", type: "bool", description: "True if still a Salesforce Lead (not yet converted to Contact)" },
+    ],
+  },
+  {
+    key: "Deal",
+    label: "Deal",
+    description: "An opportunity. Mostly Salesforce Opportunity, enriched with stage history from OpportunityHistory.",
+    fields: [
+      { key: "id", type: "string", description: "Canonical deal ID" },
+      { key: "name", type: "string", description: "Opportunity name" },
+      { key: "amount", type: "float", unit: "USD", description: "Annual contract value" },
+      { key: "expected_revenue", type: "float", unit: "USD", description: "Amount × probability" },
+      { key: "probability", type: "float", unit: "percent", description: "Win probability" },
+      { key: "stage", type: "string", description: "Current pipeline stage" },
+      { key: "forecast_category", type: "enum", description: "Forecast rollup", enumValues: ["Omitted", "Pipeline", "Best Case", "Commit", "Closed"] },
+      { key: "close_date", type: "date", description: "Expected close" },
+      { key: "type", type: "enum", description: "Deal motion", enumValues: ["New Customer", "Existing Customer - Upgrade", "Existing Customer - Renewal", "Existing Customer - Replacement"] },
+      { key: "lead_source", type: "string", description: "Sourcing channel" },
+      { key: "is_closed", type: "bool", description: "Closed flag" },
+      { key: "is_won", type: "bool", description: "Won flag" },
+      { key: "account_id", type: "string", relationTo: "Account", description: "Customer account" },
+      { key: "owner_user_id", type: "string", relationTo: "User", description: "Account executive" },
+      { key: "primary_contact_id", type: "string", relationTo: "Contact", description: "Primary buyer-side contact" },
+      { key: "last_stage_change_date", type: "date", description: "When stage last advanced" },
+      { key: "last_activity_date", type: "date", description: "Most recent customer interaction" },
+      { key: "days_in_stage", type: "int", unit: "days", description: "Days in current stage" },
+      { key: "push_count", type: "int", unit: "count", description: "Times close date has been pushed" },
+      { key: "iq_score", type: "int", description: "Einstein opportunity score (0-100)" },
+    ],
+  },
+  {
+    key: "Meeting",
+    label: "Meeting",
+    description: "A scheduled or recorded customer meeting. Consolidates Gong Call recordings, Salesforce Event calendar entries, and inferred meetings from email reply chains.",
+    fields: [
+      { key: "id", type: "string", description: "Canonical meeting ID" },
+      { key: "title", type: "string", description: "Meeting title" },
+      { key: "scheduled_start_at", type: "date", description: "Scheduled start", joinNote: "Salesforce.Event.start_date_time vs Gong.Call.scheduled_start_at — match on calendar_event_id when available" },
+      { key: "effective_start_at", type: "date", description: "Actual recording start (from Gong)" },
+      { key: "end_at", type: "date", description: "Scheduled or actual end" },
+      { key: "duration_seconds", type: "int", unit: "seconds", description: "Actual recorded duration (Gong) or scheduled length (SF)" },
+      { key: "is_internal", type: "bool", description: "True if all participants are internal (Gong scope=INTERNAL)" },
+      { key: "is_recorded", type: "bool", description: "True if a Gong recording exists" },
+      { key: "media_type", type: "enum", description: "Recording format", enumValues: ["AUDIO", "VIDEO", "NONE"] },
+      { key: "organizer_user_id", type: "string", relationTo: "User", description: "Meeting host" },
+      { key: "attendee_contact_ids", type: "string", relationTo: "Contact", isArray: true, description: "External attendees (mapped from email)" },
+      { key: "attendee_user_ids", type: "string", relationTo: "User", isArray: true, description: "Internal attendees" },
+      { key: "summary", type: "text", description: "AI-generated call summary (Gong spotlight brief)" },
+      { key: "key_points", type: "text", description: "AI-extracted key points" },
+      { key: "next_steps", type: "text", description: "AI-extracted action items" },
+      { key: "topics", type: "string", isArray: true, description: "Detected topic labels with time spent" },
+      { key: "trackers_fired", type: "string", isArray: true, description: "Custom keyword trackers that hit" },
+      { key: "talk_ratio_company", type: "float", unit: "percent", description: "Percent of time company-side spoke" },
+      { key: "talk_ratio_customer", type: "float", unit: "percent", description: "Percent of time customer-side spoke" },
+      { key: "question_count_company", type: "int", unit: "count", description: "Questions asked by company" },
+      { key: "question_count_customer", type: "int", unit: "count", description: "Questions asked by customer" },
+      { key: "sentiment_score", type: "float", description: "Aggregate sentiment from -1 to 1" },
+      { key: "recording_url", type: "string", description: "Gong recording URL" },
+      { key: "linked_deal_id", type: "string", relationTo: "Deal", description: "Associated opportunity" },
+      { key: "linked_account_id", type: "string", relationTo: "Account", description: "Associated account" },
+      { key: "outcome", type: "string", description: "Outcome label (Demo Booked, No Show, etc.)" },
+    ],
+  },
+  {
+    key: "Email",
+    label: "Email",
+    description: "An email send + engagement. Consolidates Outreach Mailing with Salesforce Task (type=Email).",
+    fields: [
+      { key: "id", type: "string", description: "Canonical email ID" },
+      { key: "message_id", type: "string", description: "Provider-assigned message ID (the join key)", joinNote: "Outreach.message_id matches against Salesforce.Task derived from same send" },
+      { key: "subject", type: "string", description: "Email subject line" },
+      { key: "body_text", type: "text", description: "Plain-text body" },
+      { key: "body_html", type: "text", description: "HTML body" },
+      { key: "from_user_id", type: "string", relationTo: "User", description: "Sending rep" },
+      { key: "to_contact_id", type: "string", relationTo: "Contact", description: "Recipient prospect" },
+      { key: "state", type: "enum", description: "Lifecycle state", enumValues: ["drafted", "scheduled", "delivered", "opened", "clicked", "replied", "bounced", "unsubscribed", "marked_spam"] },
+      { key: "scheduled_at", type: "date", description: "Send schedule time" },
+      { key: "delivered_at", type: "date", description: "Successful delivery" },
+      { key: "opened_at", type: "date", description: "First open" },
+      { key: "open_count", type: "int", unit: "count", description: "Total opens" },
+      { key: "clicked_at", type: "date", description: "First link click" },
+      { key: "click_count", type: "int", unit: "count", description: "Total clicks" },
+      { key: "replied_at", type: "date", description: "First reply" },
+      { key: "bounced_at", type: "date", description: "Bounce timestamp" },
+      { key: "unsubscribed_at", type: "date", description: "Unsubscribe timestamp" },
+      { key: "sequence_id", type: "string", relationTo: "Sequence", description: "Parent sequence (if cadenced)" },
+      { key: "linked_deal_id", type: "string", relationTo: "Deal", description: "Associated opportunity" },
+    ],
+  },
+  {
+    key: "Call",
+    label: "Call",
+    description: "A dialer call (audio-only). Outreach Call + Salesforce Task (type=Call).",
+    fields: [
+      { key: "id", type: "string", description: "Canonical call ID" },
+      { key: "dialed_at", type: "date", description: "Dial initiation" },
+      { key: "answered_at", type: "date", description: "Connection time" },
+      { key: "completed_at", type: "date", description: "Hangup time" },
+      { key: "duration_seconds", type: "int", unit: "seconds", description: "Duration" },
+      { key: "direction", type: "enum", description: "Direction", enumValues: ["inbound", "outbound"] },
+      { key: "state", type: "enum", description: "Call state", enumValues: ["complete", "no_answer", "canceled", "voicemail", "ringing"] },
+      { key: "from_number", type: "string", description: "Caller number" },
+      { key: "to_number", type: "string", description: "Dialed number" },
+      { key: "recording_url", type: "string", description: "Recording URL" },
+      { key: "outcome", type: "string", description: "Disposition label" },
+      { key: "notes", type: "text", description: "Rep notes" },
+      { key: "user_id", type: "string", relationTo: "User", description: "Rep who placed the call" },
+      { key: "contact_id", type: "string", relationTo: "Contact", description: "Called prospect" },
+      { key: "linked_deal_id", type: "string", relationTo: "Deal", description: "Associated opportunity" },
+      { key: "sequence_id", type: "string", relationTo: "Sequence", description: "Associated sequence" },
+    ],
+  },
+  {
+    key: "Sequence",
+    label: "Sequence",
+    description: "An outbound cadence with aggregate engagement metrics. Outreach Sequence + Apollo EmailerCampaign.",
+    fields: [
+      { key: "id", type: "string", description: "Canonical sequence ID" },
+      { key: "name", type: "string", description: "Display name" },
+      { key: "description", type: "text", description: "Sequence description" },
+      { key: "owner_user_id", type: "string", relationTo: "User", description: "Sequence author" },
+      { key: "is_active", type: "bool", description: "True if currently sending" },
+      { key: "is_archived", type: "bool", description: "True if archived" },
+      { key: "num_steps", type: "int", unit: "count", description: "Step count" },
+      { key: "num_contacts", type: "int", unit: "count", description: "Contacts enrolled" },
+      { key: "delivered_count", type: "int", unit: "count", description: "Total successful deliveries" },
+      { key: "open_count", type: "int", unit: "count", description: "Total opens" },
+      { key: "click_count", type: "int", unit: "count", description: "Total clicks" },
+      { key: "reply_count", type: "int", unit: "count", description: "Total replies" },
+      { key: "bounce_count", type: "int", unit: "count", description: "Total bounces" },
+      { key: "opt_out_count", type: "int", unit: "count", description: "Total opt-outs" },
+      { key: "demoed_count", type: "int", unit: "count", description: "Meetings booked from sequence (Apollo)" },
+      { key: "last_used_at", type: "date", description: "Most recent use" },
+    ],
+  },
+  {
+    key: "Filing",
+    label: "Filing",
+    description: "An SEC EDGAR filing. 8-K, 10-K, 10-Q with metadata + parsed item details.",
+    fields: [
+      { key: "accession_number", type: "string", description: "Filing accession number (canonical ID)" },
+      { key: "cik", type: "string", description: "Registrant CIK" },
+      { key: "registrant_name", type: "string", description: "Filing entity name" },
+      { key: "form", type: "string", description: "Form type (8-K, 10-K, 10-Q, etc.)" },
+      { key: "filing_date", type: "date", description: "Submission date" },
+      { key: "report_date", type: "date", description: "Period of report" },
+      { key: "items", type: "string", isArray: true, description: "8-K item codes (e.g., 2.01, 5.02)" },
+      { key: "primary_document_url", type: "string", description: "URL to the primary filing document" },
+      { key: "summary", type: "text", description: "AI-extracted material summary" },
+      { key: "item_details", type: "text", description: "Per-item parsed fields (counterparty, amounts, dates) merged from 8-K Item schemas" },
+      { key: "exhibits", type: "string", isArray: true, description: "List of exhibit references" },
+      { key: "linked_account_id", type: "string", relationTo: "Account", description: "Matched account (via CIK or ticker)" },
+      { key: "is_xbrl", type: "bool", description: "Has XBRL data" },
+      { key: "size_bytes", type: "int", unit: "bytes", description: "Filing size" },
+    ],
+  },
+  {
+    key: "NewsArticle",
+    label: "News Article",
+    description: "A news article relevant to an account. NewsAPI plus Dugout-AI account linkage.",
+    fields: [
+      { key: "url", type: "string", description: "Article URL (canonical ID)" },
+      { key: "title", type: "string", description: "Headline" },
+      { key: "description", type: "text", description: "Article summary" },
+      { key: "content", type: "text", description: "Article body (truncated)" },
+      { key: "author", type: "string", description: "Byline" },
+      { key: "source_name", type: "string", description: "Publisher name" },
+      { key: "published_at", type: "date", description: "Publication timestamp" },
+      { key: "url_to_image", type: "string", description: "Lead image URL" },
+      { key: "linked_account_id", type: "string", relationTo: "Account", description: "Matched account (via name/domain)" },
+      { key: "relevance_summary", type: "text", description: "AI-generated relevance note" },
+    ],
+  },
+  {
+    key: "User",
+    label: "User",
+    description: "An internal user (rep, manager). Consolidates Salesforce User + Gong User + Outreach User.",
+    fields: [
+      { key: "id", type: "string", description: "Canonical user ID" },
+      { key: "email", type: "string", description: "Primary email (the join key across systems)", joinNote: "Email matches Salesforce.User.email = Gong.User.email_address = Outreach.User.email" },
+      { key: "first_name", type: "string", description: "First name" },
+      { key: "last_name", type: "string", description: "Last name" },
+      { key: "full_name", type: "string", description: "Display name" },
+      { key: "title", type: "string", description: "Job title" },
+      { key: "manager_user_id", type: "string", relationTo: "User", description: "Manager" },
+      { key: "time_zone", type: "string", description: "Timezone" },
+      { key: "is_active", type: "bool", description: "Active flag" },
+      { key: "last_login_date", type: "date", description: "Most recent login" },
+      { key: "forecast_enabled", type: "bool", description: "Enabled for forecasting" },
+      { key: "employee_number", type: "string", description: "Internal employee number" },
+    ],
+  },
+  {
+    key: "Activity",
+    label: "Activity",
+    description: "A logged activity that didn't fit the more specific Email / Call / Meeting buckets. Generic Salesforce Task / Event / HubSpot Engagement / Dock workspace event fallback.",
+    fields: [
+      { key: "id", type: "string", description: "Canonical activity ID" },
+      { key: "type", type: "enum", description: "Activity kind", enumValues: ["call", "email", "meeting", "note", "task", "workspace_visit", "asset_view", "form_submit", "dialer_session", "other"] },
+      { key: "subject", type: "string", description: "Activity title" },
+      { key: "description", type: "text", description: "Activity body/notes" },
+      { key: "activity_date", type: "date", description: "When the activity occurred" },
+      { key: "completed_date", type: "date", description: "When marked done" },
+      { key: "status", type: "string", description: "Status label" },
+      { key: "owner_user_id", type: "string", relationTo: "User", description: "Owning user" },
+      { key: "linked_contact_id", type: "string", relationTo: "Contact", description: "Associated contact" },
+      { key: "linked_account_id", type: "string", relationTo: "Account", description: "Associated account" },
+      { key: "linked_deal_id", type: "string", relationTo: "Deal", description: "Associated deal" },
+    ],
+  },
+  {
+    key: "SupportTicket",
+    label: "Support Ticket",
+    description: "A CS support ticket. Currently sourced from Zendesk; modeled as a canonical object so any future CS tool (Intercom, Jira Service Management) can zipper into the same shape. Drives renewal-risk signals when ticket volume or CSAT degrades.",
+    fields: [
+      { key: "id", type: "string", description: "Canonical ticket ID" },
+      { key: "ticket_number", type: "string", description: "Human ticket number (e.g. #12345)" },
+      { key: "subject", type: "string", description: "Ticket subject" },
+      { key: "description", type: "text", description: "Initial ticket body" },
+      { key: "type", type: "enum", description: "Ticket type", enumValues: ["question", "incident", "problem", "task"] },
+      { key: "priority", type: "enum", description: "Priority", enumValues: ["urgent", "high", "normal", "low"] },
+      { key: "status", type: "enum", description: "Lifecycle status", enumValues: ["new", "open", "pending", "hold", "solved", "closed"] },
+      { key: "channel", type: "string", description: "Channel the ticket came in via" },
+      { key: "requester_contact_id", type: "string", relationTo: "Contact", description: "Customer who opened the ticket" },
+      { key: "assignee_user_id", type: "string", relationTo: "User", description: "Support agent assigned" },
+      { key: "linked_account_id", type: "string", relationTo: "Account", description: "Customer account" },
+      { key: "linked_deal_id", type: "string", relationTo: "Deal", description: "Associated deal (renewal risk)" },
+      { key: "created_at", type: "date", description: "Ticket creation timestamp" },
+      { key: "updated_at", type: "date", description: "Most recent update" },
+      { key: "solved_at", type: "date", description: "Resolution timestamp" },
+      { key: "due_at", type: "date", description: "SLA due time" },
+      { key: "csat_score", type: "enum", description: "CSAT score", enumValues: ["good", "bad", "unrated"] },
+      { key: "csat_comment", type: "text", description: "CSAT customer comment" },
+      { key: "first_resolution_minutes", type: "int", unit: "minutes", description: "Time to first resolution" },
+      { key: "reply_count", type: "int", unit: "count", description: "Reply turns" },
+      { key: "tags", type: "string", isArray: true, description: "Ticket tags" },
+    ],
+  },
+  {
+    key: "Invoice",
+    label: "Invoice",
+    description: "A customer invoice. Sourced from Xero; tracks revenue realization and payment status. Overdue invoices drive renewal/expansion risk signals.",
+    fields: [
+      { key: "id", type: "string", description: "Canonical invoice ID" },
+      { key: "invoice_number", type: "string", description: "Human invoice number" },
+      { key: "type", type: "enum", description: "Invoice direction", enumValues: ["receivable", "payable"] },
+      { key: "status", type: "enum", description: "Lifecycle status", enumValues: ["draft", "submitted", "authorised", "paid", "voided", "deleted"] },
+      { key: "linked_account_id", type: "string", relationTo: "Account", description: "Billing counterparty" },
+      { key: "linked_deal_id", type: "string", relationTo: "Deal", description: "Originating deal" },
+      { key: "issue_date", type: "date", description: "Invoice issue date" },
+      { key: "due_date", type: "date", description: "Payment due date" },
+      { key: "paid_date", type: "date", description: "Fully paid date" },
+      { key: "currency_code", type: "string", description: "Currency (ISO 4217)" },
+      { key: "subtotal", type: "float", description: "Subtotal before tax" },
+      { key: "total_tax", type: "float", description: "Tax amount" },
+      { key: "total", type: "float", description: "Total amount due" },
+      { key: "amount_paid", type: "float", description: "Amount paid to date" },
+      { key: "amount_due", type: "float", description: "Outstanding balance" },
+      { key: "is_overdue", type: "bool", description: "Past due date and unpaid" },
+      { key: "reference", type: "string", description: "Reference (often opportunity ID or PO)" },
+    ],
+  },
+];
+
+export function getCanonicalObject(key: string): CanonicalObject | undefined {
+  return CANONICAL_OBJECTS.find((o) => o.key === key);
+}
+
+export function totalCanonicalFieldCount(): number {
+  let n = 0;
+  for (const o of CANONICAL_OBJECTS) n += o.fields.length;
+  return n;
+}
