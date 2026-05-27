@@ -32,9 +32,15 @@ import { RefreshButton } from "@/components/landing/refresh-button";
 import { ClientNewsTicker } from "@/components/landing/client-news-ticker";
 import { SortableWorkspaceFeed } from "@/components/landing/sortable-workspace-feed";
 import {
+  getSignalsForAccount,
   getWorkspaceSignals,
   type ExternalSignal,
 } from "@/lib/external-signals";
+import { getUpcomingMeetings } from "@/data/upcoming-meetings-seed";
+import {
+  moderateBriefSignals,
+  moderateSignals,
+} from "@/lib/signal-moderator";
 
 // 60-second ISR window. Tight enough that the workspace inbox + transform
 // visual feel fresh on each visit; loose enough that Supabase isn't hit on
@@ -57,6 +63,31 @@ const MARKET_INTEL_PREVIEW_LIMIT = 5;
 
 export default async function LandingPage() {
   const workspace = await getWorkspaceConfig();
+
+  // Pre-fetch real external signals for each upcoming meeting account so the
+  // pre-meeting brief shows live data instead of the fallback seed.
+  // Fails soft per-account so a Supabase timeout on one account doesn't blank
+  // the whole panel.
+  const meetingAccountIds = getUpcomingMeetings(3).map((m) => m.account_id);
+  const briefSignalsEntries = await Promise.all(
+    meetingAccountIds.map(async (id) => {
+      try {
+        const sigs = await getSignalsForAccount(id, 5);
+        return [id, sigs] as const;
+      } catch {
+        return [id, [] as ExternalSignal[]] as const;
+      }
+    }),
+  );
+  const rawBriefSignals = Object.fromEntries(briefSignalsEntries) as Record<
+    string,
+    ExternalSignal[]
+  >;
+  // OpenAI moderation pass: corrects hedging, timing overclaims, and
+  // imprecise regulatory citations before the AE sees them. Falls back
+  // to originals silently if the key is missing or the call fails.
+  const briefSignals = await moderateBriefSignals(rawBriefSignals);
+
   const ctx = {
     opportunities,
     accounts,
@@ -102,6 +133,7 @@ export default async function LandingPage() {
           deliveries={assetDeliveries}
           reps={reps}
           workspace={workspace}
+          briefSignals={briefSignals}
         />
       </section>
       <NextUpSection />
@@ -796,7 +828,9 @@ async function fetchWorkspaceFeed(): Promise<ExternalSignal[]> {
     const sinceIso = new Date(
       Date.now() - MARKET_INTEL_LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
     ).toISOString();
-    return await getWorkspaceSignals(sinceIso, MARKET_INTEL_PREVIEW_LIMIT);
+    const raw = await getWorkspaceSignals(sinceIso, MARKET_INTEL_PREVIEW_LIMIT);
+    // OpenAI moderation pass before the workspace feed renders.
+    return await moderateSignals(raw);
   } catch {
     return [];
   }

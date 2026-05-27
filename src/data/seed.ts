@@ -304,6 +304,40 @@ const checkboxBundles = [
       },
     ],
   }),
+  createAccountSeed({
+    idOverride: "acc_baxter" as AccountId,
+    name: "Baxter International",
+    industry: "Healthcare",
+    segment: "Enterprise",
+    hqLocation: "Deerfield, IL",
+    legalTeamSize: 110,
+    linkedinSlug: "baxter-international",
+    website: "baxter.com",
+    domain: "baxter.com",
+    ticker: "BAX",
+    oppName: "Baxter - Commercial Contract Automation",
+    ownerId: "rep_jp",
+    stage: "Demo Sat",
+    amount: 165000,
+    enteredStageAt: "2026-05-18",
+    createdAt: "2026-04-14",
+    closeDate: "2026-08-10",
+    champion: { name: "Claire Fontaine", title: "Director, Legal Operations" },
+    activities: [
+      {
+        type: "meeting",
+        occurredAt: "2026-05-18",
+        summary:
+          "Demo delivered - Claire enthusiastic, asked about NDA automation throughput and GDPR compliance scope",
+      },
+      {
+        type: "email_received",
+        occurredAt: "2026-05-21",
+        summary:
+          "Claire circulated notes internally and asked for a reference call with another healthcare customer",
+      },
+    ],
+  }),
 ];
 
 // All seeded accounts are real, public companies. The layered CRM scenario

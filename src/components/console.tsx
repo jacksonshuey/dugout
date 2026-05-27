@@ -37,6 +37,7 @@ import {
   snooze,
   type Task,
 } from "@/lib/tasks";
+import type { ExternalSignal } from "@/lib/external-signals";
 import { computeDealHealth } from "@/lib/signal-engine";
 import { cn, daysBetween, formatCurrency, lookupBy } from "@/lib/utils";
 
@@ -50,6 +51,10 @@ export interface ConsoleData {
   deliveries: AssetDelivery[];
   reps: Rep[];
   workspace: WorkspaceConfig;
+  // Real external signals pre-fetched server-side for the pre-meeting brief.
+  // Keyed by account_id. When present, overrides the seed fallback in
+  // UpcomingMeetingsPanel so the brief shows live Supabase data.
+  briefSignals?: Record<string, ExternalSignal[]>;
 }
 
 export function Console(
@@ -309,7 +314,10 @@ export function Console(
           // the filters instead of overlapping them.
           footer={
             view === "pipeline" ? (
-              <UpcomingMeetingsPanel accounts={props.accounts} />
+              <UpcomingMeetingsPanel
+                accounts={props.accounts}
+                briefSignals={props.briefSignals}
+              />
             ) : null
           }
         />

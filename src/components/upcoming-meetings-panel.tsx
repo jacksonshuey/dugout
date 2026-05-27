@@ -11,6 +11,20 @@ import {
 import type { ExternalSignal } from "@/lib/external-signals";
 import type { Account } from "@/lib/types";
 
+// ---------------------------------------------------------------------------
+// Helpers to normalise real Supabase rows into the same shape the bullet
+// renderer expects. Publisher name falls back to the source enum value so
+// the attribution line is never blank.
+// ---------------------------------------------------------------------------
+function publisherLabel(s: ExternalSignal): string {
+  if (s.publisher_canonical_name) return s.publisher_canonical_name;
+  if (s.source === "sec_edgar") return "SEC EDGAR";
+  if (s.source === "newsapi") return "NewsAPI";
+  if (s.source === "newsletter") return "Newsletter";
+  if (s.source === "web_scrape") return "Web";
+  return s.source;
+}
+
 // Right-rail companion to the Pipeline table. Surfaces the 3 soonest
 // upcoming meetings, each with 3 news bullets pulled from the
 // external-signals seed for that account. The point: walk into the next
@@ -21,9 +35,12 @@ import type { Account } from "@/lib/types";
 
 interface Props {
   accounts: Account[];
+  // Real signals pre-fetched server-side, keyed by account_id.
+  // When provided and non-empty for an account, used instead of the seed.
+  briefSignals?: Record<string, ExternalSignal[]>;
 }
 
-export function UpcomingMeetingsPanel({ accounts }: Props) {
+export function UpcomingMeetingsPanel({ accounts, briefSignals }: Props) {
   const accountById = new Map(accounts.map((a) => [a.id, a]));
   const meetings = getUpcomingMeetings(3);
   return (
@@ -40,13 +57,18 @@ export function UpcomingMeetingsPanel({ accounts }: Props) {
       <ul className="divide-y divide-border">
         {meetings.map((m) => {
           const account = accountById.get(m.account_id);
-          // Pre-meeting brief should be ABOUT the account. Vertical /
-          // competitor signals stay in the drawer's External signals
-          // section where they have their own pool.
-          const signals = getSeedSignalsForAccount(m.account_id)
-            .filter((s) => !isVerticalMatch(s))
-            .slice(0, 2);
           const vertical = getVerticalForAccount(m.account_id);
+
+          // Use real Supabase signals when available; fall back to seed only
+          // if the live fetch returned nothing for this account.
+          const liveSignals = briefSignals?.[m.account_id] ?? [];
+          const signals: ExternalSignal[] =
+            liveSignals.length > 0
+              ? liveSignals.slice(0, 2)
+              : getSeedSignalsForAccount(m.account_id)
+                  .filter((s) => !isVerticalMatch(s))
+                  .slice(0, 2);
+
           return (
             <li key={m.id} className="p-4 space-y-2.5">
               <MeetingHeader meeting={m} accountName={account?.name ?? m.account_id} />
@@ -68,7 +90,7 @@ export function UpcomingMeetingsPanel({ accounts }: Props) {
               ) : (
                 <ul className="space-y-1.5">
                   {signals.map((s) => (
-                    <NewsBullet key={s.id} signal={s} />
+                    <NewsBullet key={s.id} signal={s} publisherOverride={liveSignals.length > 0 ? publisherLabel(s) : undefined} />
                   ))}
                 </ul>
               )}
@@ -116,9 +138,15 @@ function MeetingHeader({
   );
 }
 
-function NewsBullet({ signal }: { signal: ExternalSignal }) {
+function NewsBullet({
+  signal,
+  publisherOverride,
+}: {
+  signal: ExternalSignal;
+  publisherOverride?: string;
+}) {
   const isVertical = isVerticalMatch(signal);
-  const publisher = signal.publisher_canonical_name ?? "source";
+  const publisher = publisherOverride ?? signal.publisher_canonical_name ?? "source";
   return (
     <li className="flex gap-2 text-[12px] leading-snug">
       <span aria-hidden className="text-muted shrink-0 mt-1 text-[6px]">

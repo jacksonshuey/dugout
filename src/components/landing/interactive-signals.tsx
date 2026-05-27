@@ -477,11 +477,11 @@ const SEEDED_RULES: ActiveRule[] = [
     age: "1d ago",
   },
   {
-    id: "rule_goldman_freeze",
+    id: "rule_kkr_freeze",
     severity: "blocking",
     name: "PROCUREMENT_FREEZE_CITED",
-    title: "Procurement freeze cited twice → Goldman",
-    account: "Goldman Sachs",
+    title: "Procurement freeze cited twice → KKR",
+    account: "KKR & Co.",
     triggers: [
       { kind: "ontology", field: "stage", comparator: "in", value: "Selected Vendor" },
       { kind: "meeting", source: "Gong", mode: "word", pattern: "procurement freeze, budget freeze" },
@@ -495,7 +495,7 @@ const SEEDED_RULES: ActiveRule[] = [
       { field: "meeting_signal", value: "Procurement freeze cited twice in last 2 calls", source: "Gong" },
     ],
     evidence: "\"Our procurement team has frozen all new vendor evaluations until Q4 budget closes.\"",
-    evidenceFrom: "Daniel Cohen, last call (May 12)",
+    evidenceFrom: "Alex Mercer, last call (May 12)",
     age: "2h ago",
   },
   {
@@ -520,11 +520,11 @@ const SEEDED_RULES: ActiveRule[] = [
     age: "6h ago",
   },
   {
-    id: "rule_jpmc_brief",
+    id: "rule_unitedhealth_brief",
     severity: "action",
     name: "ASSET_GAP_FINANCE_BRIEF",
     title: "Finance brief unsent · 14d in Selected Vendor",
-    account: "JPMorgan Chase",
+    account: "UnitedHealth Group",
     triggers: [
       { kind: "ontology", field: "stage", comparator: "in", value: "Selected Vendor" },
       { kind: "ontology", field: "stage_age_days", comparator: ">", value: "5" },
@@ -563,21 +563,21 @@ const SEEDED_RULES: ActiveRule[] = [
     age: "4h ago",
   },
   {
-    id: "rule_pfizer_genai",
+    id: "rule_moderna_genai",
     severity: "awareness",
     name: "REGULATORY_DISCLOSURE_GENAI",
-    title: "Pfizer 10-K cites GenAI as risk factor",
-    account: "Pfizer",
+    title: "Moderna 10-K cites GenAI as risk factor",
+    account: "Moderna",
     triggers: [
       { kind: "news", source: "SEC EDGAR", mode: "ai_semantic", pattern: "10-K cites GenAI or AI risk factor" },
     ],
     actions: [{ kind: "snooze", days: 2 }],
     matches: [
-      { field: "regulatory_event", value: "Pfizer 10-K cites GenAI risk factor", source: "SEC EDGAR" },
+      { field: "regulatory_event", value: "Moderna 10-K cites GenAI risk factor", source: "SEC EDGAR" },
       { field: "vertical", value: "Biotech & pharma", source: "AI classified" },
     ],
-    evidence: "10-K Item 1A: \"Our use of generative AI in clinical operations is subject to evolving regulatory scrutiny…\"",
-    evidenceFrom: "Pfizer Inc. 10-K filed 2026-05-14",
+    evidence: "10-K Item 1A: \"Our use of generative AI in clinical trial operations is subject to evolving regulatory scrutiny…\"",
+    evidenceFrom: "Moderna, Inc. 10-K filed 2026-05-14",
     age: "2d ago",
   },
 ];
