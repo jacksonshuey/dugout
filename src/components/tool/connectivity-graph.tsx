@@ -420,7 +420,7 @@ function OverviewGraph({
                 cursor: "pointer",
                 opacity: active ? 1 : 0.35,
                 transition:
-                  "transform 320ms cubic-bezier(0.22, 1, 0.36, 1), opacity 120ms",
+                  "transform 560ms cubic-bezier(0.22, 1, 0.36, 1), opacity 180ms",
               }}
             >
               <rect
@@ -491,7 +491,7 @@ function OverviewGraph({
                 >
                   <g
                     className="cg-drop-row"
-                    style={{ animationDelay: `${i * 45}ms` }}
+                    style={{ animationDelay: `${i * 80}ms` }}
                   >
                     {/* Match the parent source pill's styling exactly -
                         same fill/stroke opacities, same font sizes -
@@ -561,7 +561,7 @@ function OverviewGraph({
                 cursor: "pointer",
                 opacity: active ? 1 : 0.35,
                 transition:
-                  "transform 320ms cubic-bezier(0.22, 1, 0.36, 1), opacity 120ms",
+                  "transform 560ms cubic-bezier(0.22, 1, 0.36, 1), opacity 180ms",
               }}
             >
               <rect
@@ -628,7 +628,7 @@ function OverviewGraph({
                 >
                   <g
                     className="cg-drop-row"
-                    style={{ animationDelay: `${i * 25}ms` }}
+                    style={{ animationDelay: `${i * 55}ms` }}
                   >
                     {/* Match the canonical pill's default styling -
                         brand stroke at 0.5, white fill - so the row
