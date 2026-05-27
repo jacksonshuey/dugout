@@ -295,14 +295,24 @@ export function Console(
   return (
     <div className="max-w-6xl mx-auto px-6 flex">
       {!props.hideSidebar && (
-        <Sidebar
-          view={view}
-          filters={filters}
-          dealCount={filteredOpps.length}
-          openTaskCount={openTasksAll.length}
-          onViewChange={(v) => updateUrl({ view: v })}
-          onFiltersChange={(f) => updateUrl({ filters: f })}
-        />
+        <div className="shrink-0 flex flex-col">
+          <Sidebar
+            view={view}
+            filters={filters}
+            dealCount={filteredOpps.length}
+            openTaskCount={openTasksAll.length}
+            onViewChange={(v) => updateUrl({ view: v })}
+            onFiltersChange={(f) => updateUrl({ filters: f })}
+          />
+          {/* Pre-meeting brief stacked below the filter sidebar on the
+              Pipeline view - balances the left column visually so the
+              right side is just the table. */}
+          {view === "pipeline" && (
+            <div className="w-56 border-r border-border bg-slate-50/50 px-3 pb-6">
+              <UpcomingMeetingsPanel accounts={props.accounts} />
+            </div>
+          )}
+        </div>
       )}
 
       <main className="flex-1 min-w-0 p-6">
@@ -547,8 +557,8 @@ function PipelineView({
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        <div className="lg:col-span-8 min-w-0">
+      <div className="grid grid-cols-1 gap-4">
+        <div className="min-w-0">
           {opps.length === 0 ? (
             <Empty msg="No deals match your filters." />
           ) : filtered.length === 0 ? (
@@ -614,9 +624,6 @@ function PipelineView({
             </div>
           )}
         </div>
-        <aside className="lg:col-span-4 min-w-0">
-          <UpcomingMeetingsPanel accounts={data.accounts} />
-        </aside>
       </div>
     </div>
   );
