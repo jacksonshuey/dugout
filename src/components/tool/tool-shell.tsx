@@ -1,25 +1,15 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Console, type ConsoleData } from "@/components/console";
 import { InteractiveSignals } from "@/components/landing/interactive-signals";
 import { InteractiveDecisions } from "@/components/landing/interactive-decisions";
 import type { IntegrationSpec } from "@/data/integrations";
 import type { IntegrationHealth } from "@/lib/integration-health";
 import { ConnectivityGraph } from "@/components/tool/connectivity-graph";
-import { IntegrationConnectModal } from "@/components/tool/integration-connect-modal";
 import { IntegrationsTable } from "@/components/tool/integrations-table";
 import { WorkspaceTree } from "@/components/tool/workspace-tree";
 import { ExampleRules } from "@/components/tool/example-rules";
-import { CANONICAL_OBJECTS, type CanonicalObject } from "@/data/canonical-objects";
-import {
-  rawFieldsContributingTo,
-  contributorsFor,
-} from "@/data/object-mappings";
-import {
-  getSpec,
-  type IntegrationSpec as IntegrationConnectSpec,
-} from "@/data/integration-specs";
 import { cn } from "@/lib/utils";
 
 // Tabbed shell for the operator tool surface. Tab state is local only (no
@@ -178,149 +168,25 @@ function ActionsTab() {
 }
 
 function OntologyTab() {
-  // Controlled state for the inline data zipper so card clicks below
-  // can drive it (e.g., clicking a canonical object card jumps the
-  // graph into drill-in mode for that object).
-  const [graphMode, setGraphMode] = useState<"overview" | "drilldown">(
-    "overview",
-  );
-  const [graphSelectedObject, setGraphSelectedObject] = useState<string>(
-    CANONICAL_OBJECTS[0]?.key ?? "Account",
-  );
-  // Source clicks open the integration connect modal.
-  const [openSpec, setOpenSpec] = useState<IntegrationConnectSpec | null>(
-    null,
-  );
-  // Ref so card clicks scroll the graph back into view.
-  const graphRef = useRef<HTMLDivElement | null>(null);
-
-  function openCanonicalDrillIn(key: string) {
-    setGraphSelectedObject(key);
-    setGraphMode("drilldown");
-    graphRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-
-  function openSourceConnect(source: string) {
-    const spec = getSpec(source);
-    if (spec) setOpenSpec(spec);
-  }
-
   return (
     <div>
       <TabHeader
         title="Ontology"
-        sub="Raw API fields from every source zipper into canonical objects. Click any source to connect it; click any canonical object to see the join."
+        sub="Raw API fields from every source zipper into canonical objects. Click any source or canonical object to unravel its mappings inline."
       />
-      <div className="max-w-6xl mx-auto px-6 pb-8" ref={graphRef}>
+      <div className="max-w-6xl mx-auto px-6 pb-8">
         <div className="text-[10px] uppercase tracking-[0.2em] font-mono text-muted mb-2">
           Data zipper · sources → canonical objects
         </div>
         <div className="rounded-xl border border-border bg-foreground/[0.02] p-4">
-          <ConnectivityGraph
-            mode={graphMode}
-            selectedObject={graphSelectedObject}
-            onModeChange={setGraphMode}
-            onSelectedObjectChange={setGraphSelectedObject}
-            onSelectSource={openSourceConnect}
-          />
+          <ConnectivityGraph />
         </div>
-      </div>
-      <div className="max-w-6xl mx-auto px-6 pb-8">
-        <CanonicalObjectsGrid onSelect={openCanonicalDrillIn} />
       </div>
       <div className="max-w-6xl mx-auto px-6 pb-12">
         <WorkspaceTree />
       </div>
-      {openSpec && (
-        <IntegrationConnectModal
-          spec={openSpec}
-          onClose={() => setOpenSpec(null)}
-        />
-      )}
     </div>
   );
 }
 
-function CanonicalObjectsGrid({
-  onSelect,
-}: {
-  onSelect: (canonicalKey: string) => void;
-}) {
-  return (
-    <div>
-      <div className="text-[10px] uppercase tracking-[0.2em] font-mono text-muted mb-2">
-        Canonical objects · click to drill into the zipper above
-      </div>
-      <div className="grid sm:grid-cols-2 gap-3">
-        {CANONICAL_OBJECTS.map((obj) => (
-          <CanonicalObjectCard key={obj.key} obj={obj} onSelect={onSelect} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function CanonicalObjectCard({
-  obj,
-  onSelect,
-}: {
-  obj: CanonicalObject;
-  onSelect: (canonicalKey: string) => void;
-}) {
-  const contribs = rawFieldsContributingTo(obj.key);
-  const sources = Array.from(new Set(contribs.map((c) => c.source)));
-  const joinFields = obj.fields.filter(
-    (f) => contributorsFor(obj.key, f.key).length > 1,
-  ).length;
-  return (
-    <button
-      type="button"
-      onClick={() => onSelect(obj.key)}
-      className="rounded-lg border border-border bg-background p-3 text-left hover:border-brand hover:shadow-sm transition-all w-full focus:outline-none focus:ring-2 focus:ring-brand/40"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="text-sm font-semibold tracking-tight">{obj.label}</div>
-          <div className="text-[11px] text-muted mt-0.5 leading-snug max-w-md">
-            {obj.description}
-          </div>
-        </div>
-        <div className="shrink-0 text-right">
-          <div className="text-[10px] font-mono uppercase tracking-[0.1em] text-muted">
-            fields
-          </div>
-          <div className="text-sm font-mono font-semibold">{obj.fields.length}</div>
-        </div>
-      </div>
-      <div className="mt-3 flex items-center gap-2 flex-wrap text-[10px] font-mono">
-        {sources.map((s) => (
-          <span
-            key={s}
-            className="inline-flex items-center px-1.5 py-0.5 rounded border border-border bg-foreground/[0.02]"
-            title={`${s} contributes`}
-          >
-            {s}
-          </span>
-        ))}
-        {sources.length === 0 && (
-          <span className="text-muted italic">no contributing sources</span>
-        )}
-      </div>
-      <div className="mt-3 flex items-center gap-3 text-[11px] text-muted">
-        <span>
-          <span className="font-mono font-semibold text-foreground">
-            {contribs.length}
-          </span>{" "}
-          raw contribs
-        </span>
-        {joinFields > 0 && (
-          <span className="text-brand">
-            <span className="font-mono font-semibold">{joinFields}</span> join{" "}
-            {joinFields === 1 ? "point" : "points"}
-          </span>
-        )}
-      </div>
-    </button>
-  );
-}
 

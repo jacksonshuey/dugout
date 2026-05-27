@@ -9,7 +9,7 @@ import {
 import {
   getUniqueSources,
   totalRawFieldCount,
-  type RawObject,
+  getRawObjectsBySource,
 } from "@/data/raw-fields";
 import {
   FIELD_MAPPINGS,
@@ -19,18 +19,22 @@ import {
   sourceContributionCounts,
   totalMappingCount,
   unmappedRawFields,
+  type CanonicalContribution,
 } from "@/data/object-mappings";
+import { BrandLogo, type BrandKey } from "@/components/landing/logos";
 
-// Object-oriented zipper visualization. Two modes:
+// Sources → canonical objects Sankey diagram with inline expansion.
 //
-// 1. Overview: source systems (left) -> canonical objects (right). Edge
-//    weight = number of raw fields contributing. Click an object to
-//    drill in.
+// Single view (no separate Drill-in mode). Each source pill on the left
+// is clickable: clicking unravels that source's mappings below the
+// Sankey, showing which raw API objects feed which canonical objects.
+// Click a canonical object on the right to expand it the same way -
+// showing every source that feeds it and the join-resolution rule per
+// field.
 //
-// 2. Drill-in: pick a canonical object. Three-column SVG: contributing
-//    sources -> raw fields (grouped by source.object) -> canonical
-//    fields. Join-point canonical fields (multiple raw contributors)
-//    highlighted in the brand color.
+// Multiple sources / canonical objects can be expanded at once;
+// expansions render as cards below the SVG so the Sankey itself stays
+// compact. Clicking the same pill again collapses its card.
 
 const SOURCE_COLORS: Record<string, string> = {
   Salesforce: "#00A1E0",
@@ -54,139 +58,144 @@ function colorForSource(source: string): string {
   return SOURCE_COLORS[source] ?? "#6B7280";
 }
 
-export type Mode = "overview" | "drilldown";
-
-export interface ConnectivityGraphProps {
-  // Controlled state. Pass these from the parent to drive the graph
-  // from outside (e.g., clicking a canonical-object card below the
-  // graph that should jump-into-drill-in). When omitted, the graph
-  // manages its own internal state.
-  mode?: Mode;
-  selectedObject?: string;
-  onModeChange?: (mode: Mode) => void;
-  onSelectedObjectChange?: (key: string) => void;
-  // Source pill clicks in Overview mode. When set, clicking a source
-  // bubbles up here instead of doing nothing - typical use is opening
-  // the integration connect modal for that source.
-  onSelectSource?: (source: string) => void;
+function sourceToBrandKey(source: string): BrandKey {
+  return source
+    .toLowerCase()
+    .replace(/\s+/g, "")
+    .replace(/[^a-z0-9]/g, "") as BrandKey;
 }
 
-export function ConnectivityGraph(props: ConnectivityGraphProps = {}) {
-  const [internalMode, setInternalMode] = useState<Mode>("overview");
-  const [internalSelected, setInternalSelected] = useState<string>(
-    CANONICAL_OBJECTS[0]?.key ?? "Account",
-  );
-  const mode = props.mode ?? internalMode;
-  const selectedObject = props.selectedObject ?? internalSelected;
-  const setMode = props.onModeChange ?? setInternalMode;
-  const setSelectedObject =
-    props.onSelectedObjectChange ?? setInternalSelected;
+export interface ConnectivityGraphProps {
+  // Optional callback when the user clicks a canonical object pill. If
+  // omitted, clicking expands the canonical's detail card inline below
+  // the Sankey. Parents can use this to do something else (e.g.
+  // navigation).
+  onSelectObject?: (canonicalKey: string) => void;
+}
 
-  function openDrilldown(canonicalKey: string) {
-    setSelectedObject(canonicalKey);
-    setMode("drilldown");
+export function ConnectivityGraph(_props: ConnectivityGraphProps = {}) {
+  // Sources currently expanded into their detail card. A Set so multiple
+  // can be open at once; toggle the same key to close.
+  const [expandedSources, setExpandedSources] = useState<Set<string>>(
+    new Set(),
+  );
+  const [expandedObjects, setExpandedObjects] = useState<Set<string>>(
+    new Set(),
+  );
+
+  function toggleSource(source: string) {
+    setExpandedSources((prev) => {
+      const next = new Set(prev);
+      if (next.has(source)) next.delete(source);
+      else next.add(source);
+      return next;
+    });
+  }
+
+  function toggleObject(key: string) {
+    setExpandedObjects((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   }
 
   return (
     <div className="space-y-4">
-      <Header
-        mode={mode}
-        onModeChange={setMode}
-        selectedObject={selectedObject}
-        onSelectedObjectChange={setSelectedObject}
+      <StatsStrip />
+      <OverviewGraph
+        expandedSources={expandedSources}
+        expandedObjects={expandedObjects}
+        onToggleSource={toggleSource}
+        onToggleObject={toggleObject}
       />
-      {/* Stats first so headline numbers are always above the fold even
-          when the SVG below scrolls. */}
-      <StatsStrip mode={mode} canonicalKey={selectedObject} />
-      {mode === "overview" ? (
-        <OverviewGraph
-          onSelectObject={openDrilldown}
-          onSelectSource={props.onSelectSource}
-        />
-      ) : (
-        <DrilldownGraph canonicalKey={selectedObject} />
+      {(expandedSources.size > 0 || expandedObjects.size > 0) && (
+        <div className="space-y-3">
+          {Array.from(expandedSources).map((src) => (
+            <SourceDetailCard
+              key={`src-${src}`}
+              source={src}
+              onClose={() => toggleSource(src)}
+            />
+          ))}
+          {Array.from(expandedObjects).map((key) => (
+            <CanonicalDetailCard
+              key={`obj-${key}`}
+              canonicalKey={key}
+              onClose={() => toggleObject(key)}
+            />
+          ))}
+        </div>
       )}
     </div>
   );
 }
 
-function Header({
-  mode,
-  onModeChange,
-  selectedObject,
-  onSelectedObjectChange,
-}: {
-  mode: Mode;
-  onModeChange: (m: Mode) => void;
-  selectedObject: string;
-  onSelectedObjectChange: (k: string) => void;
-}) {
+// ── Stats strip ───────────────────────────────────────────────────
+
+function StatsStrip() {
+  const joins = joinPointFields();
+  const orphans = unmappedRawFields();
   return (
-    <div className="flex items-center justify-between gap-3 flex-wrap">
-      <div
-        role="tablist"
-        aria-label="Graph mode"
-        className="inline-flex items-center rounded-lg border border-border overflow-hidden text-sm"
-      >
-        <ModeButton
-          active={mode === "overview"}
-          onClick={() => onModeChange("overview")}
-          label="Overview"
-        />
-        <ModeButton
-          active={mode === "drilldown"}
-          onClick={() => onModeChange("drilldown")}
-          label="Drill-in"
-        />
-      </div>
-      {mode === "drilldown" && (
-        <label className="flex items-center gap-2 text-xs text-muted">
-          <span>Object:</span>
-          <select
-            value={selectedObject}
-            onChange={(e) => onSelectedObjectChange(e.target.value)}
-            className="rounded-md border border-border bg-background px-2 py-1.5 text-sm text-foreground"
-          >
-            {CANONICAL_OBJECTS.map((o) => (
-              <option key={o.key} value={o.key}>
-                {o.label}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+      <StatCard
+        label="Raw fields"
+        value={String(totalRawFieldCount())}
+        sub="Documented across all sources"
+      />
+      <StatCard
+        label="Canonical fields"
+        value={String(
+          CANONICAL_OBJECTS.reduce((n, o) => n + o.fields.length, 0),
+        )}
+        sub={`${CANONICAL_OBJECTS.length} canonical objects`}
+      />
+      <StatCard
+        label="Mappings"
+        value={String(totalMappingCount())}
+        sub={`${joins.length} join points need rules`}
+        tone="brand"
+      />
+      <StatCard
+        label="Orphans"
+        value={String(orphans.length)}
+        sub="Raw fields with no canonical home"
+        tone="muted"
+      />
     </div>
   );
 }
 
-function ModeButton({
-  active,
-  onClick,
+function StatCard({
   label,
+  value,
+  sub,
+  tone = "default",
 }: {
-  active: boolean;
-  onClick: () => void;
   label: string;
+  value: string;
+  sub: string;
+  tone?: "default" | "brand" | "muted";
 }) {
+  const accent =
+    tone === "brand"
+      ? "border-brand/40 bg-brand/[0.04]"
+      : tone === "muted"
+        ? "border-border bg-foreground/[0.02]"
+        : "border-border bg-background";
   return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={active}
-      onClick={onClick}
-      className={
-        "px-3 py-1.5 transition-colors " +
-        (active
-          ? "bg-brand text-white"
-          : "bg-background text-muted hover:text-foreground")
-      }
-    >
-      {label}
-    </button>
+    <div className={`rounded-md border ${accent} px-3 py-2`}>
+      <div className="text-[10px] uppercase tracking-[0.15em] font-mono text-muted">
+        {label}
+      </div>
+      <div className="text-xl font-semibold tabular-nums mt-1">{value}</div>
+      <div className="text-[10px] text-muted mt-0.5 leading-snug">{sub}</div>
+    </div>
   );
 }
 
-// ── Overview graph ────────────────────────────────────────────────
+// ── Overview Sankey ───────────────────────────────────────────────
 
 interface OverviewEdge {
   source: string;
@@ -195,11 +204,15 @@ interface OverviewEdge {
 }
 
 function OverviewGraph({
-  onSelectObject,
-  onSelectSource,
+  expandedSources,
+  expandedObjects,
+  onToggleSource,
+  onToggleObject,
 }: {
-  onSelectObject: (canonicalKey: string) => void;
-  onSelectSource?: (source: string) => void;
+  expandedSources: Set<string>;
+  expandedObjects: Set<string>;
+  onToggleSource: (source: string) => void;
+  onToggleObject: (key: string) => void;
 }) {
   const sources = useMemo(() => getUniqueSources(), []);
   const sourceCounts = useMemo(() => sourceContributionCounts(), []);
@@ -222,9 +235,6 @@ function OverviewGraph({
     { kind: "source" | "canonical"; key: string } | null
   >(null);
 
-  // Layout: two columns. Node heights kept tight so all 15 sources +
-  // 13 canonical objects fit inside the modal without aggressive
-  // scrolling on a typical laptop viewport (~720px modal body).
   const PADDING = 16;
   const COL_W = 200;
   const NODE_H = 36;
@@ -291,6 +301,7 @@ function OverviewGraph({
         {sourceRows.map((r) => {
           const color = colorForSource(r.source);
           const count = sourceCounts.get(r.source) ?? 0;
+          const isExpanded = expandedSources.has(r.source);
           const active =
             !hover ||
             (hover.kind === "source" && hover.key === r.source) ||
@@ -303,11 +314,11 @@ function OverviewGraph({
               key={r.source}
               onMouseEnter={() => setHover({ kind: "source", key: r.source })}
               onMouseLeave={() => setHover(null)}
-              onClick={() => onSelectSource?.(r.source)}
+              onClick={() => onToggleSource(r.source)}
               style={{
+                cursor: "pointer",
                 opacity: active ? 1 : 0.35,
                 transition: "opacity 120ms",
-                cursor: onSelectSource ? "pointer" : "default",
               }}
             >
               <rect
@@ -317,9 +328,10 @@ function OverviewGraph({
                 height={NODE_H}
                 rx={8}
                 fill={color}
-                fillOpacity="0.12"
+                fillOpacity={isExpanded ? 0.22 : 0.12}
                 stroke={color}
-                strokeOpacity="0.6"
+                strokeOpacity={isExpanded ? 1 : 0.6}
+                strokeWidth={isExpanded ? 2 : 1}
               />
               <text
                 x={SRC_X + 14}
@@ -342,6 +354,17 @@ function OverviewGraph({
               >
                 {count} mapped field{count === 1 ? "" : "s"}
               </text>
+              <text
+                x={SRC_X + COL_W - 14}
+                y={r.y + NODE_H / 2}
+                dominantBaseline="middle"
+                textAnchor="end"
+                fontSize="12"
+                fill="currentColor"
+                fillOpacity="0.7"
+              >
+                {isExpanded ? "−" : "+"}
+              </text>
             </g>
           );
         })}
@@ -349,13 +372,13 @@ function OverviewGraph({
         {/* Canonical nodes */}
         {canonicalRows.map((r) => {
           const count = rawFieldsContributingTo(r.obj.key).length;
+          const isExpanded = expandedObjects.has(r.obj.key);
           const active =
             !hover ||
             (hover.kind === "canonical" && hover.key === r.obj.key) ||
             (hover.kind === "source" &&
               edges.some(
-                (e) =>
-                  e.source === hover.key && e.canonical === r.obj.key,
+                (e) => e.source === hover.key && e.canonical === r.obj.key,
               ));
           return (
             <g
@@ -364,7 +387,7 @@ function OverviewGraph({
                 setHover({ kind: "canonical", key: r.obj.key })
               }
               onMouseLeave={() => setHover(null)}
-              onClick={() => onSelectObject(r.obj.key)}
+              onClick={() => onToggleObject(r.obj.key)}
               style={{
                 cursor: "pointer",
                 opacity: active ? 1 : 0.35,
@@ -377,9 +400,11 @@ function OverviewGraph({
                 width={COL_W}
                 height={NODE_H}
                 rx={8}
-                fill="var(--background)"
+                fill={isExpanded ? "var(--brand)" : "var(--background)"}
+                fillOpacity={isExpanded ? 0.12 : 1}
                 stroke="var(--brand)"
-                strokeOpacity="0.5"
+                strokeOpacity={isExpanded ? 1 : 0.5}
+                strokeWidth={isExpanded ? 2 : 1}
               />
               <text
                 x={CAN_X + 14}
@@ -407,369 +432,344 @@ function OverviewGraph({
                 y={r.y + NODE_H / 2}
                 dominantBaseline="middle"
                 textAnchor="end"
-                fontSize="10"
-                fill="var(--brand)"
-                fillOpacity="0.7"
-              >
-                ↗
-              </text>
-            </g>
-          );
-        })}
-      </svg>
-    </div>
-  );
-}
-
-// ── Drill-in graph ────────────────────────────────────────────────
-
-function DrilldownGraph({ canonicalKey }: { canonicalKey: string }) {
-  const canonical = getCanonicalObject(canonicalKey);
-
-  // Gather raw contributions for this canonical object, grouped by (source, object).
-  const contribs = useMemo(
-    () => rawFieldsContributingTo(canonicalKey),
-    [canonicalKey],
-  );
-
-  // Build the source / raw-field columns from contribs.
-  type RawGroup = { source: string; object: string; fields: string[] };
-  const rawGroups = useMemo<RawGroup[]>(() => {
-    const m = new Map<string, RawGroup>();
-    for (const c of contribs) {
-      const k = `${c.source}::${c.rawObject}`;
-      if (!m.has(k))
-        m.set(k, { source: c.source, object: c.rawObject, fields: [] });
-      m.get(k)!.fields.push(c.rawField);
-    }
-    return Array.from(m.values()).sort((a, b) =>
-      a.source.localeCompare(b.source) || a.object.localeCompare(b.object),
-    );
-  }, [contribs]);
-
-  // Canonical fields with their contribution counts (for join highlighting).
-  const canonicalFieldStats = useMemo(() => {
-    if (!canonical) return [];
-    return canonical.fields.map((f) => ({
-      field: f,
-      contributors: contributorsFor(canonical.key, f.key),
-    }));
-  }, [canonical]);
-
-  if (!canonical) return <div className="text-sm text-muted">Object not found.</div>;
-
-  // Layout constants.
-  const PADDING = 24;
-  const SRC_W = 140;
-  const SRC_H = 36;
-  const RAW_W = 200;
-  const RAW_H = 22;
-  const CAN_W = 240;
-  const CAN_H = 24;
-  const ROW_GAP = 4;
-  const SRC_GAP = 12;
-  const CAN_GAP = 6;
-  const COL_GAP_1 = 80;
-  const COL_GAP_2 = 220;
-
-  const SRC_X = PADDING;
-  const RAW_X = SRC_X + SRC_W + COL_GAP_1;
-  const CAN_X = RAW_X + RAW_W + COL_GAP_2;
-  const WIDTH = CAN_X + CAN_W + PADDING;
-
-  // Position raw fields: stacked per group, source label centered on group.
-  type RawPos = { source: string; object: string; field: string; y: number };
-  type SourcePos = { source: string; y: number; centerY: number };
-  const rawPositions: RawPos[] = [];
-  const sourcePositions: SourcePos[] = [];
-  let rawCursor = PADDING;
-  // Group source positions by aggregating their groups
-  const sourceBlocks = new Map<
-    string,
-    { startY: number; endY: number }
-  >();
-  for (const g of rawGroups) {
-    const blockStart = rawCursor;
-    for (const f of g.fields) {
-      rawPositions.push({ source: g.source, object: g.object, field: f, y: rawCursor });
-      rawCursor += RAW_H + ROW_GAP;
-    }
-    const blockEnd = rawCursor - ROW_GAP;
-    rawCursor += SRC_GAP;
-    const existing = sourceBlocks.get(g.source);
-    if (existing) {
-      existing.endY = blockEnd;
-    } else {
-      sourceBlocks.set(g.source, { startY: blockStart, endY: blockEnd });
-    }
-  }
-  for (const [src, blk] of sourceBlocks) {
-    const cy = (blk.startY + blk.endY) / 2;
-    sourcePositions.push({ source: src, centerY: cy, y: cy - SRC_H / 2 });
-  }
-
-  // Canonical column positions.
-  type CanPos = { field: CanonicalField; y: number; joinCount: number };
-  const canPositions: CanPos[] = [];
-  let canCursor = PADDING;
-  for (const s of canonicalFieldStats) {
-    canPositions.push({ field: s.field, y: canCursor, joinCount: s.contributors.length });
-    canCursor += CAN_H + CAN_GAP;
-  }
-
-  const HEIGHT = Math.max(rawCursor, canCursor) + PADDING;
-
-  return (
-    <div className="w-full rounded-lg border border-border bg-foreground/[0.02] p-2">
-      <svg
-        viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-        preserveAspectRatio="xMidYMid meet"
-        className="block w-full h-auto"
-      >
-        {/* Edges: source -> raw field (short fanout) */}
-        {rawPositions.map((r, i) => {
-          const src = sourcePositions.find((s) => s.source === r.source)!;
-          const startX = SRC_X + SRC_W;
-          const startY = src.centerY;
-          const endX = RAW_X;
-          const endY = r.y + RAW_H / 2;
-          const midX = (startX + endX) / 2;
-          const color = colorForSource(r.source);
-          return (
-            <path
-              key={`sr-${i}`}
-              d={`M ${startX} ${startY} C ${midX} ${startY} ${midX} ${endY} ${endX} ${endY}`}
-              stroke={color}
-              strokeOpacity="0.45"
-              strokeWidth="1.2"
-              fill="none"
-            />
-          );
-        })}
-
-        {/* Edges: raw field -> canonical field */}
-        {rawPositions.map((r, i) => {
-          const canon = canPositions.find((c) =>
-            FIELD_MAPPINGS.some(
-              ([s, o, f, co, cf]) =>
-                s === r.source &&
-                o === r.object &&
-                f === r.field &&
-                co === canonicalKey &&
-                cf === c.field.key,
-            ),
-          );
-          if (!canon) return null;
-          const startX = RAW_X + RAW_W;
-          const startY = r.y + RAW_H / 2;
-          const endX = CAN_X;
-          const endY = canon.y + CAN_H / 2;
-          const midX = (startX + endX) / 2;
-          const color = colorForSource(r.source);
-          return (
-            <path
-              key={`rc-${i}`}
-              d={`M ${startX} ${startY} C ${midX} ${startY} ${midX} ${endY} ${endX} ${endY}`}
-              stroke={color}
-              strokeOpacity="0.6"
-              strokeWidth="1.5"
-              fill="none"
-            />
-          );
-        })}
-
-        {/* Source pills */}
-        {sourcePositions.map((s) => {
-          const color = colorForSource(s.source);
-          return (
-            <g key={s.source}>
-              <rect
-                x={SRC_X}
-                y={s.y}
-                width={SRC_W}
-                height={SRC_H}
-                rx={6}
-                fill={color}
-                fillOpacity="0.12"
-                stroke={color}
-                strokeOpacity="0.6"
-              />
-              <text
-                x={SRC_X + 10}
-                y={s.y + SRC_H / 2}
-                dominantBaseline="middle"
                 fontSize="12"
-                fontWeight="600"
-                fill="currentColor"
+                fill="var(--brand)"
+                fillOpacity="0.85"
               >
-                {s.source}
+                {isExpanded ? "−" : "+"}
               </text>
-            </g>
-          );
-        })}
-
-        {/* Raw field pills */}
-        {rawPositions.map((r, i) => {
-          const color = colorForSource(r.source);
-          return (
-            <g key={`raw-${i}`}>
-              <rect
-                x={RAW_X}
-                y={r.y}
-                width={RAW_W}
-                height={RAW_H}
-                rx={4}
-                fill="var(--background)"
-                stroke={color}
-                strokeOpacity="0.35"
-              />
-              <text
-                x={RAW_X + 8}
-                y={r.y + RAW_H / 2}
-                dominantBaseline="middle"
-                fontSize="10"
-                fontFamily="ui-monospace, monospace"
-                fill="currentColor"
-              >
-                {r.object}.{r.field}
-              </text>
-            </g>
-          );
-        })}
-
-        {/* Canonical field pills */}
-        {canPositions.map((c, i) => {
-          const isJoin = c.joinCount > 1;
-          return (
-            <g key={`can-${i}`}>
-              <rect
-                x={CAN_X}
-                y={c.y}
-                width={CAN_W}
-                height={CAN_H}
-                rx={4}
-                fill={isJoin ? "var(--brand)" : "var(--background)"}
-                fillOpacity={isJoin ? 0.12 : 1}
-                stroke="var(--brand)"
-                strokeOpacity={isJoin ? 0.7 : 0.3}
-                strokeWidth={isJoin ? 1.5 : 1}
-              />
-              <text
-                x={CAN_X + 10}
-                y={c.y + CAN_H / 2}
-                dominantBaseline="middle"
-                fontSize="11"
-                fontFamily="ui-monospace, monospace"
-                fontWeight={isJoin ? 600 : 400}
-                fill="currentColor"
-              >
-                {c.field.key}
-                {c.field.isArray ? "[]" : ""}
-              </text>
-              {c.joinCount > 1 && (
-                <text
-                  x={CAN_X + CAN_W - 10}
-                  y={c.y + CAN_H / 2}
-                  dominantBaseline="middle"
-                  textAnchor="end"
-                  fontSize="10"
-                  fontFamily="ui-monospace, monospace"
-                  fill="var(--brand)"
-                  fillOpacity="0.9"
-                >
-                  ⚠ {c.joinCount} sources
-                </text>
-              )}
-              {c.joinCount === 0 && (
-                <text
-                  x={CAN_X + CAN_W - 10}
-                  y={c.y + CAN_H / 2}
-                  dominantBaseline="middle"
-                  textAnchor="end"
-                  fontSize="9"
-                  fontFamily="ui-monospace, monospace"
-                  fill="currentColor"
-                  fillOpacity="0.35"
-                >
-                  unmapped
-                </text>
-              )}
             </g>
           );
         })}
       </svg>
+      <div className="mt-2 px-1 text-[11px] text-muted text-center">
+        Click any source or canonical object to expand its mappings below.
+      </div>
     </div>
   );
 }
 
-// ── Stats strip ───────────────────────────────────────────────────
+// ── Source detail card ────────────────────────────────────────────
 
-function StatsStrip({
-  mode,
+function SourceDetailCard({
+  source,
+  onClose,
+}: {
+  source: string;
+  onClose: () => void;
+}) {
+  const color = colorForSource(source);
+  const brand = sourceToBrandKey(source);
+  // For this source, list each raw object and the canonical destinations
+  // its fields feed. e.g., Salesforce.Opportunity → Deal (18 fields),
+  // Salesforce.Task → Activity (10), Call (3).
+  const rawObjects = getRawObjectsBySource(source);
+  const breakdown = useMemo(() => {
+    const out: {
+      rawObject: string;
+      totalFields: number;
+      mappedFields: number;
+      destinations: { canonicalObject: string; fieldCount: number }[];
+    }[] = [];
+    for (const ro of rawObjects) {
+      const destMap = new Map<string, number>();
+      for (const [s, o, , co] of FIELD_MAPPINGS) {
+        if (s !== source || o !== ro.object) continue;
+        destMap.set(co, (destMap.get(co) ?? 0) + 1);
+      }
+      const destinations = Array.from(destMap.entries()).map(
+        ([canonicalObject, fieldCount]) => ({ canonicalObject, fieldCount }),
+      );
+      destinations.sort((a, b) => b.fieldCount - a.fieldCount);
+      const mappedFields = destinations.reduce((n, d) => n + d.fieldCount, 0);
+      out.push({
+        rawObject: ro.object,
+        totalFields: ro.fields.length,
+        mappedFields,
+        destinations,
+      });
+    }
+    out.sort((a, b) => b.mappedFields - a.mappedFields);
+    return out;
+  }, [source, rawObjects]);
+
+  return (
+    <div
+      className="rounded-lg border bg-background p-4"
+      style={{ borderColor: color + "55" }}
+    >
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <span
+            className="shrink-0 w-9 h-9 inline-flex items-center justify-center rounded-md"
+            style={{ background: color + "1a" }}
+          >
+            <BrandLogo brand={brand} size={22} />
+          </span>
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.2em] font-mono text-muted">
+              Source
+            </div>
+            <div className="text-sm font-semibold tracking-tight">
+              {source}
+            </div>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Collapse"
+          className="shrink-0 rounded-md border border-border w-6 h-6 inline-flex items-center justify-center hover:border-foreground/40 text-xs"
+        >
+          ×
+        </button>
+      </div>
+      <div className="space-y-2">
+        {breakdown.map((b) => (
+          <div
+            key={b.rawObject}
+            className="rounded-md border border-border bg-foreground/[0.02] px-3 py-2"
+          >
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="font-mono text-xs font-semibold">
+                {source}.{b.rawObject}
+              </span>
+              <span className="text-[10px] font-mono uppercase tracking-[0.1em] text-muted">
+                {b.mappedFields}/{b.totalFields} mapped
+              </span>
+            </div>
+            {b.destinations.length === 0 ? (
+              <div className="text-[11px] text-muted italic mt-1">
+                Unmapped — fields land in the raw catalog only.
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+                {b.destinations.map((d) => (
+                  <span
+                    key={d.canonicalObject}
+                    className="inline-flex items-center gap-1 text-[10px] font-mono px-1.5 py-0.5 rounded border border-brand/40 bg-brand/[0.06] text-brand"
+                  >
+                    → {d.canonicalObject}
+                    <span className="text-muted">·</span>
+                    <span>{d.fieldCount}</span>
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Canonical detail card ─────────────────────────────────────────
+
+function CanonicalDetailCard({
   canonicalKey,
+  onClose,
 }: {
-  mode: Mode;
   canonicalKey: string;
+  onClose: () => void;
 }) {
-  if (mode === "overview") {
-    const joins = joinPointFields();
-    const unmapped = unmappedRawFields();
-    return (
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-        <StatCard label="Raw fields" value={String(totalRawFieldCount())} sub="Documented across all sources" />
-        <StatCard label="Canonical fields" value={String(CANONICAL_OBJECTS.reduce((n, o) => n + o.fields.length, 0))} sub={`${CANONICAL_OBJECTS.length} canonical objects`} />
-        <StatCard label="Mappings" value={String(totalMappingCount())} sub={`${joins.length} join points need rules`} />
-        <StatCard label="Orphans" value={String(unmapped.length)} sub="Raw fields with no canonical home" tone="muted" />
-      </div>
-    );
-  }
   const obj = getCanonicalObject(canonicalKey);
+  // Fields with their contributor lists. Sorted by join-point weight so
+  // the high-attention fields (most sources) surface first.
+  const fieldStats = useMemo(() => {
+    if (!obj) return [];
+    return obj.fields
+      .map((f) => ({
+        field: f,
+        contributors: contributorsFor(obj.key, f.key),
+      }))
+      .sort((a, b) => b.contributors.length - a.contributors.length);
+  }, [obj]);
+
+  const [selectedField, setSelectedField] = useState<string | null>(null);
   if (!obj) return null;
-  const contribs = rawFieldsContributingTo(canonicalKey);
-  const joinPointCount = obj.fields.filter(
-    (f) => contributorsFor(canonicalKey, f.key).length > 1,
-  ).length;
-  const unmappedCanonical = obj.fields.filter(
-    (f) => contributorsFor(canonicalKey, f.key).length === 0,
-  ).length;
-  return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-      <StatCard label="Canonical fields" value={String(obj.fields.length)} sub={obj.label + " has " + obj.fields.length + " fields"} />
-      <StatCard label="Raw contributors" value={String(contribs.length)} sub="Across all contributing sources" />
-      <StatCard label="Join points" value={String(joinPointCount)} sub="Canonical fields with >1 source" tone="brand" />
-      <StatCard label="Unmapped canonical" value={String(unmappedCanonical)} sub="Canonical fields without raw contributors" tone="muted" />
-    </div>
-  );
-}
 
-function StatCard({
-  label,
-  value,
-  sub,
-  tone = "default",
-}: {
-  label: string;
-  value: string;
-  sub: string;
-  tone?: "default" | "brand" | "muted";
-}) {
-  const accent =
-    tone === "brand"
-      ? "border-brand/40 bg-brand/[0.04]"
-      : tone === "muted"
-        ? "border-border bg-foreground/[0.02]"
-        : "border-border bg-background";
+  const selectedStat = fieldStats.find((s) => s.field.key === selectedField);
+
   return (
-    <div className={`rounded-md border ${accent} px-3 py-2`}>
-      <div className="text-[10px] uppercase tracking-[0.15em] font-mono text-muted">
-        {label}
+    <div className="rounded-lg border border-brand/40 bg-brand/[0.03] p-4">
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div>
+          <div className="text-[10px] uppercase tracking-[0.2em] font-mono text-muted">
+            Canonical object
+          </div>
+          <div className="text-sm font-semibold tracking-tight">
+            {obj.label}
+          </div>
+          <p className="text-[11px] text-muted mt-0.5 leading-snug max-w-2xl">
+            {obj.description}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Collapse"
+          className="shrink-0 rounded-md border border-border w-6 h-6 inline-flex items-center justify-center hover:border-foreground/40 text-xs"
+        >
+          ×
+        </button>
       </div>
-      <div className="text-xl font-semibold tabular-nums mt-1">{value}</div>
-      <div className="text-[10px] text-muted mt-0.5 leading-snug">{sub}</div>
+
+      <div className="grid md:grid-cols-2 gap-2">
+        {fieldStats.map((s) => {
+          const isJoin = s.contributors.length > 1;
+          const isUnmapped = s.contributors.length === 0;
+          const isSelected = selectedField === s.field.key;
+          return (
+            <button
+              key={s.field.key}
+              type="button"
+              onClick={() =>
+                setSelectedField(isSelected ? null : s.field.key)
+              }
+              className={
+                "text-left rounded-md border px-2.5 py-1.5 transition-colors " +
+                (isSelected
+                  ? "border-brand bg-brand/10"
+                  : isJoin
+                    ? "border-brand/30 bg-brand/[0.04] hover:border-brand"
+                    : isUnmapped
+                      ? "border-border bg-foreground/[0.02] text-muted"
+                      : "border-border bg-background hover:border-brand")
+              }
+            >
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="font-mono text-[11px] font-semibold truncate">
+                  {s.field.key}
+                  {s.field.isArray ? "[]" : ""}
+                </span>
+                <span className="text-[9px] font-mono uppercase text-muted shrink-0">
+                  {s.field.type}
+                </span>
+              </div>
+              <div className="text-[10px] mt-0.5 flex items-center gap-2">
+                {isUnmapped ? (
+                  <span className="text-muted italic">unmapped</span>
+                ) : isJoin ? (
+                  <span className="text-brand">
+                    ⚠ {s.contributors.length} sources
+                  </span>
+                ) : (
+                  <span className="text-muted">
+                    {s.contributors.length} source
+                  </span>
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {selectedStat && (
+        <FieldDrillCard
+          field={selectedStat.field}
+          contributors={selectedStat.contributors}
+          onClose={() => setSelectedField(null)}
+        />
+      )}
     </div>
   );
 }
 
-// Unused export retained intentionally - keeps the test surface for the
-// raw catalog small (RawObject only).
-export type { RawObject };
+function FieldDrillCard({
+  field,
+  contributors,
+  onClose,
+}: {
+  field: CanonicalField;
+  contributors: CanonicalContribution[];
+  onClose: () => void;
+}) {
+  // Group by source so multiple-rawfields-from-same-source share one
+  // brand chip. Hover the chip to see the full RawObject.field paths.
+  const bySource = new Map<string, CanonicalContribution[]>();
+  for (const c of contributors) {
+    const arr = bySource.get(c.source) ?? [];
+    arr.push(c);
+    bySource.set(c.source, arr);
+  }
+  return (
+    <div className="mt-3 rounded-md border border-brand/50 bg-background p-3">
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <span className="font-mono text-sm font-semibold">
+              {field.key}
+              {field.isArray ? "[]" : ""}
+            </span>
+            <span className="text-[10px] font-mono uppercase tracking-[0.1em] text-muted">
+              {field.type}
+              {field.unit ? ` · ${field.unit}` : ""}
+            </span>
+            {field.relationTo && (
+              <span className="text-[10px] font-mono uppercase tracking-[0.1em] text-brand">
+                → {field.relationTo}
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-foreground/80 mt-1 leading-snug">
+            {field.description}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          className="shrink-0 text-xs text-muted hover:text-foreground"
+        >
+          ×
+        </button>
+      </div>
+      {contributors.length === 0 ? (
+        <div className="mt-2 text-[11px] text-muted italic">
+          Unmapped — no raw source contributes to this canonical field yet.
+        </div>
+      ) : (
+        <div className="mt-2.5">
+          <div className="text-[10px] uppercase tracking-[0.15em] font-mono text-muted mb-1.5">
+            {contributors.length} contributing source
+            {contributors.length === 1 ? "" : "s"} · hover an icon
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {Array.from(bySource.entries()).map(([source, items]) => {
+              const brand = sourceToBrandKey(source);
+              const tooltipText = `${source}\n${items
+                .map((i) => `${i.rawObject}.${i.rawField}`)
+                .join("\n")}`;
+              return (
+                <div
+                  key={source}
+                  title={tooltipText}
+                  className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md border border-border bg-background hover:border-brand transition-colors cursor-default"
+                >
+                  <span
+                    aria-hidden
+                    className="w-5 h-5 inline-flex items-center justify-center rounded bg-foreground/[0.04]"
+                  >
+                    <BrandLogo brand={brand} size={16} />
+                  </span>
+                  <span className="text-[11px] font-semibold">{source}</span>
+                  <span className="text-[10px] font-mono text-muted">
+                    ×{items.length}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      {field.joinNote && (
+        <div className="mt-2.5 rounded-md border border-border bg-foreground/[0.02] px-2.5 py-2">
+          <div className="text-[10px] uppercase tracking-[0.15em] font-mono text-muted mb-0.5">
+            Join resolution
+          </div>
+          <p className="text-[11px] leading-snug">{field.joinNote}</p>
+        </div>
+      )}
+    </div>
+  );
+}
