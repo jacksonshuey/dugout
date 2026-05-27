@@ -473,7 +473,11 @@ function OverviewGraph({
 
         {/* Source dropdown - one full-height pill per raw API object,
             stacked below the popped Salesforce-style pill, aligned
-            row-for-row with the un-popped sources to its right. */}
+            row-for-row with the un-popped sources to its right.
+
+            IMPORTANT: positioning transform on the OUTER <g>, animation
+            class on the INNER <g>. The fade-in keyframe also uses
+            `transform`, which would otherwise override the position. */}
         {expandedSourceRow && sourceDropdown && (
           <g key={`src-drop-${expanded?.key}`}>
             {sourceDropdown.map((row, i) => {
@@ -483,42 +487,45 @@ function OverviewGraph({
               return (
                 <g
                   key={row.object}
-                  className="cg-drop-row"
-                  style={{ animationDelay: `${i * 45}ms` }}
                   transform={`translate(${SRC_X - POP_SHIFT}, ${baseY})`}
                 >
-                  <rect
-                    x={0}
-                    y={0}
-                    width={COL_W}
-                    height={NODE_H}
-                    rx={8}
-                    fill={color}
-                    fillOpacity="0.06"
-                    stroke={color}
-                    strokeOpacity="0.45"
-                  />
-                  <text
-                    x={14}
-                    y={NODE_H / 2 - 6}
-                    dominantBaseline="middle"
-                    fontSize="12"
-                    fontWeight="600"
-                    fill="currentColor"
+                  <g
+                    className="cg-drop-row"
+                    style={{ animationDelay: `${i * 45}ms` }}
                   >
-                    {row.object}
-                  </text>
-                  <text
-                    x={14}
-                    y={NODE_H / 2 + 10}
-                    dominantBaseline="middle"
-                    fontSize="9"
-                    fontFamily="ui-monospace, monospace"
-                    fill="currentColor"
-                    fillOpacity="0.55"
-                  >
-                    {row.mappedCount}/{row.totalFields} → {row.destinations}
-                  </text>
+                    <rect
+                      x={0}
+                      y={0}
+                      width={COL_W}
+                      height={NODE_H}
+                      rx={8}
+                      fill={color}
+                      fillOpacity="0.06"
+                      stroke={color}
+                      strokeOpacity="0.45"
+                    />
+                    <text
+                      x={14}
+                      y={NODE_H / 2 - 6}
+                      dominantBaseline="middle"
+                      fontSize="12"
+                      fontWeight="600"
+                      fill="currentColor"
+                    >
+                      {row.object}
+                    </text>
+                    <text
+                      x={14}
+                      y={NODE_H / 2 + 10}
+                      dominantBaseline="middle"
+                      fontSize="9"
+                      fontFamily="ui-monospace, monospace"
+                      fill="currentColor"
+                      fillOpacity="0.55"
+                    >
+                      {row.mappedCount}/{row.totalFields} → {row.destinations}
+                    </text>
+                  </g>
                 </g>
               );
             })}
@@ -602,9 +609,8 @@ function OverviewGraph({
           );
         })}
 
-        {/* Canonical dropdown - one full-height pill per field of the
-            canonical object, stacked below the popped pill, aligned
-            row-for-row with the un-popped canonicals to its left. */}
+        {/* Canonical dropdown - same outer/inner-g pattern as above so
+            the position transform doesn't collide with the keyframe. */}
         {expandedCanonicalRow && canonicalDropdown && (
           <g key={`can-drop-${expanded?.key}`}>
             {canonicalDropdown.map((row, i) => {
@@ -615,50 +621,53 @@ function OverviewGraph({
               return (
                 <g
                   key={row.key}
-                  className="cg-drop-row"
-                  style={{ animationDelay: `${i * 25}ms` }}
                   transform={`translate(${CAN_X + POP_SHIFT}, ${baseY})`}
                 >
-                  <rect
-                    x={0}
-                    y={0}
-                    width={COL_W}
-                    height={NODE_H}
-                    rx={8}
-                    fill={isJoin ? "var(--brand)" : "var(--background)"}
-                    fillOpacity={isJoin ? 0.08 : 1}
-                    stroke="var(--brand)"
-                    strokeOpacity={isJoin ? 0.55 : isOrphan ? 0.2 : 0.35}
-                  />
-                  <text
-                    x={14}
-                    y={NODE_H / 2 - 6}
-                    dominantBaseline="middle"
-                    fontSize="11"
-                    fontFamily="ui-monospace, monospace"
-                    fontWeight={isJoin ? 700 : 500}
-                    fill="currentColor"
-                    fillOpacity={isOrphan ? 0.4 : 1}
+                  <g
+                    className="cg-drop-row"
+                    style={{ animationDelay: `${i * 25}ms` }}
                   >
-                    {row.key}
-                    {row.isArray ? "[]" : ""}
-                  </text>
-                  <text
-                    x={14}
-                    y={NODE_H / 2 + 10}
-                    dominantBaseline="middle"
-                    fontSize="9"
-                    fontFamily="ui-monospace, monospace"
-                    fill={isJoin ? "var(--brand)" : "currentColor"}
-                    fillOpacity={isOrphan ? 0.4 : isJoin ? 0.9 : 0.55}
-                  >
-                    {row.type}
-                    {row.unit ? ` · ${row.unit}` : ""}
-                    {" · "}
-                    {isOrphan
-                      ? "unmapped"
-                      : `${row.contribCount} src${row.contribCount === 1 ? "" : "s"}`}
-                  </text>
+                    <rect
+                      x={0}
+                      y={0}
+                      width={COL_W}
+                      height={NODE_H}
+                      rx={8}
+                      fill={isJoin ? "var(--brand)" : "var(--background)"}
+                      fillOpacity={isJoin ? 0.08 : 1}
+                      stroke="var(--brand)"
+                      strokeOpacity={isJoin ? 0.55 : isOrphan ? 0.2 : 0.35}
+                    />
+                    <text
+                      x={14}
+                      y={NODE_H / 2 - 6}
+                      dominantBaseline="middle"
+                      fontSize="11"
+                      fontFamily="ui-monospace, monospace"
+                      fontWeight={isJoin ? 700 : 500}
+                      fill="currentColor"
+                      fillOpacity={isOrphan ? 0.4 : 1}
+                    >
+                      {row.key}
+                      {row.isArray ? "[]" : ""}
+                    </text>
+                    <text
+                      x={14}
+                      y={NODE_H / 2 + 10}
+                      dominantBaseline="middle"
+                      fontSize="9"
+                      fontFamily="ui-monospace, monospace"
+                      fill={isJoin ? "var(--brand)" : "currentColor"}
+                      fillOpacity={isOrphan ? 0.4 : isJoin ? 0.9 : 0.55}
+                    >
+                      {row.type}
+                      {row.unit ? ` · ${row.unit}` : ""}
+                      {" · "}
+                      {isOrphan
+                        ? "unmapped"
+                        : `${row.contribCount} src${row.contribCount === 1 ? "" : "s"}`}
+                    </text>
+                  </g>
                 </g>
               );
             })}
