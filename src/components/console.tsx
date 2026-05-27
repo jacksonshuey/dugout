@@ -295,24 +295,22 @@ export function Console(
   return (
     <div className="max-w-6xl mx-auto px-6 flex">
       {!props.hideSidebar && (
-        <div className="shrink-0 flex flex-col">
-          <Sidebar
-            view={view}
-            filters={filters}
-            dealCount={filteredOpps.length}
-            openTaskCount={openTasksAll.length}
-            onViewChange={(v) => updateUrl({ view: v })}
-            onFiltersChange={(f) => updateUrl({ filters: f })}
-          />
-          {/* Pre-meeting brief stacked below the filter sidebar on the
-              Pipeline view - balances the left column visually so the
-              right side is just the table. */}
-          {view === "pipeline" && (
-            <div className="w-56 border-r border-border bg-slate-50/50 px-3 pb-6">
+        <Sidebar
+          view={view}
+          filters={filters}
+          dealCount={filteredOpps.length}
+          openTaskCount={openTasksAll.length}
+          onViewChange={(v) => updateUrl({ view: v })}
+          onFiltersChange={(f) => updateUrl({ filters: f })}
+          // Pre-meeting brief lives inside the sticky sidebar's
+          // scrollable area on the Pipeline view, so it scrolls with
+          // the filters instead of overlapping them.
+          footer={
+            view === "pipeline" ? (
               <UpcomingMeetingsPanel accounts={props.accounts} />
-            </div>
-          )}
-        </div>
+            ) : null
+          }
+        />
       )}
 
       <main className="flex-1 min-w-0 p-6">

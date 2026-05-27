@@ -46,6 +46,7 @@ export function Sidebar({
   openTaskCount,
   onViewChange,
   onFiltersChange,
+  footer,
 }: {
   view: ConsoleView;
   filters: FilterState;
@@ -55,6 +56,10 @@ export function Sidebar({
   openTaskCount: number;
   onViewChange: (v: ConsoleView) => void;
   onFiltersChange: (f: FilterState) => void;
+  // Optional content rendered inside the sidebar's scrollable area
+  // below the filters. Used by Console's Pipeline view to embed the
+  // pre-meeting brief in the same column without breaking sticky/scroll.
+  footer?: React.ReactNode;
 }) {
   function toggle<T>(arr: T[], val: T): T[] {
     return arr.includes(val) ? arr.filter((x) => x !== val) : [...arr, val];
@@ -160,6 +165,7 @@ export function Sidebar({
             ))}
           </FilterGroup>
         </div>
+        {footer && <div className="pt-2">{footer}</div>}
       </div>
 
       <div className="sticky bottom-0 border-t border-border bg-slate-50/95 backdrop-blur p-3 text-[11px] text-muted">
