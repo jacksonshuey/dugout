@@ -140,6 +140,23 @@ h1, h2 {
   .cg-drop-row { animation: none; opacity: 1; }
 }
 
+/* 90-day-plan card visualizations. Each card shows a small inline SVG
+   with a moving element to signal "this is in flight, not shipped." */
+@keyframes pulse-fade {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.88); }
+}
+.pulse-stagger {
+  animation: pulse-fade 2.4s ease-in-out infinite;
+  transform-origin: center;
+  transform-box: fill-box;
+}
+.pulse-stagger-2 { animation-delay: 0.6s; }
+.pulse-stagger-3 { animation-delay: 1.2s; }
+@media (prefers-reduced-motion: reduce) {
+  .pulse-stagger { animation: none; }
+}
+
 /* Markdown rendering for SourcePreviewModal (non-email signals). Reading-
    width typography — newsletter-style, not docs-style. Kept tight so the
    modal feels like an article, not a Confluence page. */

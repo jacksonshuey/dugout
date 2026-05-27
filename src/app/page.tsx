@@ -116,18 +116,18 @@ export default async function LandingPage() {
 // ---------------------------------------------------------------------------
 
 function NextUpSection() {
-  const items: { title: string; sub: string }[] = [
+  const items: { title: string; viz: React.ReactNode }[] = [
     {
       title: "Organization-specific integration scaffolding",
-      sub: "Per-customer connectors so each new workspace wires up Salesforce, Slack, Gong, and Outreach through the same setup-reel flow.",
+      viz: <IntegrationScaffoldingViz />,
     },
     {
       title: "Workflow automations",
-      sub: "Promote rule streams from preview to firing: Slack DMs, Dock workspace creation, Outreach enrollment, asset delivery on the chain.",
+      viz: <WorkflowAutomationsViz />,
     },
     {
       title: "User account creation",
-      sub: "Multi-tenant auth so individual AEs and managers sign into their own workspace instead of sharing a demo session.",
+      viz: <UserAccountsViz />,
     },
   ];
   return (
@@ -136,27 +136,90 @@ function NextUpSection() {
       <h2 className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight max-w-3xl">
         What&apos;s next.
       </h2>
-      <p className="mt-4 text-base text-foreground/70 leading-relaxed max-w-2xl">
-        Three workstreams between now and day 90 to turn the demo into a
-        tool a real team can adopt.
-      </p>
-      <ol className="mt-10 grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <ol className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-5">
         {items.map((item, i) => (
           <li
             key={item.title}
-            className="rounded-lg border border-border bg-background p-5 space-y-2"
+            className="rounded-xl border border-border bg-background p-6 min-h-[340px] flex flex-col"
           >
-            <span className="text-[11px] uppercase tracking-[0.15em] font-mono text-brand">
-              {String(i + 1).padStart(2, "0")}
-            </span>
-            <h3 className="text-sm font-semibold tracking-tight leading-snug">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] uppercase tracking-[0.15em] font-mono text-brand">
+                {String(i + 1).padStart(2, "0")}
+              </span>
+              <span className="text-[10px] uppercase tracking-[0.2em] font-mono text-muted px-2 py-0.5 rounded-full border border-border">
+                Coming soon
+              </span>
+            </div>
+            <h3 className="mt-3 text-base font-semibold tracking-tight leading-snug">
               {item.title}
             </h3>
-            <p className="text-xs text-muted leading-relaxed">{item.sub}</p>
+            <div className="mt-auto pt-6 flex items-center justify-center">
+              {item.viz}
+            </div>
           </li>
         ))}
       </ol>
     </section>
+  );
+}
+
+// Mini animated visualizations for each 90-day workstream. SVG-only,
+// CSS animations from globals.css - no JS state, lightweight.
+
+function IntegrationScaffoldingViz() {
+  // Four integration nodes around a central Dugout hub. Dashed lines
+  // flow from each integration toward the hub - the "wiring up" motion.
+  return (
+    <svg viewBox="0 0 220 120" className="w-full h-32" aria-hidden>
+      <line x1="44" y1="28" x2="100" y2="60" stroke="var(--brand)" strokeWidth="1.4" strokeDasharray="4 4" className="flow-path" />
+      <line x1="176" y1="28" x2="120" y2="60" stroke="var(--brand)" strokeWidth="1.4" strokeDasharray="4 4" className="flow-path" />
+      <line x1="44" y1="92" x2="100" y2="60" stroke="var(--brand)" strokeWidth="1.4" strokeDasharray="4 4" className="flow-path" />
+      <line x1="176" y1="92" x2="120" y2="60" stroke="var(--brand)" strokeWidth="1.4" strokeDasharray="4 4" className="flow-path" />
+      <circle cx="32" cy="28" r="14" fill="#00A1E0" fillOpacity="0.18" stroke="#00A1E0" strokeWidth="1.5" />
+      <text x="32" y="32" textAnchor="middle" fontSize="9" fontFamily="ui-monospace, monospace" fill="#00A1E0">SF</text>
+      <circle cx="188" cy="28" r="14" fill="#FF7A59" fillOpacity="0.18" stroke="#FF7A59" strokeWidth="1.5" />
+      <text x="188" y="32" textAnchor="middle" fontSize="9" fontFamily="ui-monospace, monospace" fill="#FF7A59">HS</text>
+      <circle cx="32" cy="92" r="14" fill="#7C3AED" fillOpacity="0.18" stroke="#7C3AED" strokeWidth="1.5" />
+      <text x="32" y="96" textAnchor="middle" fontSize="9" fontFamily="ui-monospace, monospace" fill="#7C3AED">GN</text>
+      <circle cx="188" cy="92" r="14" fill="#F97316" fillOpacity="0.18" stroke="#F97316" strokeWidth="1.5" />
+      <text x="188" y="96" textAnchor="middle" fontSize="9" fontFamily="ui-monospace, monospace" fill="#F97316">OR</text>
+      <rect x="92" y="48" width="36" height="24" rx="6" fill="var(--brand)" fillOpacity="0.12" stroke="var(--brand)" strokeWidth="1.5" />
+      <text x="110" y="64" textAnchor="middle" fontSize="9" fontFamily="ui-monospace, monospace" fontWeight="600" fill="var(--brand)">dugout</text>
+    </svg>
+  );
+}
+
+function WorkflowAutomationsViz() {
+  // Trigger pill on left, action pill on right, dashed flow between -
+  // the "if X then Y" automation chain.
+  return (
+    <svg viewBox="0 0 260 100" className="w-full h-32" aria-hidden>
+      <rect x="10" y="36" width="76" height="28" rx="6" fill="#7C3AED" fillOpacity="0.12" stroke="#7C3AED" strokeWidth="1.5" />
+      <text x="48" y="48" textAnchor="middle" fontSize="9" fontFamily="ui-monospace, monospace" fontWeight="600" fill="#7C3AED">trigger</text>
+      <text x="48" y="59" textAnchor="middle" fontSize="8" fontFamily="ui-monospace, monospace" fill="#7C3AED" fillOpacity="0.7">SF stage = SV</text>
+      <line x1="86" y1="50" x2="174" y2="50" stroke="var(--brand)" strokeWidth="1.6" strokeDasharray="5 4" className="flow-path" />
+      <polygon points="172,46 178,50 172,54" fill="var(--brand)" />
+      <rect x="174" y="36" width="76" height="28" rx="6" fill="var(--brand)" fillOpacity="0.12" stroke="var(--brand)" strokeWidth="1.5" />
+      <text x="212" y="48" textAnchor="middle" fontSize="9" fontFamily="ui-monospace, monospace" fontWeight="600" fill="var(--brand)">action</text>
+      <text x="212" y="59" textAnchor="middle" fontSize="8" fontFamily="ui-monospace, monospace" fill="var(--brand)" fillOpacity="0.75">Slack DM AE</text>
+    </svg>
+  );
+}
+
+function UserAccountsViz() {
+  // Three avatars pulsing in sequence - the "multi-tenant sign-in" feel.
+  return (
+    <svg viewBox="0 0 220 100" className="w-full h-32" aria-hidden>
+      <circle cx="50" cy="50" r="22" fill="var(--brand)" fillOpacity="0.10" stroke="var(--brand)" strokeOpacity="0.4" strokeWidth="1.4" />
+      <circle cx="50" cy="44" r="6" fill="var(--brand)" className="pulse-stagger" />
+      <rect x="40" y="52" width="20" height="10" rx="5" fill="var(--brand)" className="pulse-stagger" />
+      <circle cx="110" cy="50" r="22" fill="#7C3AED" fillOpacity="0.10" stroke="#7C3AED" strokeOpacity="0.4" strokeWidth="1.4" />
+      <circle cx="110" cy="44" r="6" fill="#7C3AED" className="pulse-stagger pulse-stagger-2" />
+      <rect x="100" y="52" width="20" height="10" rx="5" fill="#7C3AED" className="pulse-stagger pulse-stagger-2" />
+      <circle cx="170" cy="50" r="22" fill="#00A1E0" fillOpacity="0.10" stroke="#00A1E0" strokeOpacity="0.4" strokeWidth="1.4" />
+      <circle cx="170" cy="44" r="6" fill="#00A1E0" className="pulse-stagger pulse-stagger-3" />
+      <rect x="160" y="52" width="20" height="10" rx="5" fill="#00A1E0" className="pulse-stagger pulse-stagger-3" />
+    </svg>
   );
 }
 
