@@ -23,7 +23,7 @@ import {
   STEP_LEFT_COL_CLASS,
   STEP_RIGHT_COL_CLASS,
 } from "@/components/landing/step-layout";
-import { InteractiveZipperedTable } from "@/components/landing/interactive-zippered-table";
+import { ConnectivityGraph } from "@/components/tool/connectivity-graph";
 import { InteractiveSignals } from "@/components/landing/interactive-signals";
 import { InteractiveDecisions } from "@/components/landing/interactive-decisions";
 import { INTEGRATIONS } from "@/data/integrations";
@@ -431,17 +431,21 @@ function StepZipper() {
 }
 
 function StepOntology() {
-  // Mini wide-row mockup — one account, a handful of canonical columns,
-  // brand-chip provenance per cell. Mirrors the InteractiveZipperedTable
-  // above; this is the compact form that lives inside the walkthrough.
+  // The data zipper (Sankey-style sources -> canonical objects) is the
+  // exact same component rendered inline on /tool's Ontology tab.
+  // Switching the landing visualization to it keeps the marketing story
+  // and the in-product story identical: "this is how raw API fields
+  // collapse onto one account record."
   return (
     <StepShell
       num={3}
       wide
       title="Ontology"
-      sub="Every account lives on one unified record: sales activity, deal data, news, and meeting notes all in one place. Once every integration is connected, the table view is fully customizable. Pick any combination of columns drawn from any field your tools capture, filter the sources, choose the accounts, sort by any of them."
+      sub="Every raw API field from every source zippers into a canonical object. One Account, one Contact, one Meeting, regardless of how many tools recorded it. Drill into any object to see exactly which fields converge - and where multiple sources need a source-of-truth rule."
     >
-      <InteractiveZipperedTable />
+      <div className="rounded-xl border border-border bg-foreground/[0.02] p-4">
+        <ConnectivityGraph />
+      </div>
     </StepShell>
   );
 }
