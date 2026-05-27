@@ -74,7 +74,7 @@ export function IntegrationConnectModal({
       onClick={onClose}
     >
       <div
-        className="my-8 bg-background rounded-xl border border-border shadow-xl w-full max-w-2xl overflow-hidden"
+        className="my-8 bg-background rounded-xl border border-border shadow-xl w-full max-w-md overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         <ModalHeader spec={spec} onClose={onClose} />
@@ -82,19 +82,15 @@ export function IntegrationConnectModal({
           <SuccessState spec={spec} />
         ) : (
           <form onSubmit={handleSubmit}>
-            <div className="px-5 py-4 space-y-5">
-              <AuthBanner spec={spec} />
+            <div className="px-5 py-4 space-y-4">
+              <DirectionPill spec={spec} />
+              <AuthLine spec={spec} />
               <SetupFieldsSection
                 spec={spec}
                 values={values}
                 onChange={update}
               />
-              {spec.requiredScopes.length > 0 && (
-                <ScopesSection spec={spec} />
-              )}
-              {spec.webhooks.length > 0 && <WebhooksSection spec={spec} />}
-              <OperationalSection spec={spec} />
-              {spec.keyGotchas.length > 0 && <GotchasSection spec={spec} />}
+              <DetailsDisclosure spec={spec} />
             </div>
             <ModalFooter spec={spec} canSubmit={canSubmit()} onCancel={onClose} />
           </form>
@@ -166,87 +162,126 @@ function SourceMark({ source }: { source: string }) {
   );
 }
 
-function AuthBanner({ spec }: { spec: IntegrationSpec }) {
-  const labels: Record<string, string> = {
-    oauth2: "OAuth 2.0",
-    api_key: "API Key",
-    personal_access_token: "Personal Access Token",
-    jwt: "JWT (server-to-server)",
-    none: "No authentication (public API)",
-  };
-  return (
-    <div className="space-y-2">
-      <DirectionPill spec={spec} />
-      <div className="rounded-md border border-border bg-foreground/[0.02] px-3 py-2 text-xs">
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] uppercase tracking-[0.15em] font-mono text-muted">
-            Auth
-          </span>
-          <span className="font-semibold">{labels[spec.auth.method]}</span>
-          <a
-            href={spec.auth.docsUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="ml-auto text-brand hover:underline"
-          >
-            docs ↗
-          </a>
-        </div>
-        {spec.auth.notes && (
-          <p className="text-muted mt-1 leading-snug">{spec.auth.notes}</p>
-        )}
-      </div>
-    </div>
-  );
-}
-
 function DirectionPill({ spec }: { spec: IntegrationSpec }) {
   if (spec.direction === "read") {
     return (
-      <div className="rounded-md border border-severity-action/40 bg-severity-action-bg text-severity-action px-3 py-2 text-xs">
-        <div className="flex items-center gap-2">
-          <span className="font-mono text-[10px] uppercase tracking-[0.15em]">
-            Read-only
-          </span>
-          <span className="text-foreground/80">
-            Dugout pulls from {spec.source}. Never writes back.
-          </span>
-        </div>
-      </div>
+      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono uppercase tracking-[0.15em] border border-severity-action/40 bg-severity-action-bg text-severity-action">
+        Read-only
+      </span>
     );
   }
   if (spec.direction === "write") {
     return (
-      <div className="rounded-md border border-brand/40 bg-brand/[0.06] text-brand px-3 py-2 text-xs">
-        <div className="flex items-center gap-2">
-          <span className="font-mono text-[10px] uppercase tracking-[0.15em]">
-            Outbound only
-          </span>
-          <span className="text-foreground/80">
-            Dugout posts to {spec.source}. Nothing flows back into the
-            ontology.
-          </span>
-        </div>
-        {spec.writes && (
-          <p className="text-muted mt-1 leading-snug">{spec.writes}</p>
-        )}
-      </div>
+      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono uppercase tracking-[0.15em] border border-brand/40 bg-brand/[0.08] text-brand">
+        Outbound only
+      </span>
     );
   }
-  // both
   return (
-    <div className="rounded-md border border-severity-awareness/40 bg-severity-awareness-bg text-severity-awareness px-3 py-2 text-xs">
-      <div className="flex items-center gap-2">
-        <span className="font-mono text-[10px] uppercase tracking-[0.15em]">
-          Read + write
-        </span>
-        <span className="text-foreground/80">
-          Dugout reads from and writes to {spec.source}.
-        </span>
+    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-mono uppercase tracking-[0.15em] border border-severity-awareness/40 bg-severity-awareness-bg text-severity-awareness">
+      Read + write
+    </span>
+  );
+}
+
+function AuthLine({ spec }: { spec: IntegrationSpec }) {
+  const labels: Record<string, string> = {
+    oauth2: "OAuth 2.0",
+    api_key: "API key",
+    personal_access_token: "Personal access token",
+    jwt: "JWT",
+    none: "Public",
+  };
+  return (
+    <div className="flex items-center gap-2 text-xs">
+      <span className="text-[10px] uppercase tracking-[0.15em] font-mono text-muted">
+        Auth
+      </span>
+      <span className="font-mono">{labels[spec.auth.method]}</span>
+      <a
+        href={spec.auth.docsUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="ml-auto text-brand hover:underline text-[11px]"
+      >
+        docs ↗
+      </a>
+    </div>
+  );
+}
+
+function DetailsDisclosure({ spec }: { spec: IntegrationSpec }) {
+  const [open, setOpen] = useState(false);
+  const summary: string[] = [];
+  if (spec.requiredScopes.length > 0)
+    summary.push(`${spec.requiredScopes.length} scopes`);
+  if (spec.webhooks.length > 0)
+    summary.push(`${spec.webhooks.length} webhook events`);
+  if (spec.keyGotchas.length > 0)
+    summary.push(`${spec.keyGotchas.length} gotchas`);
+  if (summary.length === 0) return null;
+  return (
+    <details
+      open={open}
+      onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}
+      className="border-t border-border pt-3"
+    >
+      <summary className="text-[11px] font-mono uppercase tracking-[0.15em] text-muted hover:text-foreground cursor-pointer list-none flex items-center justify-between">
+        <span>Technical details · {summary.join(" · ")}</span>
+        <span aria-hidden>{open ? "−" : "+"}</span>
+      </summary>
+      <div className="mt-3 space-y-4">
+        {spec.requiredScopes.length > 0 && (
+          <CompactList
+            label="Scopes Dugout will request"
+            items={spec.requiredScopes.map((s) => ({ text: s, mono: true }))}
+          />
+        )}
+        {spec.webhooks.length > 0 && (
+          <CompactList
+            label="Webhook events Dugout receives"
+            items={spec.webhooks.map((w) => ({
+              text: `${w.event} — ${w.description}`,
+              mono: false,
+            }))}
+          />
+        )}
+        <OperationalSection spec={spec} />
+        {spec.keyGotchas.length > 0 && (
+          <CompactList
+            label="Before you connect"
+            items={spec.keyGotchas.map((g) => ({ text: g, mono: false }))}
+          />
+        )}
       </div>
-      {spec.writes && (
-        <p className="text-muted mt-1 leading-snug">{spec.writes}</p>
-      )}
+    </details>
+  );
+}
+
+function CompactList({
+  label,
+  items,
+}: {
+  label: string;
+  items: { text: string; mono: boolean }[];
+}) {
+  return (
+    <div>
+      <SectionLabel>{label}</SectionLabel>
+      <ul className="mt-1.5 space-y-1">
+        {items.map((it, i) => (
+          <li
+            key={i}
+            className={
+              "text-[11px] leading-snug flex items-baseline gap-1.5 " +
+              (it.mono ? "font-mono" : "")
+            }
+          >
+            <span className="text-brand shrink-0">·</span>
+            <span>{it.text}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -261,18 +296,15 @@ function SetupFieldsSection({
   onChange: (key: string, value: string) => void;
 }) {
   return (
-    <div>
-      <SectionLabel>Setup</SectionLabel>
-      <div className="space-y-3 mt-2">
-        {spec.setupFields.map((f) => (
-          <FieldInput
-            key={f.key}
-            field={f}
-            value={values[f.key] ?? ""}
-            onChange={(v) => onChange(f.key, v)}
-          />
-        ))}
-      </div>
+    <div className="space-y-3">
+      {spec.setupFields.map((f) => (
+        <FieldInput
+          key={f.key}
+          field={f}
+          value={values[f.key] ?? ""}
+          onChange={(v) => onChange(f.key, v)}
+        />
+      ))}
     </div>
   );
 }
@@ -297,7 +329,7 @@ function FieldInput({
         </span>
         {field.secret && (
           <span className="text-[10px] font-mono uppercase tracking-[0.1em] text-muted">
-            stored in vault
+            vault
           </span>
         )}
       </div>
@@ -326,64 +358,17 @@ function FieldInput({
           className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
         />
       )}
-      <p className="text-[11px] text-muted mt-1 leading-snug">
-        {field.description}
-      </p>
     </label>
-  );
-}
-
-function ScopesSection({ spec }: { spec: IntegrationSpec }) {
-  return (
-    <div>
-      <SectionLabel>Scopes Dugout will request</SectionLabel>
-      <ul className="mt-2 space-y-1">
-        {spec.requiredScopes.map((s) => (
-          <li
-            key={s}
-            className="flex items-baseline gap-2 text-[11px] font-mono"
-          >
-            <span className="text-brand">●</span>
-            <span>{s}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function WebhooksSection({ spec }: { spec: IntegrationSpec }) {
-  return (
-    <div>
-      <SectionLabel>Webhook events Dugout receives</SectionLabel>
-      <ul className="mt-2 grid sm:grid-cols-2 gap-1.5">
-        {spec.webhooks.map((w) => (
-          <li
-            key={w.event}
-            className="text-[11px] leading-snug"
-            title={w.description}
-          >
-            <span className="font-mono font-semibold">{w.event}</span>
-            <span className="text-muted"> — {w.description}</span>
-          </li>
-        ))}
-      </ul>
-      {spec.webhookSigning !== "n/a" && (
-        <p className="text-[11px] text-muted mt-2 leading-snug">
-          Signing: {spec.webhookSigning}
-        </p>
-      )}
-    </div>
   );
 }
 
 function OperationalSection({ spec }: { spec: IntegrationSpec }) {
   const syncLabels: Record<string, string> = {
     realtime: "Real-time",
-    webhooks: "Webhooks (event-driven)",
+    webhooks: "Webhooks",
     hourly_poll: "Hourly poll",
-    daily_sync: "Daily sync",
-    bulk_export: "Bulk export",
+    daily_sync: "Daily",
+    bulk_export: "Bulk",
     on_demand: "On-demand",
   };
   return (
@@ -402,25 +387,6 @@ function OpCard({ label, value }: { label: string; value: string }) {
         {label}
       </div>
       <div className="font-medium mt-0.5 leading-tight">{value}</div>
-    </div>
-  );
-}
-
-function GotchasSection({ spec }: { spec: IntegrationSpec }) {
-  return (
-    <div>
-      <SectionLabel>Before you connect</SectionLabel>
-      <ul className="mt-2 space-y-1">
-        {spec.keyGotchas.map((g, i) => (
-          <li
-            key={i}
-            className="text-[11px] text-muted leading-snug flex items-baseline gap-2"
-          >
-            <span className="text-brand shrink-0">·</span>
-            <span>{g}</span>
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }

@@ -2,8 +2,7 @@ import type { IntegrationSpec } from "./types";
 
 export const OUTREACH_SPEC: IntegrationSpec = {
   source: "Outreach",
-  tagline:
-    "Sales engagement cadences + dialer. OAuth 2.0 only. Manual app review by Outreach gates production.",
+  tagline: "Sales engagement cadences + dialer.",
   direction: "read",
   auth: {
     method: "oauth2",

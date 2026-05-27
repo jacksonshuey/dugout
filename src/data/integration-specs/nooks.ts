@@ -8,8 +8,7 @@ import type { IntegrationSpec } from "./types";
 
 export const NOOKS_SPEC: IntegrationSpec = {
   source: "Nooks",
-  tagline:
-    "AI-assisted parallel dialer. Derived integration — Nooks logs activity to Gong, so connecting Gong gives you Nooks coverage for free.",
+  tagline: "Parallel AI dialer. Flows in via Gong.",
   direction: "read",
   auth: {
     method: "none",

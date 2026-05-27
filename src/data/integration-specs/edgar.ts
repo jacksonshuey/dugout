@@ -2,8 +2,7 @@ import type { IntegrationSpec } from "./types";
 
 export const EDGAR_SPEC: IntegrationSpec = {
   source: "SEC EDGAR",
-  tagline:
-    "Public regulatory filings. No auth - just a User-Agent header identifying who you are.",
+  tagline: "Public SEC filings.",
   direction: "read",
   auth: {
     method: "none",

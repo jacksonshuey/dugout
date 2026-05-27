@@ -6,8 +6,7 @@ import type { IntegrationSpec } from "./types";
 
 export const SLACK_SPEC: IntegrationSpec = {
   source: "Slack",
-  tagline:
-    "Outbound delivery only. Dugout posts to channels and DMs the AEs it routes work to.",
+  tagline: "Outbound signal delivery.",
   direction: "write",
   writes:
     "Blocking signals → AE DM within 1 hour. Action items → daily channel digest. Awareness → weekly roundup.",

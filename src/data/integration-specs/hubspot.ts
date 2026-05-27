@@ -2,8 +2,7 @@ import type { IntegrationSpec } from "./types";
 
 export const HUBSPOT_SPEC: IntegrationSpec = {
   source: "HubSpot",
-  tagline:
-    "Marketing automation + secondary CRM. Private App PAT is fastest; OAuth required for multi-tenant.",
+  tagline: "Marketing automation + secondary CRM.",
   direction: "read",
   auth: {
     method: "personal_access_token",

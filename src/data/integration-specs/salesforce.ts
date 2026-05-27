@@ -2,8 +2,7 @@ import type { IntegrationSpec } from "./types";
 
 export const SALESFORCE_SPEC: IntegrationSpec = {
   source: "Salesforce",
-  tagline:
-    "System of record. Dugout reads pipeline state and never writes back.",
+  tagline: "CRM system of record. Dugout reads only.",
   direction: "read",
   auth: {
     method: "oauth2",

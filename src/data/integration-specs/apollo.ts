@@ -2,8 +2,7 @@ import type { IntegrationSpec } from "./types";
 
 export const APOLLO_SPEC: IntegrationSpec = {
   source: "Apollo",
-  tagline:
-    "Prospecting + enrichment. API key auth. Master keys can mint others and read usage stats.",
+  tagline: "Prospecting + enrichment.",
   direction: "read",
   auth: {
     method: "api_key",

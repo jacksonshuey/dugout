@@ -8,8 +8,7 @@ import type { IntegrationSpec } from "./types";
 
 export const CALENDLY_SPEC: IntegrationSpec = {
   source: "Calendly",
-  tagline:
-    "Outbound booking links. Dugout creates one-time links for the AE and reads back the resulting meeting.",
+  tagline: "Outbound booking links.",
   direction: "both",
   writes:
     "Single-use scheduling links scoped to the assigned AE. Created when a rule fires a Book Meeting action.",

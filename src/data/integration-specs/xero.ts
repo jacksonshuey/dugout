@@ -2,8 +2,7 @@ import type { IntegrationSpec } from "./types";
 
 export const XERO_SPEC: IntegrationSpec = {
   source: "Xero",
-  tagline:
-    "Accounting + invoicing. OAuth 2.0 with PKCE. End-user clicks Connect and selects an organisation.",
+  tagline: "Accounting + invoicing.",
   direction: "read",
   auth: {
     method: "oauth2",

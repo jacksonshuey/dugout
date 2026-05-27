@@ -2,8 +2,7 @@ import type { IntegrationSpec } from "./types";
 
 export const DOCK_SPEC: IntegrationSpec = {
   source: "Dock",
-  tagline:
-    "Deal rooms. Bearer API key + rich workspace event webhooks. Real-time engagement signals.",
+  tagline: "Deal rooms with engagement webhooks.",
   direction: "read",
   auth: {
     method: "api_key",

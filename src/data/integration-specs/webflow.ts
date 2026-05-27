@@ -2,8 +2,7 @@ import type { IntegrationSpec } from "./types";
 
 export const WEBFLOW_SPEC: IntegrationSpec = {
   source: "Webflow",
-  tagline:
-    "Marketing site CMS. OAuth for multi-site or per-site Site Token for single-site. Real-time form submissions.",
+  tagline: "Marketing site CMS + form submissions.",
   direction: "read",
   auth: {
     method: "oauth2",

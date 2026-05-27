@@ -2,8 +2,7 @@ import type { IntegrationSpec } from "./types";
 
 export const CHILIPIPER_SPEC: IntegrationSpec = {
   source: "Chili Piper",
-  tagline:
-    "Meeting router + scheduler. API token + webhook secret. Two distinct base URLs (booking vs admin).",
+  tagline: "Meeting router + scheduler.",
   direction: "read",
   auth: {
     method: "api_key",

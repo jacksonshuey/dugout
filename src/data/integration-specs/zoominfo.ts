@@ -2,8 +2,7 @@ import type { IntegrationSpec } from "./types";
 
 export const ZOOMINFO_SPEC: IntegrationSpec = {
   source: "ZoomInfo",
-  tagline:
-    "Prospecting + enrichment + intent. OAuth Client Credentials (modern) or PKI JWT (legacy enterprise).",
+  tagline: "Prospecting + intent.",
   direction: "read",
   auth: {
     method: "oauth2",

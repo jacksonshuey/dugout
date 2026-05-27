@@ -2,8 +2,7 @@ import type { IntegrationSpec } from "./types";
 
 export const NEWSAPI_SPEC: IntegrationSpec = {
   source: "NewsAPI",
-  tagline:
-    "News article search. Single API key. No webhooks — poll the /everything and /top-headlines endpoints.",
+  tagline: "News article search.",
   direction: "read",
   auth: {
     method: "api_key",

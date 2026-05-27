@@ -2,8 +2,7 @@ import type { IntegrationSpec } from "./types";
 
 export const GONG_SPEC: IntegrationSpec = {
   source: "Gong",
-  tagline:
-    "Conversation intelligence. Basic Auth API key for single-tenant; OAuth for multi-tenant.",
+  tagline: "Conversation intelligence.",
   direction: "read",
   auth: {
     method: "api_key",

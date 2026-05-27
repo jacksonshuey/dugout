@@ -8,8 +8,7 @@ import type { IntegrationSpec } from "./types";
 
 export const SWYFTAI_SPEC: IntegrationSpec = {
   source: "Swyft AI",
-  tagline:
-    "AI deal-capture. Derived integration — Swyft writes MEDDPICC fields to Salesforce; Dugout reads them from there.",
+  tagline: "AI deal-capture. Writes MEDDPICC to Salesforce.",
   direction: "read",
   auth: {
     method: "none",

@@ -2,8 +2,7 @@ import type { IntegrationSpec } from "./types";
 
 export const ZENDESK_SPEC: IntegrationSpec = {
   source: "Zendesk",
-  tagline:
-    "Support ticketing. API token (recommended) sent as Basic Auth with admin email.",
+  tagline: "Support ticketing.",
   direction: "read",
   auth: {
     method: "api_key",
