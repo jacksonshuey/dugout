@@ -371,7 +371,7 @@ function StepShell({
           <span className="font-mono text-xs text-muted">
             STEP 0{num} / 05
           </span>
-          <h3 className="text-2xl sm:text-3xl font-semibold tracking-tight">
+          <h3 className="font-serif text-2xl sm:text-3xl font-semibold -tracking-[0.02em]">
             {title}
           </h3>
           {sub && (
