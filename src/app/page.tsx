@@ -616,25 +616,25 @@ function DataSourcesRow() {
         icon="✉"
         name="AgentMail"
         role="Newsletter inbox · Svix-signed webhooks"
-        detail="One workspace inbox for every subscribed publisher. AI tags each email by account or vertical."
+        detail="One inbox per workspace, AI-tagged by account."
       />
       <SourceCard
         icon="N"
         name="NewsAPI"
         role="Mainstream press · daily cron"
-        detail="Reuters, Bloomberg, TechCrunch. AI grades relevance and routes high-confidence hits to the matching account."
+        detail="Mainstream news, routed to the matching account."
       />
       <SourceCard
         icon="§"
         name="SEC EDGAR"
         role="Public filings · 10-K, 8-K, 6-K"
-        detail="Live monitor on tracked public companies. Leadership changes, risk-factor edits, M&A, earnings to the drawer in minutes."
+        detail="Filings on tracked companies, summarized in minutes."
       />
       <SourceCard
         icon="F"
         name="Firecrawl"
         role="Account site scrapes · nightly"
-        detail="Newsrooms + leadership + product pages scraped per account. AI extracts earnings dates, conference talks, product launches."
+        detail="Per-account site scrapes — earnings, talks, launches."
       />
     </div>
   );
