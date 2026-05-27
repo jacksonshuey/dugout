@@ -41,6 +41,10 @@ import {
   moderateBriefSignals,
   moderateSignals,
 } from "@/lib/signal-moderator";
+import {
+  getLivePipelineSnapshot,
+  type LivePipelineSnapshot,
+} from "@/lib/live-pipeline";
 
 // 60-second ISR window. Tight enough that the workspace inbox + transform
 // visual feel fresh on each visit; loose enough that Supabase isn't hit on
@@ -819,6 +823,315 @@ function DashboardSignalPanel() {
   );
 }
 
+// ---------------------------------------------------------------------------
+// LivePipelineVisual: replaces the static NewsletterTransformVisual when
+// Supabase is reachable. Shows a counters strip across the top + the most
+// recent real email's full chain (raw email → Haiku verdict + reasoning →
+// signal or "dropped" with reason). All values are real, sourced from the
+// inbound_emails / email_filter_decisions / external_signals tables.
+// ---------------------------------------------------------------------------
+function LivePipelineVisual({
+  snapshot,
+  accountNameById,
+}: {
+  snapshot: LivePipelineSnapshot;
+  accountNameById: Map<string, string>;
+}) {
+  return (
+    <div className="mt-10 space-y-4">
+      <LiveCountersStrip counts={snapshot.counts} />
+      {snapshot.latestRun ? (
+        <div className="flex flex-col md:flex-row gap-3 items-stretch">
+          <LiveEmailPanel email={snapshot.latestRun.email} />
+          <FlowChevron />
+          <LiveFilterPanel decision={snapshot.latestRun.filterDecision} />
+          <FlowChevron />
+          <LiveOutcomePanel
+            decision={snapshot.latestRun.filterDecision}
+            signal={snapshot.latestRun.resultSignal}
+            accountNameById={accountNameById}
+          />
+        </div>
+      ) : (
+        <div className="rounded-lg border border-dashed border-border bg-foreground/[0.015] p-8 text-center text-[12px] text-muted italic">
+          No classified emails yet. The pipeline is wired and listening.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LiveCountersStrip({
+  counts,
+}: {
+  counts: LivePipelineSnapshot["counts"];
+}) {
+  return (
+    <div className="rounded-lg border border-border bg-foreground/[0.02] px-4 py-3 flex items-center gap-6 flex-wrap text-[11px]">
+      <Counter label="Inbound 24h" value={counts.inbound24h.toLocaleString()} />
+      <Counter
+        label="Signals emitted"
+        value={counts.signals24h.toLocaleString()}
+        accent="brand"
+      />
+      <Counter
+        label="Dropped by filter"
+        value={counts.dropped24h.toLocaleString()}
+        accent="muted"
+      />
+      <div className="ml-auto flex items-center gap-2">
+        <span
+          aria-hidden
+          className="w-1.5 h-1.5 rounded-full bg-severity-green animate-pulse"
+        />
+        <span className="text-[10px] font-mono uppercase tracking-[0.1em] text-muted">
+          Last activity {formatRelativeTime(counts.lastActivityAt)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function Counter({
+  label,
+  value,
+  accent,
+}: {
+  label: string;
+  value: string;
+  accent?: "brand" | "muted";
+}) {
+  const valueColor =
+    accent === "brand"
+      ? "text-brand"
+      : accent === "muted"
+      ? "text-muted"
+      : "text-foreground";
+  return (
+    <div className="flex items-baseline gap-2">
+      <span className={`text-base font-semibold tabular-nums ${valueColor}`}>
+        {value}
+      </span>
+      <span className="text-[10px] uppercase tracking-[0.1em] font-mono text-muted">
+        {label}
+      </span>
+    </div>
+  );
+}
+
+function LiveEmailPanel({
+  email,
+}: {
+  email: NonNullable<LivePipelineSnapshot["latestRun"]>["email"];
+}) {
+  const publisherLabel = email.publisher_canonical_name ?? email.from_domain;
+  return (
+    <div className="flex-1 rounded-lg border border-border bg-background p-4 flex flex-col min-w-0">
+      <div className="text-[10px] font-mono uppercase tracking-[0.1em] text-muted">
+        Inbound · {formatRelativeTime(email.received_at)}
+      </div>
+      <div className="mt-3 flex items-center gap-2 min-w-0">
+        <div
+          aria-hidden
+          className="w-8 h-8 rounded bg-foreground/[0.05] flex items-center justify-center text-muted shrink-0"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            className="w-4 h-4"
+          >
+            <rect x="3" y="5" width="18" height="14" rx="2" />
+            <path d="M3 7l9 6 9-6" />
+          </svg>
+        </div>
+        <div className="min-w-0">
+          <div className="text-[11px] text-muted truncate font-mono">
+            {publisherLabel}
+          </div>
+          <div className="text-xs font-semibold tracking-tight truncate">
+            {email.subject ?? "(no subject)"}
+          </div>
+        </div>
+      </div>
+      {email.body_preview && (
+        <div className="mt-3 text-xs italic text-foreground/60 leading-snug line-clamp-4">
+          {email.body_preview}
+          {email.body_preview.length >= 280 ? "…" : ""}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function LiveFilterPanel({
+  decision,
+}: {
+  decision: NonNullable<LivePipelineSnapshot["latestRun"]>["filterDecision"];
+}) {
+  if (!decision) {
+    return (
+      <div className="md:w-52 shrink-0 rounded-lg border border-border bg-foreground/[0.02] p-4 flex flex-col items-center justify-center text-center gap-2">
+        <div className="text-[10px] font-mono uppercase tracking-[0.1em] text-muted">
+          Processing
+        </div>
+        <div className="text-[11px] text-foreground/60 leading-snug">
+          waiting on classifier
+        </div>
+      </div>
+    );
+  }
+
+  const isKept = decision.verdict === "newsworthy";
+  const isStage1 = decision.stage === 1;
+  const tint = isKept
+    ? "border-brand/30 bg-brand/[0.04]"
+    : "border-border bg-foreground/[0.03]";
+  const modelLabel = decision.model
+    ? decision.model.replace("claude-", "").replace(/-\d{6,}/, "")
+    : isStage1
+    ? "deterministic"
+    : "haiku";
+
+  return (
+    <div
+      className={`md:w-52 shrink-0 rounded-lg border ${tint} p-4 flex flex-col gap-2`}
+    >
+      <div className="flex items-baseline justify-between gap-2">
+        <div
+          className={`text-[10px] font-mono uppercase tracking-[0.1em] ${
+            isKept ? "text-brand" : "text-muted"
+          }`}
+        >
+          {modelLabel}
+        </div>
+        {decision.confidence !== null && (
+          <div className="text-[9px] font-mono text-muted">
+            {(decision.confidence * 100).toFixed(0)}%
+          </div>
+        )}
+      </div>
+      <div className="text-[11px] font-semibold tracking-tight">
+        {verdictLabel(decision.verdict)}
+      </div>
+      <div className="text-[11px] text-foreground/70 leading-snug">
+        {decision.reasoning}
+      </div>
+    </div>
+  );
+}
+
+function LiveOutcomePanel({
+  decision,
+  signal,
+  accountNameById,
+}: {
+  decision: NonNullable<LivePipelineSnapshot["latestRun"]>["filterDecision"];
+  signal: NonNullable<LivePipelineSnapshot["latestRun"]>["resultSignal"];
+  accountNameById: Map<string, string>;
+}) {
+  if (signal) {
+    const accountName =
+      accountNameById.get(signal.account_id) ??
+      (signal.account_id === "__workspace__" ? "Workspace" : signal.account_id);
+    const publisher = signal.publisher_canonical_name ?? "source";
+    return (
+      <div className="flex-1 rounded-lg border border-border bg-foreground/[0.02] p-4 flex flex-col min-w-0">
+        <div className="text-[10px] font-mono uppercase tracking-[0.1em] text-muted">
+          Your dashboard
+        </div>
+        <div className="mt-3 flex items-center gap-2 flex-wrap">
+          <span className="text-[10px] font-mono uppercase tracking-[0.1em] py-0.5 px-2 rounded border border-brand/40 bg-brand/10 text-brand">
+            {accountName}
+          </span>
+          {signal.workspace_relevance && (
+            <span className="text-[10px] font-mono uppercase tracking-[0.08em] text-muted">
+              {signal.workspace_relevance} relevance
+            </span>
+          )}
+        </div>
+        <div className="mt-3 text-sm font-medium tracking-tight leading-snug line-clamp-4">
+          {signal.summary}
+        </div>
+        <div className="mt-auto pt-3 text-[10px] font-mono uppercase tracking-[0.1em] text-muted">
+          {publisher}
+        </div>
+      </div>
+    );
+  }
+
+  // No signal yet. Two cases:
+  //   1) Filter kept the email (verdict === "newsworthy") but signal extraction
+  //      hasn't run / didn't link back. Show "pending extraction."
+  //   2) Filter dropped the email. Show the drop reason.
+  const wasKept = decision?.verdict === "newsworthy";
+
+  if (wasKept) {
+    return (
+      <div className="flex-1 rounded-lg border border-border bg-foreground/[0.02] p-4 flex flex-col min-w-0">
+        <div className="text-[10px] font-mono uppercase tracking-[0.1em] text-muted">
+          Outcome
+        </div>
+        <div className="mt-3 flex items-center gap-2">
+          <span className="text-[10px] font-mono uppercase tracking-[0.1em] py-0.5 px-2 rounded border border-brand/40 bg-brand/10 text-brand">
+            kept
+          </span>
+        </div>
+        <div className="mt-3 text-sm font-medium tracking-tight leading-snug text-foreground/70">
+          Signal extraction in flight. The classifier marked this newsworthy;
+          the per-account tagger runs next.
+        </div>
+        <div className="mt-auto pt-3 text-[10px] font-mono uppercase tracking-[0.1em] text-muted">
+          Awaiting signal
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 rounded-lg border border-border bg-foreground/[0.02] p-4 flex flex-col min-w-0">
+      <div className="text-[10px] font-mono uppercase tracking-[0.1em] text-muted">
+        Outcome
+      </div>
+      <div className="mt-3 flex items-center gap-2">
+        <span className="text-[10px] font-mono uppercase tracking-[0.1em] py-0.5 px-2 rounded border border-border bg-foreground/[0.04] text-muted">
+          dropped
+        </span>
+      </div>
+      <div className="mt-3 text-sm font-medium tracking-tight leading-snug text-foreground/70">
+        {decision?.reasoning ?? "Filtered before reaching the dashboard."}
+      </div>
+      <div className="mt-auto pt-3 text-[10px] font-mono uppercase tracking-[0.1em] text-muted">
+        No signal emitted
+      </div>
+    </div>
+  );
+}
+
+function verdictLabel(verdict: string): string {
+  if (verdict === "newsworthy") return "Kept · newsworthy";
+  if (verdict === "stage1_rejected") return "Dropped at stage 1";
+  if (verdict === "promotional") return "Dropped · promotional";
+  if (verdict === "logistics") return "Dropped · logistics";
+  if (verdict === "other") return "Dropped · other";
+  return verdict;
+}
+
+function formatRelativeTime(iso: string | null): string {
+  if (!iso) return "—";
+  const then = new Date(iso).getTime();
+  const now = Date.now();
+  const diffMs = Math.max(0, now - then);
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 // Fetches workspace-scoped signals for the SortableWorkspaceFeed below.
 // The sort itself happens client-side (workspace_relevance, occurred_at,
 // signal type magnitude); the server just hands the rows down. Fails soft
@@ -837,10 +1150,14 @@ async function fetchWorkspaceFeed(): Promise<ExternalSignal[]> {
 }
 
 async function MarketIntelLiveSection() {
-  const workspaceSignals = await fetchWorkspaceFeed();
+  const [workspaceSignals, pipelineSnapshot] = await Promise.all([
+    fetchWorkspaceFeed(),
+    getLivePipelineSnapshot(),
+  ]);
   const trackedAccountNames = accounts.flatMap((a) =>
     a.ticker ? [a.name, a.ticker] : [a.name],
   );
+  const accountNameById = new Map(accounts.map((a) => [a.id, a.name]));
 
   return (
     <section className="max-w-6xl mx-auto px-6 py-20 sm:py-24 border-t border-border">
@@ -856,7 +1173,14 @@ async function MarketIntelLiveSection() {
 
       <DataSourcesRow />
 
-      <NewsletterTransformVisual />
+      {pipelineSnapshot ? (
+        <LivePipelineVisual
+          snapshot={pipelineSnapshot}
+          accountNameById={accountNameById}
+        />
+      ) : (
+        <NewsletterTransformVisual />
+      )}
 
       <div className="mt-12">
         <h3 className="text-sm font-semibold tracking-tight text-foreground/80">

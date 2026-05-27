@@ -543,7 +543,11 @@ function OverviewGraph({
         viewBox={`${viewBoxMinX} 0 ${viewBoxWidth} ${HEIGHT}`}
         preserveAspectRatio="xMidYMid meet"
         className="block w-full h-auto"
-        style={{ transition: "all 200ms ease" }}
+        style={{
+          transition: "all 200ms ease",
+          fontFamily:
+            "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        }}
       >
         {/* Edges */}
         {edges.map((e, i) => {
@@ -628,7 +632,6 @@ function OverviewGraph({
                 y={NODE_H / 2 + 10}
                 dominantBaseline="middle"
                 fontSize="10"
-                fontFamily="ui-monospace, monospace"
                 fill="currentColor"
                 fillOpacity="0.55"
               >
@@ -705,7 +708,6 @@ function OverviewGraph({
                         y={NODE_H / 2 + 10}
                         dominantBaseline="middle"
                         fontSize="10"
-                        fontFamily="ui-monospace, monospace"
                         fill="currentColor"
                         fillOpacity="0.55"
                         style={{ pointerEvents: "none" }}
@@ -843,7 +845,6 @@ function OverviewGraph({
                 y={NODE_H / 2 + 10}
                 dominantBaseline="middle"
                 fontSize="10"
-                fontFamily="ui-monospace, monospace"
                 fill="currentColor"
                 fillOpacity="0.55"
               >

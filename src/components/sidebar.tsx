@@ -69,34 +69,11 @@ export function Sidebar({
 
   return (
     <aside className="w-56 shrink-0 border-r border-border bg-slate-50/50 sticky top-12 self-start">
-      <div className="p-3 pt-6 space-y-5">
-        {/* Views */}
-        <div className="space-y-0.5">
-          {(
-            [
-              ["pipeline", "Pipeline", "All deals + health"],
-            ] as const
-          ).map(([id, label, sub]) => (
-            <button
-              key={id}
-              onClick={() => onViewChange(id)}
-              className={cn(
-                "w-full text-left px-2.5 py-1.5 rounded-md transition-colors",
-                view === id
-                  ? "bg-foreground/[0.06] text-foreground"
-                  : "hover:bg-foreground/[0.03] text-foreground/80",
-              )}
-            >
-              <div className="text-sm font-medium">{label}</div>
-              <div className="text-[11px] text-muted leading-tight">{sub}</div>
-            </button>
-          ))}
-        </div>
-
+      <div className="p-3 pt-4 space-y-4">
         {/* Filters moved into the table's column headers (Stage / Health
-            / Severity dropdowns). Sidebar is now: tabs → pre-meeting
-            brief → bottom stats. Clear-all link only renders when at
-            least one filter is active. */}
+            / Severity dropdowns). Sidebar is now: pre-meeting brief →
+            bottom stats. Clear-all link only renders when at least one
+            filter is active. */}
         {hasAnyFilter && (
           <div className="flex items-center justify-between px-2.5">
             <span className="text-[10px] uppercase tracking-wider text-muted font-semibold">
