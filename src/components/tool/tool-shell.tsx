@@ -4,12 +4,11 @@ import { useRef, useState } from "react";
 import { Console, type ConsoleData } from "@/components/console";
 import { InteractiveSignals } from "@/components/landing/interactive-signals";
 import { InteractiveDecisions } from "@/components/landing/interactive-decisions";
-import { IntegrationSetupReel } from "@/components/landing/integration-setup-reel";
-import { IntegrationsMatrix } from "@/components/landing/integrations-matrix";
 import type { IntegrationSpec } from "@/data/integrations";
 import type { IntegrationHealth } from "@/lib/integration-health";
 import { ConnectivityGraph } from "@/components/tool/connectivity-graph";
 import { IntegrationConnectModal } from "@/components/tool/integration-connect-modal";
+import { IntegrationsTable } from "@/components/tool/integrations-table";
 import { WorkspaceTree } from "@/components/tool/workspace-tree";
 import { ExampleRules } from "@/components/tool/example-rules";
 import { CANONICAL_OBJECTS, type CanonicalObject } from "@/data/canonical-objects";
@@ -17,8 +16,10 @@ import {
   rawFieldsContributingTo,
   contributorsFor,
 } from "@/data/object-mappings";
-import { getRawObjectsBySource } from "@/data/raw-fields";
-import { INTEGRATION_SPECS, getSpec } from "@/data/integration-specs";
+import {
+  getSpec,
+  type IntegrationSpec as IntegrationConnectSpec,
+} from "@/data/integration-specs";
 import { cn } from "@/lib/utils";
 
 // Tabbed shell for the operator tool surface. Tab state is local only (no
@@ -84,12 +85,7 @@ export function ToolShell(props: ToolShellProps) {
         </div>
       </div>
       {tab === "dashboard" && <DashboardTab {...props} />}
-      {tab === "integrations" && (
-        <IntegrationsTab
-          integrations={props.integrations}
-          health={props.integrationHealth}
-        />
-      )}
+      {tab === "integrations" && <IntegrationsTab />}
       {tab === "rules" && <RulesTab />}
       {tab === "actions" && <ActionsTab />}
       {tab === "ontology" && <OntologyTab />}
@@ -129,179 +125,23 @@ function DashboardTab(props: ToolShellProps) {
   );
 }
 
-function IntegrationsTab({
-  integrations,
-  health,
-}: {
-  integrations: IntegrationSpec[];
-  health: Record<string, IntegrationHealth>;
-}) {
-  const [openSpec, setOpenSpec] = useState<IntegrationConnectSpec | null>(null);
+function IntegrationsTab() {
+  // The table is the main surface. Status, auth, direction, sync model,
+  // and the Connect button all live in the row. Connect popup spawns
+  // from the row's button; on save the row flips to Connected.
   return (
     <div>
       <TabHeader
         title="Integrations"
         sub="Dugout reads from your existing stack. The only places it writes are Slack (signal delivery) and Calendly (booking links). Credentials encrypt in Supabase Vault and never reach the browser."
       />
-      <div className="max-w-6xl mx-auto px-6 pb-8 space-y-6">
-        <SourceConnectGrid onConnect={(s) => setOpenSpec(s)} />
-        <div>
-          <div className="text-[10px] uppercase tracking-[0.2em] font-mono text-muted mb-2">
-            Setup walkthrough demo
-          </div>
-          <IntegrationSetupReel integrations={integrations} health={health} />
-        </div>
-        <div>
-          <div className="text-[10px] uppercase tracking-[0.2em] font-mono text-muted mb-2">
-            Status overview
-          </div>
-          <IntegrationsMatrix health={health} />
-        </div>
-      </div>
-      {openSpec && (
-        <IntegrationConnectModal
-          spec={openSpec}
-          onClose={() => setOpenSpec(null)}
-        />
-      )}
-    </div>
-  );
-}
-
-// Local alias so the import surface in this file stays clean.
-type IntegrationConnectSpec = Parameters<
-  typeof IntegrationConnectModal
->[0]["spec"];
-
-// Ambient data sources Dugout manages on the customer's behalf - no
-// customer credential, no popup. They still show up in the connectivity
-// graph as canonical-object contributors, but aren't presented as
-// "Connect X" cards because there's nothing for the customer to fill in.
-const AMBIENT_SOURCES = new Set(["SEC EDGAR", "NewsAPI"]);
-
-function SourceConnectGrid({
-  onConnect,
-}: {
-  onConnect: (spec: IntegrationConnectSpec) => void;
-}) {
-  const reads = INTEGRATION_SPECS.filter(
-    (s) => s.direction === "read" && !AMBIENT_SOURCES.has(s.source),
-  );
-  const writes = INTEGRATION_SPECS.filter(
-    (s) => s.direction === "write" || s.direction === "both",
-  );
-  return (
-    <div className="space-y-6">
-      <ConnectGridSection
-        title="Read sources"
-        subtitle={`${reads.length} systems Dugout pulls from. Source of truth stays with the vendor.`}
-        specs={reads}
-        onConnect={onConnect}
-      />
-      <ConnectGridSection
-        title="Outbound delivery"
-        subtitle={`${writes.length} surfaces Dugout writes to. The only places Dugout pushes anything.`}
-        specs={writes}
-        onConnect={onConnect}
-      />
-    </div>
-  );
-}
-
-function ConnectGridSection({
-  title,
-  subtitle,
-  specs,
-  onConnect,
-}: {
-  title: string;
-  subtitle: string;
-  specs: IntegrationConnectSpec[];
-  onConnect: (spec: IntegrationConnectSpec) => void;
-}) {
-  return (
-    <div>
-      <div className="flex items-baseline justify-between mb-2">
-        <div>
-          <div className="text-[10px] uppercase tracking-[0.2em] font-mono text-muted">
-            {title} · {specs.length}
-          </div>
-          <p className="text-xs text-muted mt-0.5">{subtitle}</p>
-        </div>
-      </div>
-      {/* auto-rows-fr + h-full on the cards makes every cell the same
-          height regardless of tagline length. The tagline gets flex-1
-          so it pushes the Connect button to the bottom of the card. */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 auto-rows-fr">
-        {specs.map((spec) => {
-          const objCount = getRawObjectsBySource(spec.source).length;
-          return (
-            <div
-              key={spec.source}
-              className="rounded-lg border border-border bg-background p-3 flex flex-col gap-2 h-full"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="font-semibold tracking-tight truncate">
-                    {spec.source}
-                  </div>
-                  <div className="text-[10px] font-mono uppercase tracking-[0.1em] text-muted mt-0.5">
-                    {spec.direction === "read"
-                      ? `${objCount} object${objCount === 1 ? "" : "s"} · `
-                      : ""}
-                    {spec.auth.method.replace("_", " ")}
-                  </div>
-                </div>
-                <DirectionBadge direction={spec.direction} />
-              </div>
-              <p className="text-[11px] text-muted leading-snug flex-1">
-                {spec.tagline}
-              </p>
-              <button
-                type="button"
-                onClick={() => onConnect(spec)}
-                className="mt-1 text-xs font-semibold py-1.5 rounded-md bg-brand text-white hover:bg-brand/90 transition-colors"
-              >
-                Connect
-              </button>
-            </div>
-          );
-        })}
+      <div className="max-w-6xl mx-auto px-6 pb-12">
+        <IntegrationsTable />
       </div>
     </div>
   );
 }
 
-function DirectionBadge({
-  direction,
-}: {
-  direction: "read" | "write" | "both";
-}) {
-  const config = {
-    read: {
-      label: "read",
-      cls: "border-severity-action/40 bg-severity-action-bg text-severity-action",
-    },
-    write: {
-      label: "write",
-      cls: "border-brand/40 bg-brand/[0.08] text-brand",
-    },
-    both: {
-      label: "r+w",
-      cls: "border-severity-awareness/40 bg-severity-awareness-bg text-severity-awareness",
-    },
-  }[direction];
-  return (
-    <span
-      className={
-        "shrink-0 text-[9px] font-mono uppercase tracking-[0.15em] px-1.5 py-0.5 rounded border " +
-        config.cls
-      }
-    >
-      {config.label}
-    </span>
-  );
-}
 
 function RulesTab() {
   return (

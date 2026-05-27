@@ -19,9 +19,14 @@ import type {
 export function IntegrationConnectModal({
   spec,
   onClose,
+  onConnected,
 }: {
   spec: IntegrationSpec;
   onClose: () => void;
+  // Fires when the user successfully submits the setup form (no
+  // backend verification yet - it's the demo's "save" moment).
+  // Parent table uses this to flip the row's status to Connected.
+  onConnected?: () => void;
 }) {
   const [values, setValues] = useState<Record<string, string>>(() => {
     const init: Record<string, string> = {};
@@ -57,6 +62,7 @@ export function IntegrationConnectModal({
     e.preventDefault();
     if (!canSubmit()) return;
     setSubmitted(true);
+    onConnected?.();
   }
 
   return (
