@@ -75,7 +75,6 @@ export function Sidebar({
           {(
             [
               ["pipeline", "Pipeline", "All deals + health"],
-              ["today", "Actions", "Open tasks, by severity"],
             ] as const
           ).map(([id, label, sub]) => (
             <button

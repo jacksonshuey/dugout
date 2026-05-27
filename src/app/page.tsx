@@ -77,6 +77,7 @@ export default async function LandingPage() {
   return (
     <div className="bg-background">
       <Hero />
+      <MarketIntelLiveSection />
       <OnboardingWalkthrough />
       <section id="demo" className="border-t border-border bg-foreground/[0.02]">
         <div className="max-w-6xl mx-auto px-6 py-20 sm:py-24">
@@ -84,11 +85,10 @@ export default async function LandingPage() {
             Dashboard
           </h2>
           <p className="mt-2 text-sm text-muted">
-            Live console. Pipeline and today&apos;s open tasks, by severity.
-            The pre-meeting brief on the right pulls fresh news for
-            upcoming meetings on every refresh — SEC filings, funding
-            announcements, exec changes — so an AE never walks into a
-            meeting cold on what their account just did publicly.
+            Live pipeline. The pre-meeting brief on the right pulls fresh
+            news for upcoming meetings on every refresh: SEC filings,
+            funding announcements, exec changes, so an AE never walks in
+            cold on what their account just did publicly.
           </p>
         </div>
         <Console
@@ -104,7 +104,6 @@ export default async function LandingPage() {
           workspace={workspace}
         />
       </section>
-      <MarketIntelLiveSection />
       <NextUpSection />
       <Footer />
     </div>
