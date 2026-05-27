@@ -211,17 +211,38 @@ function OverviewGraph({
   const SRC_X = 24;
   const CAN_X = SRC_X + COL_W + COL_GAP;
   const WIDTH = CAN_X + COL_W + 24;
-  // Pop-out displacement when expanded. Source pops left; canonical
-  // pops right.
-  const SHIFT = 56;
-  // Dropdown layout below a popped-out pill.
-  const DROP_PAD_TOP = 6;
-  const DROP_ROW_H = 20;
-  const DROP_PAD_BOTTOM = 10;
-  const DROP_W = COL_W + SHIFT; // dropdown is the popped-out pill's width
+  // When a source is expanded, the popped pill moves left by exactly
+  // its own width + a small visual margin, opening a new column to the
+  // left of the source column. Dropdown rows stack below the popped
+  // pill in that new column, parallel to the original source rows.
+  // Mirrored for canonical objects (popped right).
+  const POP_MARGIN = 28;
+  const POP_SHIFT = COL_W + POP_MARGIN;
+  // Dropdown rows are full-height pills - same shape as source pills -
+  // so they align row-for-row with the unmoved sources/canonicals.
+  const DROP_ROW_STEP = NODE_H + NODE_GAP;
 
-  // For the expanded item, compute its dropdown row count so we know how
-  // far to push subsequent items below it.
+  // Sources/canonicals keep their primary y positions even when one is
+  // expanded - the dropdown opens to the side, not in line.
+  const sourceRows = useMemo(
+    () =>
+      sources.map((s, i) => ({
+        source: s,
+        y: PADDING + i * DROP_ROW_STEP,
+      })),
+    [sources, DROP_ROW_STEP],
+  );
+
+  const canonicalRows = useMemo(
+    () =>
+      CANONICAL_OBJECTS.map((o, i) => ({
+        obj: o,
+        y: PADDING + i * DROP_ROW_STEP,
+      })),
+    [DROP_ROW_STEP],
+  );
+
+  // Dropdown row counts to figure out the vertical extent the SVG needs.
   const expandedSourceDropdownRows = useMemo(() => {
     if (expanded?.kind !== "source") return 0;
     return getRawObjectsBySource(expanded.key).length;
@@ -233,40 +254,21 @@ function OverviewGraph({
     return co?.fields.length ?? 0;
   }, [expanded]);
 
-  const sourceDropdownHeight =
-    expandedSourceDropdownRows > 0
-      ? DROP_PAD_TOP + expandedSourceDropdownRows * DROP_ROW_H + DROP_PAD_BOTTOM
+  // Each dropdown's vertical reach (from the popped pill's top to the
+  // bottom of its last dropdown row).
+  const sourceDropdownBottom =
+    expanded?.kind === "source"
+      ? PADDING +
+        sources.indexOf(expanded.key) * DROP_ROW_STEP +
+        (1 + expandedSourceDropdownRows) * DROP_ROW_STEP
       : 0;
-  const canonicalDropdownHeight =
-    expandedCanonicalDropdownRows > 0
-      ? DROP_PAD_TOP +
-        expandedCanonicalDropdownRows * DROP_ROW_H +
-        DROP_PAD_BOTTOM
+  const canonicalDropdownBottom =
+    expanded?.kind === "canonical"
+      ? PADDING +
+        CANONICAL_OBJECTS.findIndex((o) => o.key === expanded.key) *
+          DROP_ROW_STEP +
+        (1 + expandedCanonicalDropdownRows) * DROP_ROW_STEP
       : 0;
-
-  // Source y positions. If a source is expanded, everything below it is
-  // shifted down by the dropdown height to make room.
-  const sourceRows = useMemo(() => {
-    const expandedIdx =
-      expanded?.kind === "source" ? sources.indexOf(expanded.key) : -1;
-    return sources.map((s, i) => {
-      let y = PADDING + i * (NODE_H + NODE_GAP);
-      if (expandedIdx >= 0 && i > expandedIdx) y += sourceDropdownHeight;
-      return { source: s, y };
-    });
-  }, [sources, expanded, sourceDropdownHeight]);
-
-  const canonicalRows = useMemo(() => {
-    const expandedIdx =
-      expanded?.kind === "canonical"
-        ? CANONICAL_OBJECTS.findIndex((o) => o.key === expanded.key)
-        : -1;
-    return CANONICAL_OBJECTS.map((o, i) => {
-      let y = PADDING + i * (NODE_H + NODE_GAP);
-      if (expandedIdx >= 0 && i > expandedIdx) y += canonicalDropdownHeight;
-      return { obj: o, y };
-    });
-  }, [expanded, canonicalDropdownHeight]);
 
   const sourceBottom =
     sourceRows.length > 0
@@ -276,17 +278,22 @@ function OverviewGraph({
     canonicalRows.length > 0
       ? canonicalRows[canonicalRows.length - 1].y + NODE_H
       : PADDING;
-  const HEIGHT = Math.max(sourceBottom, canonicalBottom) + PADDING;
+  const HEIGHT =
+    Math.max(
+      sourceBottom,
+      canonicalBottom,
+      sourceDropdownBottom,
+      canonicalDropdownBottom,
+    ) + PADDING;
 
-  // viewBox grows left when a source is expanded (popped left) and grows
-  // right when a canonical is expanded (popped right). The container has
-  // preserveAspectRatio so the whole thing scales down to fit - this is
-  // the "zoom out" effect.
-  const viewBoxMinX = expanded?.kind === "source" ? -SHIFT : 0;
+  // viewBox grows by POP_SHIFT on whichever side the pill popped out
+  // into. preserveAspectRatio handles the zoom-out (more room = smaller
+  // overall rendering inside the same container).
+  const viewBoxMinX = expanded?.kind === "source" ? -POP_SHIFT : 0;
   const viewBoxWidth =
     WIDTH +
-    (expanded?.kind === "source" ? SHIFT : 0) +
-    (expanded?.kind === "canonical" ? SHIFT : 0);
+    (expanded?.kind === "source" ? POP_SHIFT : 0) +
+    (expanded?.kind === "canonical" ? POP_SHIFT : 0);
 
   const maxWeight = Math.max(...edges.map((e) => e.weight), 1);
 
@@ -367,9 +374,9 @@ function OverviewGraph({
             expanded?.kind === "source" && expanded.key === e.source;
           const isCanExpanded =
             expanded?.kind === "canonical" && expanded.key === e.canonical;
-          const startX = (isSrcExpanded ? SRC_X - SHIFT : SRC_X) + COL_W;
+          const startX = (isSrcExpanded ? SRC_X - POP_SHIFT : SRC_X) + COL_W;
           const startY = src.y + NODE_H / 2;
-          const endX = isCanExpanded ? CAN_X + SHIFT : CAN_X;
+          const endX = isCanExpanded ? CAN_X + POP_SHIFT : CAN_X;
           const endY = can.y + NODE_H / 2;
           const midX = (startX + endX) / 2;
           const color = colorForSource(e.source);
@@ -394,7 +401,7 @@ function OverviewGraph({
           const count = sourceCounts.get(r.source) ?? 0;
           const isExpanded =
             expanded?.kind === "source" && expanded.key === r.source;
-          const nodeX = isExpanded ? SRC_X - SHIFT : SRC_X;
+          const nodeX = isExpanded ? SRC_X - POP_SHIFT : SRC_X;
           const active =
             !hover ||
             (hover.kind === "source" && hover.key === r.source) ||
@@ -464,44 +471,47 @@ function OverviewGraph({
           );
         })}
 
-        {/* Source dropdown - rows stagger in for a continuous unravel */}
+        {/* Source dropdown - one full-height pill per raw API object,
+            stacked below the popped Salesforce-style pill, aligned
+            row-for-row with the un-popped sources to its right. */}
         {expandedSourceRow && sourceDropdown && (
           <g key={`src-drop-${expanded?.key}`}>
             {sourceDropdown.map((row, i) => {
               const baseY =
-                expandedSourceRow.y + NODE_H + DROP_PAD_TOP + i * DROP_ROW_H;
+                expandedSourceRow.y + (i + 1) * DROP_ROW_STEP;
+              const color = colorForSource(expanded!.key);
               return (
                 <g
                   key={row.object}
                   className="cg-drop-row"
-                  style={{ animationDelay: `${i * 35}ms` }}
-                  transform={`translate(${SRC_X - SHIFT + 6}, ${baseY})`}
+                  style={{ animationDelay: `${i * 45}ms` }}
+                  transform={`translate(${SRC_X - POP_SHIFT}, ${baseY})`}
                 >
                   <rect
                     x={0}
                     y={0}
-                    width={DROP_W - 12}
-                    height={DROP_ROW_H - 2}
-                    rx={3}
-                    fill="var(--background)"
-                    stroke={colorForSource(expanded!.key)}
-                    strokeOpacity="0.25"
+                    width={COL_W}
+                    height={NODE_H}
+                    rx={8}
+                    fill={color}
+                    fillOpacity="0.06"
+                    stroke={color}
+                    strokeOpacity="0.45"
                   />
                   <text
-                    x={6}
-                    y={(DROP_ROW_H - 2) / 2}
+                    x={14}
+                    y={NODE_H / 2 - 6}
                     dominantBaseline="middle"
-                    fontSize="10"
-                    fontFamily="ui-monospace, monospace"
+                    fontSize="12"
+                    fontWeight="600"
                     fill="currentColor"
                   >
                     {row.object}
                   </text>
                   <text
-                    x={DROP_W - 24}
-                    y={(DROP_ROW_H - 2) / 2}
+                    x={14}
+                    y={NODE_H / 2 + 10}
                     dominantBaseline="middle"
-                    textAnchor="end"
                     fontSize="9"
                     fontFamily="ui-monospace, monospace"
                     fill="currentColor"
@@ -520,7 +530,7 @@ function OverviewGraph({
           const count = rawFieldsContributingTo(r.obj.key).length;
           const isExpanded =
             expanded?.kind === "canonical" && expanded.key === r.obj.key;
-          const nodeX = isExpanded ? CAN_X + SHIFT : CAN_X;
+          const nodeX = isExpanded ? CAN_X + POP_SHIFT : CAN_X;
           const active =
             !hover ||
             (hover.kind === "canonical" && hover.key === r.obj.key) ||
@@ -592,39 +602,41 @@ function OverviewGraph({
           );
         })}
 
-        {/* Canonical dropdown - rows stagger in for a continuous unravel */}
+        {/* Canonical dropdown - one full-height pill per field of the
+            canonical object, stacked below the popped pill, aligned
+            row-for-row with the un-popped canonicals to its left. */}
         {expandedCanonicalRow && canonicalDropdown && (
           <g key={`can-drop-${expanded?.key}`}>
             {canonicalDropdown.map((row, i) => {
               const baseY =
-                expandedCanonicalRow.y + NODE_H + DROP_PAD_TOP + i * DROP_ROW_H;
+                expandedCanonicalRow.y + (i + 1) * DROP_ROW_STEP;
               const isJoin = row.contribCount > 1;
               const isOrphan = row.contribCount === 0;
               return (
                 <g
                   key={row.key}
                   className="cg-drop-row"
-                  style={{ animationDelay: `${i * 20}ms` }}
-                  transform={`translate(${CAN_X + SHIFT + 6}, ${baseY})`}
+                  style={{ animationDelay: `${i * 25}ms` }}
+                  transform={`translate(${CAN_X + POP_SHIFT}, ${baseY})`}
                 >
                   <rect
                     x={0}
                     y={0}
-                    width={DROP_W - 12}
-                    height={DROP_ROW_H - 2}
-                    rx={3}
+                    width={COL_W}
+                    height={NODE_H}
+                    rx={8}
                     fill={isJoin ? "var(--brand)" : "var(--background)"}
                     fillOpacity={isJoin ? 0.08 : 1}
                     stroke="var(--brand)"
-                    strokeOpacity={isJoin ? 0.5 : isOrphan ? 0.15 : 0.3}
+                    strokeOpacity={isJoin ? 0.55 : isOrphan ? 0.2 : 0.35}
                   />
                   <text
-                    x={6}
-                    y={(DROP_ROW_H - 2) / 2}
+                    x={14}
+                    y={NODE_H / 2 - 6}
                     dominantBaseline="middle"
-                    fontSize="10"
+                    fontSize="11"
                     fontFamily="ui-monospace, monospace"
-                    fontWeight={isJoin ? 600 : 400}
+                    fontWeight={isJoin ? 700 : 500}
                     fill="currentColor"
                     fillOpacity={isOrphan ? 0.4 : 1}
                   >
@@ -632,14 +644,13 @@ function OverviewGraph({
                     {row.isArray ? "[]" : ""}
                   </text>
                   <text
-                    x={DROP_W - 24}
-                    y={(DROP_ROW_H - 2) / 2}
+                    x={14}
+                    y={NODE_H / 2 + 10}
                     dominantBaseline="middle"
-                    textAnchor="end"
                     fontSize="9"
                     fontFamily="ui-monospace, monospace"
                     fill={isJoin ? "var(--brand)" : "currentColor"}
-                    fillOpacity={isOrphan ? 0.4 : isJoin ? 0.85 : 0.55}
+                    fillOpacity={isOrphan ? 0.4 : isJoin ? 0.9 : 0.55}
                   >
                     {row.type}
                     {row.unit ? ` · ${row.unit}` : ""}
