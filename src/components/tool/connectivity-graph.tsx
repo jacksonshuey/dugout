@@ -74,8 +74,14 @@ export type Expanded =
 
 export function ConnectivityGraph(_props: ConnectivityGraphProps = {}) {
   const [expanded, setExpanded] = useState<Expanded>(null);
+  // Within an expanded source, which raw API object's fields are open.
+  // Only meaningful when expanded?.kind === "source".
+  const [expandedRawObject, setExpandedRawObject] = useState<string | null>(
+    null,
+  );
 
   function toggleSource(source: string) {
+    setExpandedRawObject(null);
     setExpanded((prev) =>
       prev?.kind === "source" && prev.key === source
         ? null
@@ -83,11 +89,15 @@ export function ConnectivityGraph(_props: ConnectivityGraphProps = {}) {
     );
   }
   function toggleObject(key: string) {
+    setExpandedRawObject(null);
     setExpanded((prev) =>
       prev?.kind === "canonical" && prev.key === key
         ? null
         : { kind: "canonical", key },
     );
+  }
+  function toggleRawObject(obj: string) {
+    setExpandedRawObject((prev) => (prev === obj ? null : obj));
   }
 
   return (
@@ -95,8 +105,10 @@ export function ConnectivityGraph(_props: ConnectivityGraphProps = {}) {
       <StatsStrip />
       <OverviewGraph
         expanded={expanded}
+        expandedRawObject={expandedRawObject}
         onToggleSource={toggleSource}
         onToggleObject={toggleObject}
+        onToggleRawObject={toggleRawObject}
       />
     </div>
   );
@@ -175,12 +187,16 @@ interface OverviewEdge {
 
 function OverviewGraph({
   expanded,
+  expandedRawObject,
   onToggleSource,
   onToggleObject,
+  onToggleRawObject,
 }: {
   expanded: Expanded;
+  expandedRawObject: string | null;
   onToggleSource: (source: string) => void;
   onToggleObject: (key: string) => void;
+  onToggleRawObject: (obj: string) => void;
 }) {
   const sources = useMemo(() => getUniqueSources(), []);
   const sourceCounts = useMemo(() => sourceContributionCounts(), []);
@@ -211,36 +227,38 @@ function OverviewGraph({
   const SRC_X = 24;
   const CAN_X = SRC_X + COL_W + COL_GAP;
   const WIDTH = CAN_X + COL_W + 24;
-  // When a source is expanded, the popped pill moves left by exactly
-  // its own width + a small visual margin, opening a new column to the
-  // left of the source column. Dropdown rows stack below the popped
-  // pill in that new column, parallel to the original source rows.
-  // Mirrored for canonical objects (popped right).
-  const POP_MARGIN = 28;
-  const POP_SHIFT = COL_W + POP_MARGIN;
   // Dropdown rows are full-height pills - same shape as source pills -
   // so they align row-for-row with the unmoved sources/canonicals.
   const DROP_ROW_STEP = NODE_H + NODE_GAP;
 
-  // Sources/canonicals keep their primary y positions even when one is
-  // expanded - the dropdown opens to the side, not in line.
-  const sourceRows = useMemo(
-    () =>
-      sources.map((s, i) => ({
-        source: s,
-        y: PADDING + i * DROP_ROW_STEP,
-      })),
-    [sources, DROP_ROW_STEP],
-  );
+  // When a source is expanded it slides to the top of its column and
+  // the OTHER sources are hidden - the column becomes a dedicated
+  // detail view for that source: pill, then raw-object rows, then
+  // (optionally) field rows when a raw object is itself expanded.
+  // Click the source again to collapse and bring everyone back.
+  const sourceRows = useMemo(() => {
+    if (expanded?.kind === "source") {
+      return [{ source: expanded.key, y: PADDING }];
+    }
+    return sources.map((s, i) => ({
+      source: s,
+      y: PADDING + i * DROP_ROW_STEP,
+    }));
+  }, [sources, expanded, DROP_ROW_STEP]);
 
-  const canonicalRows = useMemo(
-    () =>
-      CANONICAL_OBJECTS.map((o, i) => ({
-        obj: o,
-        y: PADDING + i * DROP_ROW_STEP,
-      })),
-    [DROP_ROW_STEP],
-  );
+  // Mirrored for canonical: when expanded, the canonical column shows
+  // only that object + its field-row dropdown below.
+  const canonicalRows = useMemo(() => {
+    if (expanded?.kind === "canonical") {
+      const co = CANONICAL_OBJECTS.find((o) => o.key === expanded.key);
+      if (!co) return [];
+      return [{ obj: co, y: PADDING }];
+    }
+    return CANONICAL_OBJECTS.map((o, i) => ({
+      obj: o,
+      y: PADDING + i * DROP_ROW_STEP,
+    }));
+  }, [expanded, DROP_ROW_STEP]);
 
   // Dropdown row counts to figure out the vertical extent the SVG needs.
   const expandedSourceDropdownRows = useMemo(() => {
@@ -254,20 +272,28 @@ function OverviewGraph({
     return co?.fields.length ?? 0;
   }, [expanded]);
 
-  // Each dropdown's vertical reach (from the popped pill's top to the
-  // bottom of its last dropdown row).
+  // Source dropdown lives in the source column at y=PADDING+DROP_ROW_STEP
+  // and beyond. If a raw object is expanded, its fields are stacked
+  // beneath at FIELD_ROW_STEP each, so the dropdown's bottom grows.
+  const FIELD_ROW_H = 22;
+  const FIELD_ROW_GAP = 2;
+  const FIELD_ROW_STEP = FIELD_ROW_H + FIELD_ROW_GAP;
+  const expandedRawObjectFieldCount = useMemo(() => {
+    if (expanded?.kind !== "source" || !expandedRawObject) return 0;
+    const rawObjects = getRawObjectsBySource(expanded.key);
+    return rawObjects.find((r) => r.object === expandedRawObject)?.fields.length ?? 0;
+  }, [expanded, expandedRawObject]);
+
   const sourceDropdownBottom =
     expanded?.kind === "source"
       ? PADDING +
-        sources.indexOf(expanded.key) * DROP_ROW_STEP +
-        (1 + expandedSourceDropdownRows) * DROP_ROW_STEP
+        (1 + expandedSourceDropdownRows) * DROP_ROW_STEP +
+        expandedRawObjectFieldCount * FIELD_ROW_STEP +
+        (expandedRawObjectFieldCount > 0 ? 8 : 0)
       : 0;
   const canonicalDropdownBottom =
     expanded?.kind === "canonical"
-      ? PADDING +
-        CANONICAL_OBJECTS.findIndex((o) => o.key === expanded.key) *
-          DROP_ROW_STEP +
-        (1 + expandedCanonicalDropdownRows) * DROP_ROW_STEP
+      ? PADDING + (1 + expandedCanonicalDropdownRows) * DROP_ROW_STEP
       : 0;
 
   const sourceBottom =
@@ -286,14 +312,11 @@ function OverviewGraph({
       canonicalDropdownBottom,
     ) + PADDING;
 
-  // viewBox grows by POP_SHIFT on whichever side the pill popped out
-  // into. preserveAspectRatio handles the zoom-out (more room = smaller
-  // overall rendering inside the same container).
-  const viewBoxMinX = expanded?.kind === "source" ? -POP_SHIFT : 0;
-  const viewBoxWidth =
-    WIDTH +
-    (expanded?.kind === "source" ? POP_SHIFT : 0) +
-    (expanded?.kind === "canonical" ? POP_SHIFT : 0);
+  // viewBox no longer grows horizontally — expanded pill slides up to
+  // the top of its column instead of out to the side. Vertical growth
+  // accommodates dropdown rows + optional field rows.
+  const viewBoxMinX = 0;
+  const viewBoxWidth = WIDTH;
 
   const maxWeight = Math.max(...edges.map((e) => e.weight), 1);
 
@@ -313,15 +336,19 @@ function OverviewGraph({
       ? canonicalRows.find((r) => r.obj.key === expanded.key)
       : undefined;
 
-  // For an expanded source, breakdown of its raw objects + canonical targets
+  // For an expanded source, breakdown of its raw objects + canonical
+  // targets + the actual field list per object (so the user can drill
+  // into subfields without leaving the Sankey).
   const sourceDropdown = useMemo(() => {
     if (expanded?.kind !== "source") return null;
     const rawObjects = getRawObjectsBySource(expanded.key);
     return rawObjects.map((ro) => {
       const destMap = new Map<string, number>();
-      for (const [s, o, , co] of FIELD_MAPPINGS) {
+      const mappedFieldKeys = new Set<string>();
+      for (const [s, o, f, co] of FIELD_MAPPINGS) {
         if (s !== expanded.key || o !== ro.object) continue;
         destMap.set(co, (destMap.get(co) ?? 0) + 1);
+        mappedFieldKeys.add(f);
       }
       const dests = Array.from(destMap.entries())
         .map(([k, n]) => `${k}·${n}`)
@@ -335,6 +362,11 @@ function OverviewGraph({
         totalFields: ro.fields.length,
         mappedCount,
         destinations: dests || "—",
+        fields: ro.fields.map((f) => ({
+          key: f.key,
+          type: f.type,
+          isMapped: mappedFieldKeys.has(f.key),
+        })),
       };
     });
   }, [expanded]);
@@ -370,13 +402,12 @@ function OverviewGraph({
           const src = sourceRows.find((r) => r.source === e.source);
           const can = canonicalRows.find((r) => r.obj.key === e.canonical);
           if (!src || !can) return null;
-          const isSrcExpanded =
-            expanded?.kind === "source" && expanded.key === e.source;
-          const isCanExpanded =
-            expanded?.kind === "canonical" && expanded.key === e.canonical;
-          const startX = (isSrcExpanded ? SRC_X - POP_SHIFT : SRC_X) + COL_W;
+          // No horizontal pop-shift now — expanded source/canonical
+          // slides up to the top of its column instead of out to the
+          // side. Curves originate/terminate at the column edges.
+          const startX = SRC_X + COL_W;
           const startY = src.y + NODE_H / 2;
-          const endX = isCanExpanded ? CAN_X + POP_SHIFT : CAN_X;
+          const endX = CAN_X;
           const endY = can.y + NODE_H / 2;
           const midX = (startX + endX) / 2;
           const color = colorForSource(e.source);
@@ -401,7 +432,7 @@ function OverviewGraph({
           const count = sourceCounts.get(r.source) ?? 0;
           const isExpanded =
             expanded?.kind === "source" && expanded.key === r.source;
-          const nodeX = isExpanded ? SRC_X - POP_SHIFT : SRC_X;
+          const nodeX = SRC_X;
           const active =
             !hover ||
             (hover.kind === "source" && hover.key === r.source) ||
@@ -471,67 +502,140 @@ function OverviewGraph({
           );
         })}
 
-        {/* Source dropdown - one full-height pill per raw API object,
-            stacked below the popped Salesforce-style pill, aligned
-            row-for-row with the un-popped sources to its right.
-
-            IMPORTANT: positioning transform on the OUTER <g>, animation
-            class on the INNER <g>. The fade-in keyframe also uses
-            `transform`, which would otherwise override the position. */}
+        {/* Source dropdown rendered inside the source column. Each
+            raw-object row is clickable; clicking one expands it to
+            show its actual API fields beneath as smaller rows. The
+            subsequent raw-object rows reflow downward. */}
         {expandedSourceRow && sourceDropdown && (
           <g key={`src-drop-${expanded?.key}`}>
-            {sourceDropdown.map((row, i) => {
-              const baseY =
-                expandedSourceRow.y + (i + 1) * DROP_ROW_STEP;
+            {(() => {
               const color = colorForSource(expanded!.key);
-              return (
-                <g
-                  key={row.object}
-                  transform={`translate(${SRC_X - POP_SHIFT}, ${baseY})`}
-                >
+              const FIELD_ROW_H = 22;
+              const FIELD_ROW_GAP = 2;
+              const FIELD_ROW_STEP = FIELD_ROW_H + FIELD_ROW_GAP;
+              const elements: React.ReactNode[] = [];
+              let y = expandedSourceRow.y + DROP_ROW_STEP;
+              sourceDropdown.forEach((row, i) => {
+                const isOpen = expandedRawObject === row.object;
+                elements.push(
                   <g
-                    className="cg-drop-row"
-                    style={{ animationDelay: `${i * 80}ms` }}
+                    key={row.object}
+                    transform={`translate(${SRC_X}, ${y})`}
                   >
-                    {/* Match the parent source pill's styling exactly -
-                        same fill/stroke opacities, same font sizes -
-                        so the popped-out column reads as one piece. */}
-                    <rect
-                      x={0}
-                      y={0}
-                      width={COL_W}
-                      height={NODE_H}
-                      rx={8}
-                      fill={color}
-                      fillOpacity="0.12"
-                      stroke={color}
-                      strokeOpacity="0.6"
-                    />
-                    <text
-                      x={14}
-                      y={NODE_H / 2 - 6}
-                      dominantBaseline="middle"
-                      fontSize="13"
-                      fontWeight="600"
-                      fill="currentColor"
+                    <g
+                      className="cg-drop-row"
+                      style={{ animationDelay: `${i * 60}ms` }}
                     >
-                      {row.object}
-                    </text>
-                    <text
-                      x={14}
-                      y={NODE_H / 2 + 10}
-                      dominantBaseline="middle"
-                      fontSize="10"
-                      fontFamily="ui-monospace, monospace"
-                      fill="currentColor"
-                      fillOpacity="0.55"
-                    >
-                      {row.mappedCount}/{row.totalFields} → {row.destinations}
-                    </text>
-                  </g>
-                </g>
-              );
-            })}
+                      <rect
+                        x={0}
+                        y={0}
+                        width={COL_W}
+                        height={NODE_H}
+                        rx={8}
+                        fill={color}
+                        fillOpacity={isOpen ? 0.2 : 0.12}
+                        stroke={color}
+                        strokeOpacity={isOpen ? 1 : 0.6}
+                        strokeWidth={isOpen ? 1.5 : 1}
+                        style={{ cursor: "pointer" }}
+                        onClick={() => onToggleRawObject(row.object)}
+                      />
+                      <text
+                        x={14}
+                        y={NODE_H / 2 - 6}
+                        dominantBaseline="middle"
+                        fontSize="13"
+                        fontWeight="600"
+                        fill="currentColor"
+                        style={{ pointerEvents: "none" }}
+                      >
+                        {row.object}
+                      </text>
+                      <text
+                        x={14}
+                        y={NODE_H / 2 + 10}
+                        dominantBaseline="middle"
+                        fontSize="10"
+                        fontFamily="ui-monospace, monospace"
+                        fill="currentColor"
+                        fillOpacity="0.55"
+                        style={{ pointerEvents: "none" }}
+                      >
+                        {row.mappedCount}/{row.totalFields} → {row.destinations}
+                      </text>
+                      <text
+                        x={COL_W - 14}
+                        y={NODE_H / 2}
+                        dominantBaseline="middle"
+                        textAnchor="end"
+                        fontSize="12"
+                        fill={color}
+                        fillOpacity="0.85"
+                        style={{ pointerEvents: "none" }}
+                      >
+                        {isOpen ? "−" : "+"}
+                      </text>
+                    </g>
+                  </g>,
+                );
+                y += DROP_ROW_STEP;
+                // If this raw object is expanded, render its field rows
+                // beneath it with a small indent + smaller font.
+                if (isOpen) {
+                  row.fields.forEach((f, fi) => {
+                    elements.push(
+                      <g
+                        key={`${row.object}-${f.key}`}
+                        transform={`translate(${SRC_X + 12}, ${y})`}
+                      >
+                        <g
+                          className="cg-drop-row"
+                          style={{ animationDelay: `${fi * 20}ms` }}
+                        >
+                          <rect
+                            x={0}
+                            y={0}
+                            width={COL_W - 12}
+                            height={FIELD_ROW_H}
+                            rx={4}
+                            fill="var(--background)"
+                            stroke={color}
+                            strokeOpacity={f.isMapped ? 0.35 : 0.15}
+                          />
+                          <text
+                            x={10}
+                            y={FIELD_ROW_H / 2}
+                            dominantBaseline="middle"
+                            fontSize="10"
+                            fontFamily="ui-monospace, monospace"
+                            fill="currentColor"
+                            fillOpacity={f.isMapped ? 1 : 0.45}
+                          >
+                            {f.key}
+                          </text>
+                          <text
+                            x={COL_W - 12 - 8}
+                            y={FIELD_ROW_H / 2}
+                            dominantBaseline="middle"
+                            textAnchor="end"
+                            fontSize="9"
+                            fontFamily="ui-monospace, monospace"
+                            fill="currentColor"
+                            fillOpacity={f.isMapped ? 0.6 : 0.35}
+                          >
+                            {f.type}
+                            {f.isMapped ? "" : " · unmapped"}
+                          </text>
+                        </g>
+                      </g>,
+                    );
+                    y += FIELD_ROW_STEP;
+                  });
+                  y += 4; // small gap after field block
+                }
+              });
+              return elements;
+            })()}
           </g>
         )}
 
@@ -540,7 +644,7 @@ function OverviewGraph({
           const count = rawFieldsContributingTo(r.obj.key).length;
           const isExpanded =
             expanded?.kind === "canonical" && expanded.key === r.obj.key;
-          const nodeX = isExpanded ? CAN_X + POP_SHIFT : CAN_X;
+          const nodeX = CAN_X;
           const active =
             !hover ||
             (hover.kind === "canonical" && hover.key === r.obj.key) ||
@@ -624,7 +728,7 @@ function OverviewGraph({
               return (
                 <g
                   key={row.key}
-                  transform={`translate(${CAN_X + POP_SHIFT}, ${baseY})`}
+                  transform={`translate(${CAN_X}, ${baseY})`}
                 >
                   <g
                     className="cg-drop-row"
