@@ -14,6 +14,9 @@ export type DocSourceTable =
 export interface DocEmbeddingInput {
   source_table: DocSourceTable;
   source_id: string;
+  // Position of this chunk within its source document (0-based). Long
+  // artifacts produce multiple chunks; short ones a single chunk_index 0.
+  chunk_index: number;
   account_id: string | null;
   kind: string | null;
   content: string;
@@ -27,20 +30,21 @@ export interface MatchedDoc {
   id: string;
   sourceTable: string;
   sourceId: string;
+  chunkIndex: number;
   accountId: string | null;
   kind: string | null;
   content: string;
   similarity: number;
 }
 
-// Upsert one embedding, keyed on (source_table, source_id) so re-embedding a
-// row replaces rather than duplicates. Used by embed-on-ingest hooks and the
-// backfill script.
+// Upsert one embedding, keyed on (source_table, source_id, chunk_index) so
+// re-embedding a chunk replaces rather than duplicates. Used by embed-on-ingest
+// hooks and the backfill script.
 export async function upsertEmbedding(doc: DocEmbeddingInput): Promise<void> {
   const sb = supabaseAdmin();
   const { error } = await sb
     .from("doc_embeddings")
-    .upsert(doc, { onConflict: "source_table,source_id" });
+    .upsert(doc, { onConflict: "source_table,source_id,chunk_index" });
   if (error) throw new Error(`upsertEmbedding failed: ${error.message}`);
 }
 
@@ -52,8 +56,25 @@ export async function upsertEmbeddings(
   const sb = supabaseAdmin();
   const { error } = await sb
     .from("doc_embeddings")
-    .upsert(docs, { onConflict: "source_table,source_id" });
+    .upsert(docs, { onConflict: "source_table,source_id,chunk_index" });
   if (error) throw new Error(`upsertEmbeddings failed: ${error.message}`);
+}
+
+// Remove all chunks for the given sources before re-inserting. Keeps re-runs
+// idempotent when a source now produces fewer chunks than before (stale
+// higher-index rows would otherwise linger). No-op on empty input.
+export async function deleteEmbeddingsForSources(
+  sourceTable: DocSourceTable,
+  sourceIds: string[],
+): Promise<void> {
+  if (sourceIds.length === 0) return;
+  const sb = supabaseAdmin();
+  const { error } = await sb
+    .from("doc_embeddings")
+    .delete()
+    .eq("source_table", sourceTable)
+    .in("source_id", sourceIds);
+  if (error) throw new Error(`deleteEmbeddingsForSources failed: ${error.message}`);
 }
 
 // Cosine-similarity search via the match_documents RPC. Optionally scoped to
@@ -72,7 +93,9 @@ export async function matchDocuments(
   }
   try {
     const { data, error } = await sb.rpc("match_documents", {
-      query_embedding: queryEmbedding,
+      // Passed as a JSON string and cast to vector inside the RPC — PostgREST
+      // doesn't reliably coerce a number array into a pgvector param.
+      query_embedding: JSON.stringify(queryEmbedding),
       match_count: opts.matchCount ?? 8,
       filter_account: opts.accountId ?? null,
     });
@@ -81,6 +104,7 @@ export async function matchDocuments(
       id: r.id as string,
       sourceTable: r.source_table as string,
       sourceId: r.source_id as string,
+      chunkIndex: Number(r.chunk_index ?? 0),
       accountId: (r.account_id ?? null) as string | null,
       kind: (r.kind ?? null) as string | null,
       content: (r.content ?? "") as string,

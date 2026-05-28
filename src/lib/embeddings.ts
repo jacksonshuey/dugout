@@ -16,14 +16,61 @@ import { getOpenAIClient } from "./openai";
 export const EMBEDDING_MODEL = "text-embedding-3-small";
 export const EMBEDDING_DIMS = 1536;
 
-// Embedding inputs are capped well below the model's 8191-token limit. Signal
-// summaries are short; source_content_md is truncated to this before
-// embedding so a 40k-char filing doesn't blow the token budget. The lede
-// carries most of the retrievable signal anyway.
+// Embedding inputs are capped well below the model's 8191-token limit. Callers
+// chunk long artifacts first (see chunkText); this cap is a final safety net
+// per chunk.
 const MAX_EMBED_CHARS = 8_000;
+
+// Chunking targets. ~3000 chars ≈ ~750 tokens — small enough that a match
+// points at a focused passage, large enough to keep context. Overlap carries a
+// little context across boundaries so a fact split mid-chunk is still
+// retrievable from both sides.
+const CHUNK_CHARS = 3_000;
+const CHUNK_OVERLAP = 250;
 
 function clean(text: string): string {
   return text.replace(/\s+/g, " ").trim().slice(0, MAX_EMBED_CHARS);
+}
+
+// Split a document into overlapping chunks for embedding. Prefers to break at a
+// paragraph/sentence boundary near the target size so chunks read as coherent
+// passages rather than mid-word cuts. Short inputs return a single chunk;
+// empty/blank input returns []. Dependency-free.
+export function chunkText(
+  text: string,
+  opts: { size?: number; overlap?: number } = {},
+): string[] {
+  const size = opts.size ?? CHUNK_CHARS;
+  const overlap = opts.overlap ?? CHUNK_OVERLAP;
+  const normalized = text.replace(/\r\n/g, "\n").trim();
+  if (!normalized) return [];
+  if (normalized.length <= size) return [normalized];
+
+  const chunks: string[] = [];
+  let start = 0;
+  while (start < normalized.length) {
+    let end = Math.min(start + size, normalized.length);
+    if (end < normalized.length) {
+      // Look backwards from the hard cut for a clean boundary (paragraph >
+      // sentence > space) within the last ~30% of the window.
+      const window = normalized.slice(start, end);
+      const floor = Math.floor(size * 0.7);
+      const para = window.lastIndexOf("\n\n");
+      const sentence = Math.max(
+        window.lastIndexOf(". "),
+        window.lastIndexOf("! "),
+        window.lastIndexOf("? "),
+      );
+      const space = window.lastIndexOf(" ");
+      const cut = [para, sentence, space].find((i) => i >= floor);
+      if (cut !== undefined && cut > 0) end = start + cut + 1;
+    }
+    const piece = normalized.slice(start, end).trim();
+    if (piece) chunks.push(piece);
+    if (end >= normalized.length) break;
+    start = Math.max(end - overlap, start + 1);
+  }
+  return chunks;
 }
 
 // Embed a single string. Returns null when there's no key or no usable input.

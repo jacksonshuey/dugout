@@ -15,7 +15,7 @@ let mockClient: { embeddings: { create: typeof createMock } } | null = {
   embeddings: { create: createMock },
 };
 
-import { embed, embedBatch, EMBEDDING_DIMS } from "./embeddings";
+import { chunkText, embed, embedBatch, EMBEDDING_DIMS } from "./embeddings";
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -66,5 +66,36 @@ describe("embedBatch", () => {
     const out = await embedBatch(["", "  "]);
     expect(out).toEqual([null, null]);
     expect(createMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("chunkText", () => {
+  test("blank input returns no chunks", () => {
+    expect(chunkText("")).toEqual([]);
+    expect(chunkText("   \n  ")).toEqual([]);
+  });
+
+  test("short input returns a single chunk", () => {
+    const out = chunkText("a short signal summary");
+    expect(out).toEqual(["a short signal summary"]);
+  });
+
+  test("long input splits into multiple chunks that cover the whole text", () => {
+    const para = "Sentence about the deal. ".repeat(400); // ~10k chars
+    const out = chunkText(para, { size: 3000, overlap: 200 });
+    expect(out.length).toBeGreaterThan(1);
+    // No chunk exceeds the window (allowing the boundary search slack).
+    for (const c of out) expect(c.length).toBeLessThanOrEqual(3000);
+    // Coverage: the start of the doc is in the first chunk, the end in the last.
+    expect(para.startsWith(out[0].slice(0, 20))).toBe(true);
+    expect(para.trimEnd().endsWith(out[out.length - 1].slice(-20))).toBe(true);
+  });
+
+  test("consecutive chunks overlap so a boundary fact stays retrievable", () => {
+    const text = "X".repeat(2000) + ". " + "Y".repeat(2000);
+    const out = chunkText(text, { size: 2500, overlap: 300 });
+    expect(out.length).toBeGreaterThan(1);
+    const tailOfFirst = out[0].slice(-50);
+    expect(out[1].includes(tailOfFirst.trim().slice(0, 10))).toBe(true);
   });
 });

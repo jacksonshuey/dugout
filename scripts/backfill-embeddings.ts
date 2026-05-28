@@ -8,8 +8,12 @@
 // Run with: npx tsx scripts/backfill-embeddings.ts [--limit N]
 
 import { supabaseAdmin } from "../src/lib/supabase";
-import { embedBatch } from "../src/lib/embeddings";
-import { upsertEmbeddings, type DocEmbeddingInput } from "../src/lib/doc-embeddings";
+import { chunkText, embedBatch } from "../src/lib/embeddings";
+import {
+  deleteEmbeddingsForSources,
+  upsertEmbeddings,
+  type DocEmbeddingInput,
+} from "../src/lib/doc-embeddings";
 
 const PAGE = 200;
 const EMBED_BATCH = 100;
@@ -42,32 +46,58 @@ async function main() {
     if (error) throw new Error(`fetch failed: ${error.message}`);
     if (!data || data.length === 0) break;
 
-    // Build (row, content) pairs, dropping rows with no embeddable text.
-    const rows = data
-      .map((r) => ({ row: r, content: contentFor(r) }))
-      .filter((x) => x.content.length > 0);
-    skipped += data.length - rows.length;
+    // Chunk each row, flattening into (row, chunkIndex, text) units so one
+    // embedBatch call covers many chunks across many rows.
+    const units: {
+      sourceId: string;
+      accountId: string | null;
+      kind: string | null;
+      chunkIndex: number;
+      text: string;
+    }[] = [];
+    const sourceIds: string[] = [];
+    for (const row of data) {
+      const chunks = chunkText(contentFor(row));
+      if (chunks.length === 0) {
+        skipped += 1;
+        continue;
+      }
+      sourceIds.push(row.id as string);
+      chunks.forEach((text, chunkIndex) =>
+        units.push({
+          sourceId: row.id as string,
+          accountId: (row.account_id ?? null) as string | null,
+          kind: (row.type ?? null) as string | null,
+          chunkIndex,
+          text,
+        }),
+      );
+    }
 
-    // Embed in sub-batches to stay within request limits.
-    for (let i = 0; i < rows.length; i += EMBED_BATCH) {
-      const chunk = rows.slice(i, i + EMBED_BATCH);
-      const vectors = await embedBatch(chunk.map((c) => c.content));
+    // Clear any prior chunks for these sources first, so a source that now
+    // chunks into fewer pieces doesn't leave stale rows behind.
+    await deleteEmbeddingsForSources("external_signals", sourceIds);
+
+    for (let i = 0; i < units.length; i += EMBED_BATCH) {
+      const batch = units.slice(i, i + EMBED_BATCH);
+      const vectors = await embedBatch(batch.map((u) => u.text));
       const docs: DocEmbeddingInput[] = [];
-      chunk.forEach((c, j) => {
+      batch.forEach((u, j) => {
         const v = vectors[j];
         if (!v) return; // no key or empty — skip
         docs.push({
           source_table: "external_signals",
-          source_id: c.row.id as string,
-          account_id: (c.row.account_id ?? null) as string | null,
-          kind: (c.row.type ?? null) as string | null,
-          content: c.content,
+          source_id: u.sourceId,
+          chunk_index: u.chunkIndex,
+          account_id: u.accountId,
+          kind: u.kind,
+          content: u.text,
           embedding: v,
         });
       });
       await upsertEmbeddings(docs);
       embedded += docs.length;
-      console.log(`embedded ${embedded} (skipped ${skipped})…`);
+      console.log(`embedded ${embedded} chunks (skipped ${skipped} rows)…`);
     }
 
     if (data.length < PAGE) break;
