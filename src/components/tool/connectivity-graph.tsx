@@ -734,6 +734,21 @@ function OverviewGraph({
                 // beneath it with a small indent + smaller font.
                 if (isOpen) {
                   row.fields.forEach((f, fi) => {
+                    // Single-line row: name is left-anchored, type/status is
+                    // right-anchored. Both are monospace, so estimate widths
+                    // and clip the name with an ellipsis so it can't run under
+                    // the type label.
+                    const rowW = COL_W - 12;
+                    const typeText = `${f.type}${f.isMapped ? "" : " · unmapped"}`;
+                    const typeLeftX = rowW - 8 - typeText.length * 5.4;
+                    const nameMaxChars = Math.max(
+                      3,
+                      Math.floor((typeLeftX - 10 - 8) / 6),
+                    );
+                    const nameText =
+                      f.key.length > nameMaxChars
+                        ? `${f.key.slice(0, nameMaxChars - 1)}…`
+                        : f.key;
                     elements.push(
                       <g
                         key={`${row.object}-${f.key}`}
@@ -746,7 +761,7 @@ function OverviewGraph({
                           <rect
                             x={0}
                             y={0}
-                            width={COL_W - 12}
+                            width={rowW}
                             height={FIELD_ROW_H}
                             rx={4}
                             fill="var(--background)"
@@ -762,10 +777,10 @@ function OverviewGraph({
                             fill="currentColor"
                             fillOpacity={f.isMapped ? 1 : 0.45}
                           >
-                            {f.key}
+                            {nameText}
                           </text>
                           <text
-                            x={COL_W - 12 - 8}
+                            x={rowW - 8}
                             y={FIELD_ROW_H / 2}
                             dominantBaseline="middle"
                             textAnchor="end"
@@ -774,8 +789,7 @@ function OverviewGraph({
                             fill="currentColor"
                             fillOpacity={f.isMapped ? 0.6 : 0.35}
                           >
-                            {f.type}
-                            {f.isMapped ? "" : " · unmapped"}
+                            {typeText}
                           </text>
                         </g>
                       </g>,
