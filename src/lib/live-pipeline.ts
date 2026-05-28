@@ -75,15 +75,19 @@ export async function getLivePipelineSnapshot(): Promise<LivePipelineSnapshot | 
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
   try {
-    // Parallel: 4 counts + the most compelling latest run. We prefer an
-    // email that produced an actual signal (the full chain renders) but
-    // fall back to any classified email if no signals exist in the window.
+    // Parallel: 4 counts + the latest run. The displayed run is always the
+    // MOST RECENT classified email — whatever its outcome. (We used to prefer
+    // the most recent signal-PRODUCING email so the full chain rendered, but
+    // that surfaced stale runs: when recent inbounds got dropped by the
+    // filter, the visual fell back to a days-old signal while "last activity"
+    // said minutes ago — an obviously-stale, off-brand look on the landing
+    // page. Recency wins; the downstream lookup still renders the full chain
+    // when this email produced a signal, or the drop reason when it didn't.)
     const [
       inboundCount,
       signalsCount,
       droppedCount,
       lastReceived,
-      latestSignalEmail,
       latestClassifiedEmail,
     ] = await Promise.all([
       sb
@@ -104,16 +108,7 @@ export async function getLivePipelineSnapshot(): Promise<LivePipelineSnapshot | 
         .order("received_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
-      // Most recent email that produced a real signal (preferred — full
-      // chain renders end-to-end).
-      sb
-        .from("external_signals")
-        .select("inbound_email_id, created_at")
-        .not("inbound_email_id", "is", null)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      // Fallback: most recent classified email regardless of outcome.
+      // The run we render: most recent classified email, regardless of outcome.
       sb
         .from("inbound_emails")
         .select(
@@ -125,24 +120,7 @@ export async function getLivePipelineSnapshot(): Promise<LivePipelineSnapshot | 
         .maybeSingle(),
     ]);
 
-    // If we found a signal-linked email, fetch its full row. Otherwise
-    // fall back to the most-recent-classified row.
-    let latestEmailRow = latestClassifiedEmail;
-    const signalLinkedId = (
-      latestSignalEmail.data as { inbound_email_id?: string } | null
-    )?.inbound_email_id;
-    if (signalLinkedId) {
-      const { data: signalEmail } = await sb
-        .from("inbound_emails")
-        .select(
-          "id, from_address, from_domain, subject, received_at, text_body, publisher_canonical_name",
-        )
-        .eq("id", signalLinkedId)
-        .maybeSingle();
-      if (signalEmail) {
-        latestEmailRow = { data: signalEmail, error: null } as typeof latestClassifiedEmail;
-      }
-    }
+    const latestEmailRow = latestClassifiedEmail;
 
     const counts: LivePipelineCounts = {
       inbound24h: inboundCount.count ?? 0,
