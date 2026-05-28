@@ -7,9 +7,9 @@ import {
   opportunities,
   reps,
 } from "@/data/seed";
+import { Suspense } from "react";
 import { evaluateAll } from "@/lib/signal-engine";
-import { getWorkspaceConfig } from "@/lib/workspace-server";
-import { CHECKBOX_PRESET } from "@/lib/workspace";
+import { DEFAULT_CONFIG } from "@/lib/workspace";
 import { Console } from "@/components/console";
 import {
   BrandLogo,
@@ -65,8 +65,46 @@ const MARKET_INTEL_PREVIEW_LIMIT = 5;
 // same seed data, same interactivity. basePath="/" keeps its URL state
 // writes from bouncing the user out of the page.
 
-export default async function LandingPage() {
-  const workspace = await getWorkspaceConfig();
+// Synchronous shell. No dynamic APIs (cookies/headers) are read here, so the
+// route stays statically prerenderable and the `revalidate = 60` ISR cache
+// actually engages. The two data-heavy, OpenAI-moderated regions stream in via
+// Suspense so neither the Supabase round-trips nor the GPT-4o passes gate the
+// shell's first byte.
+export default function LandingPage() {
+  return (
+    <div className="bg-background">
+      <Hero />
+      <OnboardingWalkthrough />
+      <MarketIntelLiveSection />
+      <section id="demo" className="border-t border-border bg-foreground/[0.02]">
+        <div className="max-w-6xl mx-auto px-6 py-20 sm:py-24">
+          <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight">
+            Dashboard
+          </h2>
+          <p className="mt-2 text-sm text-muted">
+            Live pipeline. The pre-meeting brief on the right pulls fresh
+            news for upcoming meetings on every refresh: SEC filings,
+            funding announcements, exec changes, so an AE never walks in
+            cold on what their account just did publicly.
+          </p>
+        </div>
+        <Suspense fallback={<DashboardFallback />}>
+          <DemoConsole />
+        </Suspense>
+      </section>
+      <NextUpSection />
+      <Footer />
+    </div>
+  );
+}
+
+// The live demo dashboard. Isolated into its own async boundary so the
+// pre-meeting brief's Supabase fetch + GPT-4o moderation pass run off the
+// shell's critical render path. The workspace config is the default preset —
+// the landing page never personalizes per-cookie (that lives on /console), so
+// reading it here would only force the whole route dynamic.
+async function DemoConsole() {
+  const workspace = DEFAULT_CONFIG;
 
   // Pre-fetch real external signals for each upcoming meeting account so the
   // pre-meeting brief shows live data instead of the fallback seed.
@@ -110,38 +148,26 @@ export default async function LandingPage() {
   const signals = evaluateAll(ctx);
 
   return (
-    <div className="bg-background">
-      <Hero />
-      <OnboardingWalkthrough />
-      <MarketIntelLiveSection />
-      <section id="demo" className="border-t border-border bg-foreground/[0.02]">
-        <div className="max-w-6xl mx-auto px-6 py-20 sm:py-24">
-          <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight">
-            Dashboard
-          </h2>
-          <p className="mt-2 text-sm text-muted">
-            Live pipeline. The pre-meeting brief on the right pulls fresh
-            news for upcoming meetings on every refresh: SEC filings,
-            funding announcements, exec changes, so an AE never walks in
-            cold on what their account just did publicly.
-          </p>
-        </div>
-        <Console
-          basePath="/"
-          signals={signals}
-          opportunities={opportunities}
-          accounts={accounts}
-          contacts={contacts}
-          activities={activities}
-          calls={calls}
-          deliveries={assetDeliveries}
-          reps={reps}
-          workspace={workspace}
-          briefSignals={briefSignals}
-        />
-      </section>
-      <NextUpSection />
-      <Footer />
+    <Console
+      basePath="/"
+      signals={signals}
+      opportunities={opportunities}
+      accounts={accounts}
+      contacts={contacts}
+      activities={activities}
+      calls={calls}
+      deliveries={assetDeliveries}
+      reps={reps}
+      workspace={workspace}
+      briefSignals={briefSignals}
+    />
+  );
+}
+
+function DashboardFallback() {
+  return (
+    <div className="px-6 pb-20">
+      <div className="max-w-6xl mx-auto h-[420px] rounded-xl border border-border bg-foreground/[0.02] animate-pulse" />
     </div>
   );
 }
@@ -1149,15 +1175,14 @@ async function fetchWorkspaceFeed(): Promise<ExternalSignal[]> {
   }
 }
 
-async function MarketIntelLiveSection() {
-  const [workspaceSignals, pipelineSnapshot] = await Promise.all([
-    fetchWorkspaceFeed(),
-    getLivePipelineSnapshot(),
-  ]);
+// Synchronous chrome. The two regions that hit Supabase (and, for the feed,
+// the GPT-4o moderation pass) are isolated behind their own Suspense
+// boundaries so the static section headers + DataSourcesRow render instantly
+// and the live data streams in.
+function MarketIntelLiveSection() {
   const trackedAccountNames = accounts.flatMap((a) =>
     a.ticker ? [a.name, a.ticker] : [a.name],
   );
-  const accountNameById = new Map(accounts.map((a) => [a.id, a.name]));
 
   return (
     <section className="max-w-6xl mx-auto px-6 py-20 sm:py-24 border-t border-border">
@@ -1173,14 +1198,9 @@ async function MarketIntelLiveSection() {
 
       <DataSourcesRow />
 
-      {pipelineSnapshot ? (
-        <LivePipelineVisual
-          snapshot={pipelineSnapshot}
-          accountNameById={accountNameById}
-        />
-      ) : (
-        <NewsletterTransformVisual />
-      )}
+      <Suspense fallback={<PipelineFallback />}>
+        <LivePipelineSection />
+      </Suspense>
 
       <div className="mt-12">
         <h3 className="text-sm font-semibold tracking-tight text-foreground/80">
@@ -1209,11 +1229,56 @@ async function MarketIntelLiveSection() {
           <RefreshButton label="Refresh feed" />
         </div>
       </div>
-      <SortableWorkspaceFeed
-        signals={workspaceSignals}
-        trackedAccountNames={trackedAccountNames}
-      />
+      <Suspense fallback={<FeedFallback />}>
+        <WorkspaceFeedSection trackedAccountNames={trackedAccountNames} />
+      </Suspense>
     </section>
+  );
+}
+
+async function LivePipelineSection() {
+  const pipelineSnapshot = await getLivePipelineSnapshot();
+  const accountNameById = new Map(accounts.map((a) => [a.id, a.name]));
+  return pipelineSnapshot ? (
+    <LivePipelineVisual
+      snapshot={pipelineSnapshot}
+      accountNameById={accountNameById}
+    />
+  ) : (
+    <NewsletterTransformVisual />
+  );
+}
+
+async function WorkspaceFeedSection({
+  trackedAccountNames,
+}: {
+  trackedAccountNames: string[];
+}) {
+  const workspaceSignals = await fetchWorkspaceFeed();
+  return (
+    <SortableWorkspaceFeed
+      signals={workspaceSignals}
+      trackedAccountNames={trackedAccountNames}
+    />
+  );
+}
+
+function PipelineFallback() {
+  return (
+    <div className="mt-10 h-48 rounded-lg border border-border bg-foreground/[0.02] animate-pulse" />
+  );
+}
+
+function FeedFallback() {
+  return (
+    <div className="mt-4 space-y-3">
+      {[0, 1, 2].map((i) => (
+        <div
+          key={i}
+          className="h-20 rounded-lg border border-border bg-foreground/[0.02] animate-pulse"
+        />
+      ))}
+    </div>
   );
 }
 
