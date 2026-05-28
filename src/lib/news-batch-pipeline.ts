@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { chat } from "./claude";
+import { supabaseAdmin } from "./supabase";
 import { type ExternalSignalType } from "./external-signals";
 import {
   coerceWorkspaceRelevance,
@@ -9,8 +10,10 @@ import {
   type WorkspaceRelevance,
 } from "./workspace-relevance";
 import {
+  getLatestAgentTraces,
   insertAgentRun,
   type AgentStep,
+  type AgentTrace,
   type ChainEmail,
   type AgentRunRecord,
 } from "./news-batches";
@@ -390,4 +393,64 @@ export async function runAgentChainForEmail(
   }
   await insertAgentRun(record);
   return record;
+}
+
+// The trace the "Inside the agent" landing visual displays. Real-data first:
+//   1. A persisted run from the webhook chain (once the migration is applied
+//      and emails have flowed) — the truest production behavior.
+//   2. Otherwise, run the chain LIVE on the most recent real inbound email so
+//      the visual is real (real email, real gate verdict, real summary, real
+//      durations) without needing the migration. Not persisted — the landing
+//      page's 60s ISR caches the rendered result, so this costs at most a few
+//      LLM calls per minute under traffic.
+//   3. null when there's no inbound email / no LLM key / Supabase is down —
+//      the component then shows its labeled sample.
+export async function getMostRecentAgentTrace(): Promise<AgentTrace | null> {
+  // 1. Persisted run.
+  try {
+    const persisted = await getLatestAgentTraces(1);
+    if (persisted[0]) return persisted[0];
+  } catch {
+    // fall through to the live path
+  }
+
+  // 2. Live run on the most recent real inbound email.
+  let sb;
+  try {
+    sb = supabaseAdmin();
+  } catch {
+    return null;
+  }
+
+  let email: ChainEmail | null = null;
+  try {
+    const { data } = await sb
+      .from("inbound_emails")
+      .select("id, subject, text_body, publisher_canonical_name, from_domain")
+      .order("received_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    email = (data as ChainEmail | null) ?? null;
+  } catch {
+    return null;
+  }
+  if (!email) return null;
+
+  try {
+    const record = await processEmail(email);
+    return {
+      id: email.id,
+      createdAt: new Date().toISOString(),
+      emailSubjects: record.email_subjects,
+      newsSources: record.news_sources,
+      summary: record.batch_summary,
+      isNews: record.is_news,
+      gateReasoning: record.gate_reasoning,
+      category: record.category,
+      status: record.status,
+      steps: record.steps,
+    };
+  } catch {
+    return null;
+  }
 }

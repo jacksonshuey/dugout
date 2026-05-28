@@ -25,7 +25,7 @@ import {
 } from "@/components/landing/step-layout";
 import { ConnectivityGraph } from "@/components/tool/connectivity-graph";
 import { AgentTraceVisual } from "@/components/landing/agent-trace-visual";
-import { getLatestAgentTraces } from "@/lib/news-batches";
+import { getMostRecentAgentTrace } from "@/lib/news-batch-pipeline";
 import { InteractiveSignals } from "@/components/landing/interactive-signals";
 import { INTEGRATIONS } from "@/data/integrations";
 import { checkAllHealth } from "@/lib/integration-health";
@@ -1301,8 +1301,8 @@ function AgentChainSection() {
 }
 
 async function LatestAgentTrace() {
-  const traces = await getLatestAgentTraces(1);
-  return <AgentTraceVisual trace={traces[0] ?? null} />;
+  const trace = await getMostRecentAgentTrace();
+  return <AgentTraceVisual trace={trace} />;
 }
 
 function AgentTraceFallback() {
