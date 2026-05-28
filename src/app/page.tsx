@@ -494,14 +494,13 @@ function StepIntegrate() {
           <div className="space-y-3">
             <p className="text-sm text-foreground/70 leading-relaxed">
               <span className="font-semibold text-foreground">
-                Integrate with your existing tools.
+                Every integration comes prebuilt.
               </span>{" "}
-              Each tool plugs in the same way: paste an API key, set sync
-              frequency, verify, done.
+              Paste an API key, set a sync frequency, verify — done.
             </p>
             <p className="text-sm text-foreground/70 leading-relaxed">
-              No per-source schema design. The adapter resolves the account
-              and emits raw rows; the zipper step (next) handles the rest.
+              No schema design on your end. Each adapter is already scaffolded
+              to pull your data and hand it to the zipper.
             </p>
           </div>
           <div className="mt-auto pb-2 space-y-2">
