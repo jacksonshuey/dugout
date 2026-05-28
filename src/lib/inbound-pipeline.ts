@@ -8,6 +8,7 @@ import { classifyNewsletter } from "./newsletter-adapter";
 import { insertSignalsDedup } from "./external-signals";
 import { resolvePublisher } from "./inbound-publishers";
 import { filterEmail } from "./email-filter";
+import { runPendingBatches } from "./news-batch-pipeline";
 
 // Shared orchestration for inbound webhooks. The AgentMail route
 // (src/app/api/inbound-email/agentmail/route.ts) parses its provider-specific
@@ -226,5 +227,26 @@ export async function processInboundEmail(
   // timeouts (SendGrid 30s, Mailgun 75s). Classification failures don't 5xx
   // - the row is saved and the daily sweeper picks it up on next run.
   const classification = await classifyAndPersist(row, provider, email.headers);
+
+  // Batch-of-3 orchestrator runs ALONGSIDE the per-email flow above. This
+  // email just landed in the un-batched pool; if it was the third, the
+  // four-agent chain fires here. Fails soft — a batch error never affects the
+  // webhook response or the per-email classification result.
+  try {
+    const batches = await runPendingBatches();
+    if (batches.length > 0) {
+      console.log(
+        `[inbound-email/${provider}] ran ${batches.length} news batch(es): ${batches
+          .map((b) => b.status)
+          .join(", ")}`,
+      );
+    }
+  } catch (e) {
+    console.warn(
+      `[inbound-email/${provider}] batch orchestrator failed (non-fatal)`,
+      e instanceof Error ? e.message : String(e),
+    );
+  }
+
   return { kind: "stored", id: row.id, classification };
 }
