@@ -17,55 +17,51 @@ const AGENT_META: Record<
   AgentStep["agent"],
   { n: number; glyph: string; role: string }
 > = {
-  summarize: { n: 1, glyph: "∑", role: "reads all three emails → one summary" },
-  gate: { n: 2, glyph: "⊘", role: "decides: is this material news?" },
+  gate: { n: 1, glyph: "⊘", role: "decides: is this material news? (runs first)" },
+  summarize: { n: 2, glyph: "∑", role: "distills the email to one summary" },
   categorize: { n: 3, glyph: "#", role: "sorts into a news category" },
-  append: { n: 4, glyph: "→", role: "writes the entry to the live feed" },
+  append: { n: 4, glyph: "→", role: "records the entry to the feed" },
 };
 
 const REVEAL_MS = 1000; // beat between steps
 const SKIP_MS = 380; // faster reveal for skipped steps
 
-// Representative run used when no real batch exists yet (migration not applied
-// or no emails have hit the threshold). Mirrors the exact shape a real run
-// produces.
+// Representative run used when no real run exists yet (migration not applied or
+// no emails have flowed through). Mirrors the exact shape a real run produces:
+// one email, gate-first.
 const SAMPLE_TRACE: AgentTrace = {
   id: "sample",
   createdAt: new Date().toISOString(),
-  emailSubjects: [
-    "Lilly's oral GLP-1 reshapes obesity market",
-    "Gilead renews WHO collaboration",
-    "PharmExec: weekly clinical-ops digest",
-  ],
-  newsSources: ["FiercePharma", "Reuters", "PharmExec"],
+  emailSubjects: ["Lilly's oral GLP-1 reshapes the obesity market"],
+  newsSources: ["FiercePharma"],
   summary:
-    "Eli Lilly's lower-cost oral obesity drug is pulling patients away from compounded GLP-1 therapies, while Gilead renewed a five-year WHO collaboration to eliminate visceral leishmaniasis through 2030 — signaling intensifying competition and access-driven positioning across pharma.",
+    "Eli Lilly's lower-cost oral GLP-1 is pulling patients away from compounded therapies, signaling intensifying price competition in the obesity-drug market.",
   isNews: true,
   gateReasoning:
-    "Describes concrete competitive and partnership developments a rep would act on.",
+    "Describes a concrete competitive development a rep would act on.",
   category: "competitor_mention",
   status: "appended",
   steps: [
-    {
-      agent: "summarize",
-      label: "Summarize batch",
-      status: "ok",
-      started_at: new Date().toISOString(),
-      duration_ms: 3120,
-      input_preview:
-        "3 emails · Lilly's oral GLP-1 reshapes obesity market · Gilead renews WHO collaboration · PharmExec: weekly clinical-ops digest",
-      output_preview:
-        "Eli Lilly's lower-cost oral obesity drug is pulling patients away from compounded GLP-1 therapies, while Gilead renewed a five-year WHO collaboration…",
-    },
     {
       agent: "gate",
       label: "News gate",
       status: "ok",
       started_at: new Date().toISOString(),
-      duration_ms: 1740,
-      input_preview: "Eli Lilly's lower-cost oral obesity drug is pulling patients away…",
+      duration_ms: 1180,
+      input_preview: "Lilly's oral GLP-1 reshapes the obesity market · FiercePharma",
       output_preview:
-        "PASS — material news: describes concrete competitive and partnership developments a rep would act on.",
+        "PASS — material news: describes a concrete competitive development a rep would act on.",
+    },
+    {
+      agent: "summarize",
+      label: "Summarize",
+      status: "ok",
+      started_at: new Date().toISOString(),
+      duration_ms: 2240,
+      input_preview:
+        "Lilly's oral GLP-1 reshapes the obesity market — Eli Lilly's lower-cost oral pill is drawing patients off compounded GLP-1s…",
+      output_preview:
+        "Eli Lilly's lower-cost oral GLP-1 is pulling patients away from compounded therapies, signaling intensifying price competition…",
     },
     {
       agent: "categorize",
@@ -73,7 +69,7 @@ const SAMPLE_TRACE: AgentTrace = {
       status: "ok",
       started_at: new Date().toISOString(),
       duration_ms: 1410,
-      input_preview: "Eli Lilly's lower-cost oral obesity drug is pulling patients away…",
+      input_preview: "Eli Lilly's lower-cost oral GLP-1 is pulling patients away…",
       output_preview: "competitor_mention · high relevance",
     },
     {
@@ -81,9 +77,9 @@ const SAMPLE_TRACE: AgentTrace = {
       label: "Append to feed",
       status: "ok",
       started_at: new Date().toISOString(),
-      duration_ms: 240,
-      input_preview: "competitor_mention · sources: FiercePharma, Reuters, PharmExec",
-      output_preview: "signal 7f3a9c1b… written to the live feed",
+      duration_ms: 60,
+      input_preview: "competitor_mention · FiercePharma",
+      output_preview: "entry appended · competitor_mention",
     },
   ],
 };
@@ -156,7 +152,8 @@ export function AgentTraceVisual({ trace }: { trace: AgentTrace | null }) {
             </span>
           </div>
           <div className="mt-1 text-[12px] text-foreground/70 leading-snug">
-            Triggered by 3 inbound emails ·{" "}
+            Triggered by {data.emailSubjects.length || 1} inbound email
+            {(data.emailSubjects.length || 1) === 1 ? "" : "s"} ·{" "}
             <span className="text-muted">
               {data.newsSources.join(", ") || "—"}
             </span>

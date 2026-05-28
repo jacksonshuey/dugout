@@ -1,211 +1,146 @@
-// Unit tests for the batch-of-3 orchestration logic. The agents (LLM calls)
-// and DB (Supabase) are injected/mocked — these tests cover the chain control
-// flow: handoffs, the gate's reject short-circuit, the append path, the
-// per-batch error fallback, and the claim → process → record loop.
+// Unit tests for the per-email agent chain. Agents (LLM) and DB (Supabase) are
+// injected/mocked — these cover the gate-first control flow: the gate runs
+// first, a reject short-circuits summarize/categorize/append (no summary
+// tokens spent), the pass path runs all four steps, and runAgentChainForEmail
+// persists exactly one run (recording an 'error' run on failure).
 
-import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 
-import type { BatchEmail } from "./news-batches";
+import type { ChainEmail } from "./news-batches";
 
-// runPendingBatches reaches into the DB layer; mock it so we can drive the
-// claim loop deterministically without Supabase.
 vi.mock("./news-batches", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./news-batches")>();
-  return {
-    ...actual,
-    claimNextBatch: vi.fn(),
-    insertBatchRecord: vi.fn(),
-  };
+  return { ...actual, insertAgentRun: vi.fn() };
 });
 
 import {
-  processBatch,
-  runPendingBatches,
-  type BatchAgents,
-  type BatchSummary,
+  processEmail,
+  runAgentChainForEmail,
+  type ChainAgents,
 } from "./news-batch-pipeline";
-import { claimNextBatch, insertBatchRecord } from "./news-batches";
+import { insertAgentRun } from "./news-batches";
 
-function emails(): BatchEmail[] {
-  return [
-    {
-      id: "e1",
-      subject: "Acme raises Series C",
-      text_body: "Acme raised $200M…",
-      publisher_canonical_name: "TechCrunch",
-      from_domain: "techcrunch.com",
-    },
-    {
-      id: "e2",
-      subject: "Beta launches product",
-      text_body: "Beta shipped…",
-      publisher_canonical_name: null,
-      from_domain: "beta.example.com",
-    },
-    {
-      id: "e3",
-      subject: "Gamma layoffs",
-      text_body: "Gamma cut 10%…",
-      publisher_canonical_name: "Reuters",
-      from_domain: "reuters.com",
-    },
-  ];
+function email(): ChainEmail {
+  return {
+    id: "e1",
+    subject: "Acme raises a Series C",
+    text_body: "Acme raised $200M led by …",
+    publisher_canonical_name: "TechCrunch",
+    from_domain: "techcrunch.com",
+  };
 }
 
-// Build a set of agents where each stage records that it ran and returns a
-// canned payload. `gate` verdict is configurable per test.
+// Agents that record their calls and return canned payloads. Gate verdict is
+// configurable per test.
 function fakeAgents(opts: { isNews: boolean }) {
   const calls = {
-    summarize: vi.fn(),
     gate: vi.fn(),
+    summarize: vi.fn(),
     categorize: vi.fn(),
-    append: vi.fn(),
   };
-  const summary: BatchSummary = {
-    emailIds: ["e1", "e2", "e3"],
-    emailSubjects: ["Acme raises Series C", "Beta launches product", "Gamma layoffs"],
-    sources: ["TechCrunch", "beta.example.com", "Reuters"],
-    summary: "Acme raised a $200M Series C.",
-  };
-  const agents: BatchAgents = {
+  const agents: ChainAgents = {
+    gate: async (e) => {
+      calls.gate(e);
+      return { isNews: opts.isNews, reasoning: "because" };
+    },
     summarize: async (e) => {
       calls.summarize(e);
-      return summary;
-    },
-    gate: async (s) => {
-      calls.gate(s);
-      return { isNews: opts.isNews, reasoning: "because" };
+      return "Acme raised a $200M Series C.";
     },
     categorize: async (s) => {
       calls.categorize(s);
       return { category: "funding_round", workspaceRelevance: "high" };
     },
-    append: async (s, c) => {
-      calls.append(s, c);
-      return { signalId: "sig-123" };
-    },
   };
-  return { agents, calls, summary };
+  return { agents, calls };
 }
 
-afterEach(() => {
-  vi.clearAllMocks();
-});
+afterEach(() => vi.clearAllMocks());
 
-describe("processBatch · append path", () => {
-  test("gate passes → categorize + append run, record is 'appended'", async () => {
+describe("processEmail · gate-first pass path", () => {
+  test("gate passes → summarize + categorize run, status 'appended'", async () => {
     const { agents, calls } = fakeAgents({ isNews: true });
-    const record = await processBatch(emails(), agents);
+    const record = await processEmail(email(), agents);
 
-    expect(calls.summarize).toHaveBeenCalledOnce();
     expect(calls.gate).toHaveBeenCalledOnce();
+    expect(calls.summarize).toHaveBeenCalledOnce();
     expect(calls.categorize).toHaveBeenCalledOnce();
-    expect(calls.append).toHaveBeenCalledOnce();
 
     expect(record.status).toBe("appended");
     expect(record.is_news).toBe(true);
     expect(record.category).toBe("funding_round");
-    expect(record.signal_id).toBe("sig-123");
-    expect(record.gate_reasoning).toBe("because");
-  });
-
-  test("summary handoff fields flow into the display record", async () => {
-    const { agents } = fakeAgents({ isNews: true });
-    const record = await processBatch(emails(), agents);
-
-    expect(record.email_ids).toEqual(["e1", "e2", "e3"]);
-    expect(record.news_sources).toEqual([
-      "TechCrunch",
-      "beta.example.com",
-      "Reuters",
-    ]);
     expect(record.batch_summary).toBe("Acme raised a $200M Series C.");
+    expect(record.email_ids).toEqual(["e1"]);
+    expect(record.news_sources).toEqual(["TechCrunch"]);
+    // All four agent steps present, in order.
+    expect(record.steps.map((s) => s.agent)).toEqual([
+      "gate",
+      "summarize",
+      "categorize",
+      "append",
+    ]);
   });
 
-  test("the gate receives the summarizer's output (chain handoff)", async () => {
-    const { agents, calls, summary } = fakeAgents({ isNews: true });
-    await processBatch(emails(), agents);
-    expect(calls.gate).toHaveBeenCalledWith(summary);
+  test("the gate sees the raw email; categorize sees the summary (handoff)", async () => {
+    const { agents, calls } = fakeAgents({ isNews: true });
+    await processEmail(email(), agents);
+    expect(calls.gate).toHaveBeenCalledWith(email());
+    expect(calls.summarize).toHaveBeenCalledWith(email());
+    expect(calls.categorize).toHaveBeenCalledWith("Acme raised a $200M Series C.");
   });
 });
 
-describe("processBatch · reject path", () => {
-  test("gate fails → categorize + append are skipped, record is 'rejected'", async () => {
+describe("processEmail · gate reject short-circuit", () => {
+  test("gate fails → summarize + categorize are NOT called, status 'rejected'", async () => {
     const { agents, calls } = fakeAgents({ isNews: false });
-    const record = await processBatch(emails(), agents);
+    const record = await processEmail(email(), agents);
 
-    expect(calls.summarize).toHaveBeenCalledOnce();
     expect(calls.gate).toHaveBeenCalledOnce();
+    expect(calls.summarize).not.toHaveBeenCalled();
     expect(calls.categorize).not.toHaveBeenCalled();
-    expect(calls.append).not.toHaveBeenCalled();
 
     expect(record.status).toBe("rejected");
     expect(record.is_news).toBe(false);
     expect(record.category).toBeNull();
-    expect(record.signal_id).toBeNull();
+    expect(record.batch_summary).toBe("");
+    // gate ran; the rest are recorded as skipped.
+    const byAgent = Object.fromEntries(record.steps.map((s) => [s.agent, s.status]));
+    expect(byAgent.gate).toBe("ok");
+    expect(byAgent.summarize).toBe("skipped");
+    expect(byAgent.categorize).toBe("skipped");
+    expect(byAgent.append).toBe("skipped");
   });
 });
 
-describe("runPendingBatches · claim loop", () => {
-  const mockClaim = vi.mocked(claimNextBatch);
-  const mockInsert = vi.mocked(insertBatchRecord);
+describe("runAgentChainForEmail", () => {
+  const mockInsert = vi.mocked(insertAgentRun);
 
-  beforeEach(() => {
+  test("persists exactly one run and returns it", async () => {
     mockInsert.mockResolvedValue(undefined);
-  });
-
-  test("no full batch available → produces nothing, records nothing", async () => {
-    mockClaim.mockResolvedValueOnce(null);
     const { agents } = fakeAgents({ isNews: true });
 
-    const produced = await runPendingBatches({ agents });
+    const record = await runAgentChainForEmail(email(), agents);
 
-    expect(produced).toEqual([]);
-    expect(mockInsert).not.toHaveBeenCalled();
-  });
-
-  test("one batch ready → processed once and persisted, then loop stops", async () => {
-    mockClaim.mockResolvedValueOnce(emails()).mockResolvedValueOnce(null);
-    const { agents } = fakeAgents({ isNews: true });
-
-    const produced = await runPendingBatches({ agents });
-
-    expect(produced).toHaveLength(1);
-    expect(produced[0].status).toBe("appended");
+    expect(record.status).toBe("appended");
     expect(mockInsert).toHaveBeenCalledOnce();
-    expect(mockInsert).toHaveBeenCalledWith(produced[0]);
+    expect(mockInsert).toHaveBeenCalledWith(record);
   });
 
-  test("maxBatches caps how many batches one pass drains", async () => {
-    mockClaim.mockResolvedValue(emails()); // always a full batch available
-    const { agents } = fakeAgents({ isNews: true });
-
-    const produced = await runPendingBatches({ agents, maxBatches: 2 });
-
-    expect(produced).toHaveLength(2);
-    expect(mockClaim).toHaveBeenCalledTimes(2);
-  });
-
-  test("a chain error is recorded as an 'error' batch, not thrown", async () => {
-    mockClaim.mockResolvedValueOnce(emails()).mockResolvedValueOnce(null);
-    const throwingAgents: BatchAgents = {
-      summarize: async () => {
+  test("a chain error is recorded as an 'error' run, not thrown", async () => {
+    mockInsert.mockResolvedValue(undefined);
+    const throwing: ChainAgents = {
+      gate: async () => {
         throw new Error("LLM down");
       },
-      gate: async () => ({ isNews: true, reasoning: "" }),
-      categorize: async () => ({
-        category: "other",
-        workspaceRelevance: "none",
-      }),
-      append: async () => ({ signalId: null }),
+      summarize: async () => "",
+      categorize: async () => ({ category: "other", workspaceRelevance: "none" }),
     };
 
-    const produced = await runPendingBatches({ agents: throwingAgents });
+    const record = await runAgentChainForEmail(email(), throwing);
 
-    expect(produced).toHaveLength(1);
-    expect(produced[0].status).toBe("error");
-    expect(produced[0].gate_reasoning).toContain("LLM down");
-    expect(produced[0].email_ids).toEqual(["e1", "e2", "e3"]);
-    expect(mockInsert).toHaveBeenCalledWith(produced[0]);
+    expect(record.status).toBe("error");
+    expect(record.gate_reasoning).toContain("LLM down");
+    expect(record.email_ids).toEqual(["e1"]);
+    expect(mockInsert).toHaveBeenCalledWith(record);
   });
 });

@@ -1,14 +1,13 @@
 import { supabaseAdmin } from "./supabase";
 
-// Persistence for the batch-of-3 news orchestrator. See
-// supabase/migrations/20260528_news_batches.sql for the schema and the
-// pipeline overview. The orchestration logic + agents live in
-// news-batch-pipeline.ts; this file is the DB boundary only.
-
-export const BATCH_SIZE = 3;
+// Persistence for the per-email agent chain. See
+// supabase/migrations/20260528_news_batches.sql for the schema and
+// news-batch-pipeline.ts for the orchestration. This file is the DB boundary
+// only. (The `news_batches` table name is historical — each row is now one
+// agent run over a single email.)
 
 // A single inbound email, trimmed to the columns the agent chain needs.
-export interface BatchEmail {
+export interface ChainEmail {
   id: string;
   subject: string | null;
   text_body: string | null;
@@ -16,8 +15,8 @@ export interface BatchEmail {
   from_domain: string;
 }
 
-// One agent's recorded action within a batch run — the unit the "watch the
-// agent work" visual steps through.
+// One agent's recorded action within a run — the unit the "watch the agent
+// work" visual steps through.
 export interface AgentStep {
   agent: "summarize" | "gate" | "categorize" | "append";
   label: string;
@@ -28,8 +27,10 @@ export interface AgentStep {
   output_preview: string;
 }
 
-// One row of the display dataset (and audit record) the chain produces.
-export interface NewsBatchRecord {
+// One row of the display dataset (and audit record) the chain produces — one
+// per email. email_ids/email_subjects/news_sources are single-element arrays
+// (the schema keeps them as arrays for forward-compatibility).
+export interface AgentRunRecord {
   email_ids: string[];
   email_subjects: string[];
   news_sources: string[];
@@ -42,59 +43,13 @@ export interface NewsBatchRecord {
   steps: AgentStep[];
 }
 
-// Claim the oldest `size` un-batched emails as a unit. Marks them
-// `batched_at = now()` so concurrent triggers don't re-batch the same rows,
-// and returns the claimed emails — or null when fewer than `size` are
-// available (or a race stole some, in which case anything we claimed is
-// released so a later trigger can batch it cleanly).
-export async function claimNextBatch(
-  size = BATCH_SIZE,
-): Promise<BatchEmail[] | null> {
-  const sb = supabaseAdmin();
-
-  const { data: candidates, error: selErr } = await sb
-    .from("inbound_emails")
-    .select("id")
-    .is("batched_at", null)
-    .order("received_at", { ascending: true })
-    .limit(size);
-  if (selErr) throw new Error(`claimNextBatch select failed: ${selErr.message}`);
-  if (!candidates || candidates.length < size) return null;
-
-  const ids = candidates.map((r) => r.id as string);
-  const { data: claimed, error: updErr } = await sb
-    .from("inbound_emails")
-    .update({ batched_at: new Date().toISOString() })
-    .in("id", ids)
-    .is("batched_at", null)
-    .select("id, subject, text_body, publisher_canonical_name, from_domain");
-  if (updErr) throw new Error(`claimNextBatch claim failed: ${updErr.message}`);
-
-  const rows = (claimed ?? []) as BatchEmail[];
-  if (rows.length < size) {
-    // Lost a race for one or more rows. Release what we did claim so it isn't
-    // orphaned (marked batched but never in a batch), then bail.
-    if (rows.length > 0) {
-      await sb
-        .from("inbound_emails")
-        .update({ batched_at: null })
-        .in(
-          "id",
-          rows.map((r) => r.id),
-        );
-    }
-    return null;
-  }
-  return rows;
-}
-
-export async function insertBatchRecord(rec: NewsBatchRecord): Promise<void> {
+export async function insertAgentRun(rec: AgentRunRecord): Promise<void> {
   const sb = supabaseAdmin();
   const { error } = await sb.from("news_batches").insert(rec);
-  if (error) throw new Error(`insertBatchRecord failed: ${error.message}`);
+  if (error) throw new Error(`insertAgentRun failed: ${error.message}`);
 }
 
-// A finished batch run shaped for the "watch the agent work" visual.
+// A finished run shaped for the "watch the agent work" visual.
 export interface AgentTrace {
   id: string;
   createdAt: string;
@@ -108,9 +63,9 @@ export interface AgentTrace {
   steps: AgentStep[];
 }
 
-// Most recent batch runs, newest first, for the agent-trace visual. Fails
-// soft to [] so a missing table (migration not yet applied) or Supabase
-// outage never breaks the page — the UI falls back to its sample trace.
+// Most recent runs, newest first, for the agent-trace visual. Fails soft to []
+// so a missing table (migration not yet applied) or Supabase outage never
+// breaks the page — the UI falls back to its sample trace.
 export async function getLatestAgentTraces(limit = 1): Promise<AgentTrace[]> {
   let sb;
   try {

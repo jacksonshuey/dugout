@@ -1297,13 +1297,13 @@ function AgentChainSection() {
     <section className="max-w-6xl mx-auto px-6 py-20 sm:py-24 border-t border-border">
       <SectionEyebrow>Inside the agent</SectionEyebrow>
       <h2 className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight max-w-3xl">
-        Every 3 emails, a four-agent chain runs.
+        Every email runs a four-agent chain.
       </h2>
       <p className="mt-4 text-base text-foreground/70 leading-relaxed max-w-2xl">
-        When three newsletters have landed, an agent chain fires: one
-        summarizes them together, the next gates whether it&apos;s real news,
-        the third categorizes it, and the last appends it to the live feed.
-        Every step is traced — input, output, and how long it took.
+        Each inbound newsletter runs a four-agent chain: a cheap gate decides
+        if it&apos;s real news first (so junk never gets summarized), then it&apos;s
+        summarized, categorized, and appended to the feed. Every step is traced
+        — input, output, and how long it took.
       </p>
       <div className="mt-10 max-w-3xl">
         <Suspense fallback={<AgentTraceFallback />}>

@@ -1,18 +1,18 @@
--- Batch-of-3 news orchestrator (the chained-agent pipeline).
+-- Per-email agent chain (the four-agent showcase pipeline).
 --
--- Inbound newsletter emails are processed per-email by the existing flow
--- (inbound-pipeline.ts). This adds a SECOND, parallel path: every time three
--- emails have accumulated, a four-agent chain fires —
---   1. summarize the three emails together
---   2. gate: does the combined summary pass as news?
+-- Runs on EACH inbound newsletter email, alongside the existing
+-- classifyNewsletter flow (inbound-pipeline.ts). Four agents, gate-first so
+-- junk never reaches the summarizer:
+--   1. gate:       is this email material news? (cheap, runs first)
+--   2. summarize:  distill the email to one summary (only if it passed)
 --   3. categorize: which news category does it fall under?
---   4. append: write a display-dataset entry (date, source emails, category,
---      sources) and, when it passed the gate, an external_signals row that
---      renders in the live feed.
+--   4. append:     record the run as a display-dataset entry (date, source
+--      email, category, source). The chain does NOT write external_signals —
+--      classifyNewsletter owns the live feed; writing here too would duplicate.
 --
--- `news_batches` is the canonical display dataset + audit record for that
--- chain. `inbound_emails.batched_at` marks which emails a batch has already
--- consumed so the trigger never re-batches the same email.
+-- `news_batches` is the display dataset + audit record (one row per email — the
+-- table name is historical). The "Inside the agent" landing visual reads the
+-- most recent row and replays its per-agent `steps` trace.
 --
 -- Run manually in Supabase Studio (Database → SQL Editor → New query).
 -- A migrations runner isn't wired up in this project (same posture as
@@ -20,41 +20,30 @@
 
 create extension if not exists pgcrypto;
 
--- Marks an inbound email as consumed by a batch. NULL = not yet batched; the
--- trigger claims the three oldest NULL rows atomically before running the
--- chain. Independent of `classified_at` (the per-email flow) by design — the
--- two pipelines run alongside each other.
-alter table inbound_emails
-  add column if not exists batched_at timestamptz;
-
-create index if not exists inbound_emails_batched_idx
-  on inbound_emails (batched_at, received_at)
-  where batched_at is null;
-
 create table if not exists news_batches (
   id              uuid        primary key default gen_random_uuid(),
   created_at      timestamptz not null default now(),
-  -- The three source emails this batch consumed (data location). Denormalized
-  -- subjects/sources alongside so the display dataset is self-contained.
+  -- The source email (data location). Single-element arrays — kept as arrays
+  -- for forward-compatibility and so the display row is self-contained.
   email_ids       uuid[]      not null,
   email_subjects  text[]      not null default '{}',
   news_sources    text[]      not null default '{}',
-  -- Agent 1: combined summary of the three emails.
+  -- Agent 2: the email summary (empty when the gate rejected it).
   batch_summary   text        not null,
-  -- Agent 2: news gate verdict + why.
+  -- Agent 1: news gate verdict + why.
   is_news         boolean     not null,
   gate_reasoning  text,
-  -- Agent 3: category (mirrors external_signals.type values; nullable because
-  -- a rejected batch is never categorized).
+  -- Agent 3: category (mirrors external_signals.type values; null when rejected).
   category        text,
-  -- Agent 4: the external_signals row appended when the batch passed the gate.
+  -- Reserved: an external_signals row id, if a future version writes one.
+  -- The chain currently does not (classifyNewsletter owns the feed).
   signal_id       uuid        references external_signals(id) on delete set null,
-  -- Terminal state of the chain for this batch.
+  -- Terminal state of the run.
   status          text        not null check (status in ('appended', 'rejected', 'error')),
   -- Per-agent action trace for the "watch the agent work" visual. Array of
   -- { agent, label, status, started_at, duration_ms, input_preview,
   --   output_preview } — one entry per stage, including stages skipped when
-  -- the gate rejects the batch.
+  -- the gate rejects the email.
   steps           jsonb       not null default '[]'::jsonb
 );
 
