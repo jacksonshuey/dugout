@@ -16,6 +16,18 @@ export interface BatchEmail {
   from_domain: string;
 }
 
+// One agent's recorded action within a batch run — the unit the "watch the
+// agent work" visual steps through.
+export interface AgentStep {
+  agent: "summarize" | "gate" | "categorize" | "append";
+  label: string;
+  status: "ok" | "skipped" | "error";
+  started_at: string;
+  duration_ms: number;
+  input_preview: string;
+  output_preview: string;
+}
+
 // One row of the display dataset (and audit record) the chain produces.
 export interface NewsBatchRecord {
   email_ids: string[];
@@ -27,6 +39,7 @@ export interface NewsBatchRecord {
   category: string | null;
   signal_id: string | null;
   status: "appended" | "rejected" | "error";
+  steps: AgentStep[];
 }
 
 // Claim the oldest `size` un-batched emails as a unit. Marks them
@@ -79,4 +92,54 @@ export async function insertBatchRecord(rec: NewsBatchRecord): Promise<void> {
   const sb = supabaseAdmin();
   const { error } = await sb.from("news_batches").insert(rec);
   if (error) throw new Error(`insertBatchRecord failed: ${error.message}`);
+}
+
+// A finished batch run shaped for the "watch the agent work" visual.
+export interface AgentTrace {
+  id: string;
+  createdAt: string;
+  emailSubjects: string[];
+  newsSources: string[];
+  summary: string;
+  isNews: boolean;
+  gateReasoning: string | null;
+  category: string | null;
+  status: "appended" | "rejected" | "error";
+  steps: AgentStep[];
+}
+
+// Most recent batch runs, newest first, for the agent-trace visual. Fails
+// soft to [] so a missing table (migration not yet applied) or Supabase
+// outage never breaks the page — the UI falls back to its sample trace.
+export async function getLatestAgentTraces(limit = 1): Promise<AgentTrace[]> {
+  let sb;
+  try {
+    sb = supabaseAdmin();
+  } catch {
+    return [];
+  }
+  try {
+    const { data, error } = await sb
+      .from("news_batches")
+      .select(
+        "id, created_at, email_subjects, news_sources, batch_summary, is_news, gate_reasoning, category, status, steps",
+      )
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (error || !data) return [];
+    return data.map((r) => ({
+      id: r.id as string,
+      createdAt: r.created_at as string,
+      emailSubjects: (r.email_subjects ?? []) as string[],
+      newsSources: (r.news_sources ?? []) as string[],
+      summary: (r.batch_summary ?? "") as string,
+      isNews: !!r.is_news,
+      gateReasoning: (r.gate_reasoning ?? null) as string | null,
+      category: (r.category ?? null) as string | null,
+      status: r.status as AgentTrace["status"],
+      steps: (r.steps ?? []) as AgentStep[],
+    }));
+  } catch {
+    return [];
+  }
 }

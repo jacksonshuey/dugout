@@ -50,7 +50,12 @@ create table if not exists news_batches (
   -- Agent 4: the external_signals row appended when the batch passed the gate.
   signal_id       uuid        references external_signals(id) on delete set null,
   -- Terminal state of the chain for this batch.
-  status          text        not null check (status in ('appended', 'rejected', 'error'))
+  status          text        not null check (status in ('appended', 'rejected', 'error')),
+  -- Per-agent action trace for the "watch the agent work" visual. Array of
+  -- { agent, label, status, started_at, duration_ms, input_preview,
+  --   output_preview } — one entry per stage, including stages skipped when
+  -- the gate rejects the batch.
+  steps           jsonb       not null default '[]'::jsonb
 );
 
 create index if not exists news_batches_created_idx

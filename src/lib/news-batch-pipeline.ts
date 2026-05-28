@@ -16,6 +16,7 @@ import {
   BATCH_SIZE,
   claimNextBatch,
   insertBatchRecord,
+  type AgentStep,
   type BatchEmail,
   type NewsBatchRecord,
 } from "./news-batches";
@@ -143,6 +144,11 @@ async function haikuToolUse<T>(args: {
     throw new Error(`${args.toolName}: model returned no tool_use block`);
   }
   return toolUse.input as T;
+}
+
+function preview(s: string, n = 220): string {
+  const t = s.trim();
+  return t.length > n ? `${t.slice(0, n - 1)}…` : t;
 }
 
 function sourcesOf(emails: BatchEmail[]): string[] {
@@ -299,7 +305,23 @@ export async function processBatch(
   emails: BatchEmail[],
   agents: BatchAgents = realAgents,
 ): Promise<NewsBatchRecord> {
+  const steps: AgentStep[] = [];
+
+  // Agent 1 — Summarize.
+  const t1 = Date.now();
   const summary = await agents.summarize(emails);
+  steps.push({
+    agent: "summarize",
+    label: "Summarize batch",
+    status: "ok",
+    started_at: new Date(t1).toISOString(),
+    duration_ms: Date.now() - t1,
+    input_preview: `${emails.length} emails · ${emails
+      .map((e) => e.subject ?? "(no subject)")
+      .join(" · ")}`,
+    output_preview: preview(summary.summary),
+  });
+
   const base = {
     email_ids: summary.emailIds,
     email_subjects: summary.emailSubjects,
@@ -307,8 +329,41 @@ export async function processBatch(
     batch_summary: summary.summary,
   };
 
+  // Agent 2 — News gate.
+  const t2 = Date.now();
   const verdict = await agents.gate(summary);
+  steps.push({
+    agent: "gate",
+    label: "News gate",
+    status: "ok",
+    started_at: new Date(t2).toISOString(),
+    duration_ms: Date.now() - t2,
+    input_preview: preview(summary.summary),
+    output_preview: `${verdict.isNews ? "PASS — material news" : "REJECT — not news"}: ${verdict.reasoning}`,
+  });
+
   if (!verdict.isNews) {
+    const skippedAt = new Date().toISOString();
+    steps.push(
+      {
+        agent: "categorize",
+        label: "Categorize",
+        status: "skipped",
+        started_at: skippedAt,
+        duration_ms: 0,
+        input_preview: "—",
+        output_preview: "skipped — gate rejected the batch",
+      },
+      {
+        agent: "append",
+        label: "Append to feed",
+        status: "skipped",
+        started_at: skippedAt,
+        duration_ms: 0,
+        input_preview: "—",
+        output_preview: "skipped — nothing appended",
+      },
+    );
     return {
       ...base,
       is_news: false,
@@ -316,11 +371,38 @@ export async function processBatch(
       category: null,
       signal_id: null,
       status: "rejected",
+      steps,
     };
   }
 
+  // Agent 3 — Categorize.
+  const t3 = Date.now();
   const category = await agents.categorize(summary);
+  steps.push({
+    agent: "categorize",
+    label: "Categorize",
+    status: "ok",
+    started_at: new Date(t3).toISOString(),
+    duration_ms: Date.now() - t3,
+    input_preview: preview(summary.summary),
+    output_preview: `${category.category} · ${category.workspaceRelevance} relevance`,
+  });
+
+  // Agent 4 — Append.
+  const t4 = Date.now();
   const { signalId } = await agents.append(summary, category);
+  steps.push({
+    agent: "append",
+    label: "Append to feed",
+    status: "ok",
+    started_at: new Date(t4).toISOString(),
+    duration_ms: Date.now() - t4,
+    input_preview: `${category.category} · sources: ${summary.sources.join(", ")}`,
+    output_preview: signalId
+      ? `signal ${signalId.slice(0, 8)}… written to the live feed`
+      : "appended to feed",
+  });
+
   return {
     ...base,
     is_news: true,
@@ -328,6 +410,7 @@ export async function processBatch(
     category: category.category,
     signal_id: signalId,
     status: "appended",
+    steps,
   };
 }
 
@@ -352,16 +435,28 @@ export async function runPendingBatches(opts?: {
     try {
       record = await processBatch(emails, agents);
     } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
       record = {
         email_ids: emails.map((x) => x.id),
         email_subjects: emails.map((x) => x.subject ?? ""),
         news_sources: sourcesOf(emails),
         batch_summary: "",
         is_news: false,
-        gate_reasoning: e instanceof Error ? e.message : String(e),
+        gate_reasoning: msg,
         category: null,
         signal_id: null,
         status: "error",
+        steps: [
+          {
+            agent: "summarize",
+            label: "Agent chain",
+            status: "error",
+            started_at: new Date().toISOString(),
+            duration_ms: 0,
+            input_preview: `${emails.length} emails`,
+            output_preview: `error: ${msg}`,
+          },
+        ],
       };
     }
     await insertBatchRecord(record);

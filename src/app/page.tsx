@@ -24,6 +24,8 @@ import {
   STEP_RIGHT_COL_CLASS,
 } from "@/components/landing/step-layout";
 import { ConnectivityGraph } from "@/components/tool/connectivity-graph";
+import { AgentTraceVisual } from "@/components/landing/agent-trace-visual";
+import { getLatestAgentTraces } from "@/lib/news-batches";
 import { InteractiveSignals } from "@/components/landing/interactive-signals";
 import { InteractiveDecisions } from "@/components/landing/interactive-decisions";
 import { INTEGRATIONS } from "@/data/integrations";
@@ -76,6 +78,7 @@ export default function LandingPage() {
       <Hero />
       <OnboardingWalkthrough />
       <MarketIntelLiveSection />
+      <AgentChainSection />
       <section id="demo" className="border-t border-border bg-foreground/[0.02]">
         <div className="max-w-6xl mx-auto px-6 py-20 sm:py-24">
           <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight">
@@ -1279,6 +1282,46 @@ function FeedFallback() {
         />
       ))}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Agent chain showcase — the "watch the agent work" section. Surfaces the
+// four-agent batch pipeline (summarize → gate → categorize → append) that
+// fires on every third inbound email, playing back the most recent real run's
+// per-step trace. Static chrome; the trace fetch streams behind Suspense.
+// ---------------------------------------------------------------------------
+
+function AgentChainSection() {
+  return (
+    <section className="max-w-6xl mx-auto px-6 py-20 sm:py-24 border-t border-border">
+      <SectionEyebrow>Inside the agent</SectionEyebrow>
+      <h2 className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight max-w-3xl">
+        Every 3 emails, a four-agent chain runs.
+      </h2>
+      <p className="mt-4 text-base text-foreground/70 leading-relaxed max-w-2xl">
+        When three newsletters have landed, an agent chain fires: one
+        summarizes them together, the next gates whether it&apos;s real news,
+        the third categorizes it, and the last appends it to the live feed.
+        Every step is traced — input, output, and how long it took.
+      </p>
+      <div className="mt-10 max-w-3xl">
+        <Suspense fallback={<AgentTraceFallback />}>
+          <LatestAgentTrace />
+        </Suspense>
+      </div>
+    </section>
+  );
+}
+
+async function LatestAgentTrace() {
+  const traces = await getLatestAgentTraces(1);
+  return <AgentTraceVisual trace={traces[0] ?? null} />;
+}
+
+function AgentTraceFallback() {
+  return (
+    <div className="h-[520px] rounded-xl border border-border bg-foreground/[0.02] animate-pulse" />
   );
 }
 
