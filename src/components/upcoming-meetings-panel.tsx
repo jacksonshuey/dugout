@@ -159,7 +159,7 @@ function NewsBullet({
           <span className="font-mono">{publisher}</span>
           <span>·</span>
           <span>{formatRelative(signal.occurred_at)}</span>
-          {conf && (
+          {conf && conf !== "verified_primary" && (
             <>
               <span>·</span>
               <span className={confidenceBadgeClass(conf)} title={confidenceLabel(conf)}>
