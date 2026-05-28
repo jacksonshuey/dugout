@@ -27,7 +27,6 @@ import { ConnectivityGraph } from "@/components/tool/connectivity-graph";
 import { AgentTraceVisual } from "@/components/landing/agent-trace-visual";
 import { getLatestAgentTraces } from "@/lib/news-batches";
 import { InteractiveSignals } from "@/components/landing/interactive-signals";
-import { InteractiveDecisions } from "@/components/landing/interactive-decisions";
 import { INTEGRATIONS } from "@/data/integrations";
 import { checkAllHealth } from "@/lib/integration-health";
 import { RefreshButton } from "@/components/landing/refresh-button";
@@ -396,18 +395,18 @@ function OnboardingWalkthrough() {
     <section className="max-w-6xl mx-auto px-6 py-20 sm:py-24">
       <SectionEyebrow>How the engine works</SectionEyebrow>
       <h2 className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight max-w-3xl">
-        Integrate, zipper, ontology, rules, actions.
+        Integrate, zipper, ontology, automations.
       </h2>
       <p className="mt-4 text-base text-foreground/70 leading-relaxed max-w-2xl">
         Each stage builds on the one before. Integrations write into a single
-        ontology. Rules fire over that ontology. The AE acts on the result.
+        ontology. Automations fire over that ontology and the AE acts on the
+        result.
       </p>
       <div className="mt-10">
         <StepIntegrate />
         <StepZipper />
         <StepOntology />
-        <StepRules />
-        <StepActions />
+        <StepAutomations />
       </div>
     </section>
   );
@@ -434,7 +433,7 @@ function StepShell({
       <div className="border-t border-border py-10 sm:py-12">
         <div className={"space-y-2 max-w-3xl " + (sub ? "mb-8" : "mb-6")}>
           <span className="font-mono text-xs text-muted">
-            STEP 0{num} / 05
+            STEP 0{num} / 04
           </span>
           <h3 className="font-serif text-2xl sm:text-3xl font-semibold -tracking-[0.02em]">
             {title}
@@ -452,7 +451,7 @@ function StepShell({
       <div className="md:col-span-4 space-y-2">
         <div className="flex items-center gap-2">
           <span className="font-mono text-xs text-muted">
-            STEP 0{num} / 05
+            STEP 0{num} / 04
           </span>
         </div>
         <h3 className="text-2xl sm:text-3xl font-semibold tracking-tight">
@@ -584,28 +583,15 @@ function StepOntology() {
   );
 }
 
-function StepRules() {
+function StepAutomations() {
   return (
     <StepShell
       num={4}
       wide
-      title="Rules"
-      sub="Build a rule stream from any source: ontology fields, news, meetings, or AI extraction. Chain triggers with AND, then chain actions to run on a hit (Slack DM, Dock workspace, Outreach sequence, asset delivery, snooze, CSM notify). Three urgency tiers route the output: blocking to Slack within the hour, action to the queue, awareness to the weekly roundup."
+      title="Automations"
+      sub="A rule and its action are one automation. Build a rule from any source — ontology fields, news, meetings, or AI extraction — chain triggers with AND, then chain the actions that run on a hit (Slack DM, Dock workspace, Outreach sequence, asset delivery, CSM notify). Three urgency tiers route the output: blocking to Slack within the hour, action to the queue, awareness to the weekly roundup. Every automation lands logged — acted, skipped, or snoozed, with the channel used and the observed outcome — which feeds back so the next one is better targeted."
     >
       <InteractiveSignals />
-    </StepShell>
-  );
-}
-
-function StepActions() {
-  return (
-    <StepShell
-      num={5}
-      wide
-      title="Actions"
-      sub="Every rule lands with a specific next step. Acted, skipped, or snoozed, all logged with the channel used and the observed outcome. Actions feed back into the engine so the next rule is better targeted."
-    >
-      <InteractiveDecisions />
     </StepShell>
   );
 }
