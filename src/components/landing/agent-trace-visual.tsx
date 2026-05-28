@@ -50,7 +50,7 @@ const SAMPLE_TRACE: AgentTrace = {
       duration_ms: 1180,
       input_preview: "Lilly's oral GLP-1 reshapes the obesity market · FiercePharma",
       output_preview:
-        "PASS — material news: describes a concrete competitive development a rep would act on.",
+        "PASS · material news: describes a concrete competitive development a rep would act on.",
     },
     {
       agent: "summarize",
@@ -59,7 +59,7 @@ const SAMPLE_TRACE: AgentTrace = {
       started_at: new Date().toISOString(),
       duration_ms: 2240,
       input_preview:
-        "Lilly's oral GLP-1 reshapes the obesity market — Eli Lilly's lower-cost oral pill is drawing patients off compounded GLP-1s…",
+        "Lilly's oral GLP-1 reshapes the obesity market · Eli Lilly's lower-cost oral pill is drawing patients off compounded GLP-1s…",
       output_preview:
         "Eli Lilly's lower-cost oral GLP-1 is pulling patients away from compounded therapies, signaling intensifying price competition…",
     },
@@ -155,7 +155,7 @@ export function AgentTraceVisual({ trace }: { trace: AgentTrace | null }) {
             Triggered by {data.emailSubjects.length || 1} inbound email
             {(data.emailSubjects.length || 1) === 1 ? "" : "s"} ·{" "}
             <span className="text-muted">
-              {data.newsSources.join(", ") || "—"}
+              {data.newsSources.join(", ") || "unknown"}
             </span>
           </div>
         </div>
@@ -194,7 +194,7 @@ export function AgentTraceVisual({ trace }: { trace: AgentTrace | null }) {
             ? data.status === "appended"
               ? "✓ entry appended to the live feed"
               : data.status === "rejected"
-                ? "✕ batch rejected at the gate — nothing appended"
+                ? "✕ batch rejected at the gate, nothing appended"
                 : "! run errored"
             : "running…"}
         </span>
@@ -288,7 +288,7 @@ function StepRow({
         {/* I/O — only once the step has been reached */}
         {revealed && (
           <div className="mt-2 space-y-1.5">
-            {step.input_preview && step.input_preview !== "—" && (
+            {step.input_preview && (
               <IORow label="in" text={step.input_preview} tone="muted" />
             )}
             <IORow
@@ -329,7 +329,9 @@ function IORow({
       <span className="shrink-0 mt-px text-[9px] font-mono uppercase tracking-[0.1em] text-muted/70 w-6">
         {label}
       </span>
-      <span className={`min-w-0 ${toneCls}`}>{text}</span>
+      {/* Strip em dashes from any text — including LLM-generated reasoning
+          and summaries — so the trace never renders one. */}
+      <span className={`min-w-0 ${toneCls}`}>{text.replace(/—/g, "-")}</span>
     </div>
   );
 }

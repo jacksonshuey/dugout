@@ -181,7 +181,7 @@ async function summarize(email: ChainEmail): Promise<string> {
       "You summarize a single newsletter email for a B2B sales-intelligence feed. " +
       "Produce ONE tight sentence or two (max 60 words) capturing the most material, " +
       "newsworthy development. Lead with the concrete event. No preamble, no bullets, " +
-      "no markdown — just the summary.",
+      "no markdown, no em dashes. Just the summary.",
     prompt: `SUBJECT: ${email.subject ?? "(none)"}\nSOURCE: ${sourceOf(email)}\n\n${bodyText(email)}`,
     maxTokens: 300,
     temperature: 0.2,
@@ -260,7 +260,7 @@ export async function processEmail(
     started_at: new Date(t1).toISOString(),
     duration_ms: Date.now() - t1,
     input_preview: `${email.subject ?? "(no subject)"} · ${source}`,
-    output_preview: `${verdict.isNews ? "PASS — material news" : "REJECT — not news"}: ${verdict.reasoning}`,
+    output_preview: `${verdict.isNews ? "PASS · material news" : "REJECT · not news"}: ${verdict.reasoning}`,
   });
 
   if (!verdict.isNews) {
@@ -272,8 +272,8 @@ export async function processEmail(
         status: "skipped",
         started_at: at,
         duration_ms: 0,
-        input_preview: "—",
-        output_preview: "skipped — gate rejected the email (no summary tokens spent)",
+        input_preview: "",
+        output_preview: "skipped: gate rejected the email (no summary tokens spent)",
       },
       {
         agent: "categorize",
@@ -281,7 +281,7 @@ export async function processEmail(
         status: "skipped",
         started_at: at,
         duration_ms: 0,
-        input_preview: "—",
+        input_preview: "",
         output_preview: "skipped",
       },
       {
@@ -290,8 +290,8 @@ export async function processEmail(
         status: "skipped",
         started_at: at,
         duration_ms: 0,
-        input_preview: "—",
-        output_preview: "skipped — nothing appended",
+        input_preview: "",
+        output_preview: "skipped: nothing appended",
       },
     );
     return {
@@ -314,7 +314,7 @@ export async function processEmail(
     status: "ok",
     started_at: new Date(t2).toISOString(),
     duration_ms: Date.now() - t2,
-    input_preview: preview(`${email.subject ?? ""} — ${bodyText(email)}`),
+    input_preview: preview(`${email.subject ?? ""} · ${bodyText(email)}`),
     output_preview: preview(summary),
   });
   base.batch_summary = summary;

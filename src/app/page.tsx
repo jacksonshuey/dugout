@@ -495,7 +495,7 @@ function StepIntegrate() {
               <span className="font-semibold text-foreground">
                 Every integration comes prebuilt.
               </span>{" "}
-              Paste an API key, set a sync frequency, verify — done.
+              Paste an API key, set a sync frequency, verify, done.
             </p>
             <p className="text-sm text-foreground/70 leading-relaxed">
               No schema design on your end. Each adapter is already scaffolded
@@ -587,7 +587,7 @@ function StepAutomations() {
       num={4}
       wide
       title="Automations"
-      sub="A rule and its action are one automation. Build a rule from any source — ontology fields, news, meetings, or AI extraction — chain triggers with AND, then chain the actions that run on a hit (Slack DM, Dock workspace, Outreach sequence, asset delivery, CSM notify). Three urgency tiers route the output: blocking to Slack within the hour, action to the queue, awareness to the weekly roundup. Every automation lands logged — acted, skipped, or snoozed, with the channel used and the observed outcome — which feeds back so the next one is better targeted."
+      sub="A rule and its action are one automation. Build a rule from any source (ontology fields, news, meetings, or AI extraction), chain triggers with AND, then chain the actions that run on a hit (Slack DM, Dock workspace, Outreach sequence, asset delivery, CSM notify). Three urgency tiers route the output: blocking to Slack within the hour, action to the queue, awareness to the weekly roundup. Every automation lands logged (acted, skipped, or snoozed, with the channel used and the observed outcome), which feeds back so the next one is better targeted."
     >
       <InteractiveSignals />
     </StepShell>
@@ -681,7 +681,7 @@ function DataSourcesRow() {
         icon="F"
         name="Firecrawl"
         role="Account site scrapes · nightly"
-        detail="Per-account site scrapes — earnings, talks, launches."
+        detail="Per-account site scrapes: earnings, talks, launches."
       />
     </div>
   );
@@ -780,7 +780,7 @@ function Counter({
 }
 
 function formatRelativeTime(iso: string | null): string {
-  if (!iso) return "—";
+  if (!iso) return "n/a";
   const then = new Date(iso).getTime();
   const now = Date.now();
   const diffMs = Math.max(0, now - then);
@@ -840,7 +840,7 @@ function MarketIntelLiveSection() {
         <p className="text-xs text-muted mt-1 max-w-2xl leading-snug">
           A cheap gate decides if it&apos;s real news first (so junk never gets
           summarized), then it&apos;s summarized, categorized, and appended to the
-          feed. Every step is traced — input, output, and how long it took.
+          feed. Every step is traced: input, output, and how long it took.
         </p>
       </div>
       <Suspense fallback={<PipelineFallback />}>
