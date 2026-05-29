@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   comparatorsFor,
   comparatorLabel,
@@ -550,6 +551,7 @@ export function InteractiveSignals() {
   // pick up the new triggers/actions.
   const [draft, setDraft] = useState<RuleDraft | null>(null);
   const [draftNonce, setDraftNonce] = useState(0);
+  const [chatOpen, setChatOpen] = useState(false);
 
   const editingRule = editingId ? rules.find((r) => r.id === editingId) ?? null : null;
 
@@ -594,7 +596,36 @@ export function InteractiveSignals() {
 
   return (
     <div className="space-y-6">
-      {!editingRule && <RuleChat onDraft={handleAIDraft} />}
+      {!editingRule && (
+        <div className="rounded-lg border border-brand/30 bg-brand/[0.03] p-4 flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <h4 className="text-sm font-semibold tracking-tight flex items-center gap-2">
+              Build a rule with AI
+              <span className="text-[9px] font-mono uppercase tracking-[0.1em] px-1.5 py-0.5 rounded bg-brand text-background">
+                beta
+              </span>
+            </h4>
+            <p className="text-[11px] text-muted leading-relaxed mt-0.5">
+              Describe an automation in plain English and chat it into shape —
+              it drops into the composer below to edit and save.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setChatOpen(true)}
+            className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-md bg-foreground text-background text-[12px] font-medium hover:bg-foreground/90 transition-colors shrink-0"
+          >
+            Build rule
+          </button>
+        </div>
+      )}
+
+      {chatOpen && (
+        <RuleChatModal
+          onClose={() => setChatOpen(false)}
+          onAccept={handleAIDraft}
+        />
+      )}
 
       <RuleComposer
         // Re-mount the composer whenever the edit target changes (or when a
@@ -918,7 +949,8 @@ function actionDescription(a: Action): string {
 }
 
 // ===========================================================================
-// AI rule chat — plain-English request → /api/build-rule → seeds the composer
+// AI rule chat modal — a centered popup that chats with the user to come up
+// with a rule. On accept it seeds the composer; the user edits + saves there.
 // ===========================================================================
 
 const CHAT_EXAMPLES = [
@@ -927,135 +959,257 @@ const CHAT_EXAMPLES = [
   "If a champion's engagement score drops below 0.3, enroll them in re-engagement.",
 ];
 
-function RuleChat({ onDraft }: { onDraft: (rule: RuleDraft) => void }) {
+const CHAT_GREETING =
+  "Tell me what to watch for and what to do — e.g. “flag stalled six-figure deals and DM the AE.” I'll draft the rule and you can refine it.";
+
+type ChatTurn = { id: number; role: "user" | "assistant"; content: string };
+
+// Mounted only while open (the parent gates it), so useState initializers give
+// a fresh conversation each time without any reset-in-effect.
+function RuleChatModal({
+  onClose,
+  onAccept,
+}: {
+  onClose: () => void;
+  onAccept: (rule: RuleDraft) => void;
+}) {
+  const [messages, setMessages] = useState<ChatTurn[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [note, setNote] = useState<string | null>(null);
-  const [lastPrompt, setLastPrompt] = useState<string | null>(null);
+  const [pendingRule, setPendingRule] = useState<RuleDraft | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const turnId = useRef(0);
 
-  const submit = async () => {
-    const prompt = input.trim();
-    if (!prompt || loading) return;
+  // Read the latest onClose without listing it as an effect dep — otherwise an
+  // inline `onClose={() => …}` prop would tear down/re-add the listener on
+  // every parent render. Synced in an effect (no ref writes during render).
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  // Focus the input on open and wire Escape-to-close. Registered once. On
+  // unmount, also abort any in-flight request so we don't burn tokens on a
+  // result no one will see.
+  useEffect(() => {
+    const t = setTimeout(() => inputRef.current?.focus(), 50);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onCloseRef.current();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener("keydown", onKey);
+      abortRef.current?.abort();
+    };
+  }, []);
+
+  // Keep the transcript pinned to the latest message.
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
+  }, [messages, loading, pendingRule]);
+
+  const send = async () => {
+    const text = input.trim();
+    if (!text || loading) return;
+    const next: ChatTurn[] = [
+      ...messages,
+      { id: turnId.current++, role: "user", content: text },
+    ];
+    setMessages(next);
+    setInput("");
+    setPendingRule(null);
     setLoading(true);
-    setError(null);
-    setNote(null);
+    const ac = new AbortController();
+    abortRef.current = ac;
     try {
       const res = await fetch("/api/build-rule", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ prompt }),
+        // Strip client-only ids before sending the transcript to the API.
+        body: JSON.stringify({
+          messages: next.map(({ role, content }) => ({ role, content })),
+        }),
+        signal: ac.signal,
       });
       const data = (await res.json()) as {
-        rule?: RuleDraft;
-        warnings?: string[];
+        reply?: string;
+        rule?: RuleDraft | null;
         error?: string;
       };
-      if (data.error || !data.rule) {
-        setError(data.error ?? "Couldn't build a rule from that.");
-        return;
-      }
-      setLastPrompt(prompt);
-      const triggerCount = data.rule.triggers.length;
-      const actionCount = data.rule.actions.length;
-      const base = `Drafted a rule with ${triggerCount} trigger${
-        triggerCount === 1 ? "" : "s"
-      } → ${actionCount} action${
-        actionCount === 1 ? "" : "s"
-      }. Review and edit below, then save.`;
-      setNote(
-        data.warnings && data.warnings.length > 0
-          ? `${base} Note: ${data.warnings.join(" ")}`
-          : base,
-      );
-      setInput("");
-      onDraft(data.rule);
-    } catch {
-      setError("Network error reaching the rule builder. Try again.");
+      const reply =
+        data.reply ?? data.error ?? "Something went wrong — try rephrasing.";
+      setMessages((m) => [
+        ...m,
+        { id: turnId.current++, role: "assistant", content: reply },
+      ]);
+      if (data.rule) setPendingRule(data.rule);
+    } catch (err) {
+      // Aborted on close — the modal is unmounting, so don't touch state.
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      setMessages((m) => [
+        ...m,
+        {
+          id: turnId.current++,
+          role: "assistant",
+          content: "Network error reaching the builder — try again.",
+        },
+      ]);
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <div className="rounded-lg border border-border bg-foreground/[0.015] p-4 space-y-3">
-      <div className="flex items-baseline justify-between flex-wrap gap-2">
-        <h4 className="text-sm font-semibold tracking-tight flex items-center gap-2">
-          Describe it in plain English
-          <span className="text-[9px] font-mono uppercase tracking-[0.1em] px-1.5 py-0.5 rounded bg-brand text-background">
-            AI
-          </span>
-        </h4>
-        <span className="text-[10px] uppercase tracking-[0.15em] font-mono text-muted">
-          → builds the rule below
-        </span>
-      </div>
-      <p className="text-[11px] text-muted leading-relaxed">
-        Tell Dugout what to watch for and what to do. It drafts the rule into
-        the composer — edit anything, then save it to your stream.
-      </p>
+  const accept = () => {
+    if (!pendingRule) return;
+    onAccept(pendingRule);
+    onClose();
+  };
 
-      <div className="flex flex-col gap-2">
-        <textarea
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              submit();
-            }
-          }}
-          rows={2}
-          placeholder="e.g. Flag stalled six-figure deals and DM the AE…"
-          className="w-full px-3 py-2 rounded-md border border-border bg-background text-[12px] leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
-        />
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-[10px] font-mono text-muted">
-            Enter to build · Shift+Enter for a new line
-          </span>
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Build a rule with AI"
+    >
+      <div
+        className="absolute inset-0 bg-foreground/40 backdrop-blur-sm"
+        onClick={onClose}
+        aria-hidden
+      />
+      <div className="relative w-full max-w-lg max-h-[85vh] flex flex-col rounded-xl border border-border bg-background shadow-2xl overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border">
+          <h4 className="text-sm font-semibold tracking-tight flex items-center gap-2">
+            Build a rule with AI
+            <span className="text-[9px] font-mono uppercase tracking-[0.1em] px-1.5 py-0.5 rounded bg-brand text-background">
+              AI
+            </span>
+          </h4>
           <button
             type="button"
-            onClick={submit}
-            disabled={loading || input.trim().length === 0}
-            className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-md bg-foreground text-background text-[12px] font-medium hover:bg-foreground/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={onClose}
+            aria-label="Close"
+            className="text-muted hover:text-foreground transition-colors text-lg leading-none px-1"
           >
-            {loading ? "Building…" : "Build rule"}
+            ×
           </button>
         </div>
-      </div>
 
-      {!input && !note && !error && (
-        <div className="flex flex-wrap gap-1.5">
-          {CHAT_EXAMPLES.map((ex) => (
-            <button
-              key={ex}
-              type="button"
-              onClick={() => setInput(ex)}
-              className="text-left px-2 py-1 rounded border border-dashed border-border text-[10px] text-muted hover:text-foreground hover:border-foreground/30 transition-colors max-w-full truncate"
-              title={ex}
-            >
-              {ex}
-            </button>
-          ))}
-        </div>
-      )}
+        {/* Transcript */}
+        <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+          <div className="rounded-lg bg-foreground/[0.04] px-3 py-2 text-[12px] text-muted leading-relaxed">
+            {CHAT_GREETING}
+          </div>
 
-      {error && (
-        <div className="rounded-md border border-rose-300/40 bg-rose-500/[0.06] px-3 py-2 text-[11px] text-rose-700 dark:text-rose-300">
-          {error}
-        </div>
-      )}
-      {note && (
-        <div className="rounded-md border border-brand/30 bg-brand/[0.06] px-3 py-2 text-[11px] text-foreground">
-          {lastPrompt && (
-            <span className="block text-[10px] font-mono text-muted mb-0.5 truncate">
-              “{lastPrompt}”
-            </span>
+          {messages.length === 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {CHAT_EXAMPLES.map((ex) => (
+                <button
+                  key={ex}
+                  type="button"
+                  onClick={() => setInput(ex)}
+                  className="text-left px-2 py-1 rounded border border-dashed border-border text-[10px] text-muted hover:text-foreground hover:border-foreground/30 transition-colors max-w-full truncate"
+                  title={ex}
+                >
+                  {ex}
+                </button>
+              ))}
+            </div>
           )}
-          {note}
+
+          {messages.map((m) => (
+            <div
+              key={m.id}
+              className={m.role === "user" ? "flex justify-end" : "flex justify-start"}
+            >
+              <div
+                className={
+                  "max-w-[85%] rounded-lg px-3 py-2 text-[12px] leading-relaxed " +
+                  (m.role === "user"
+                    ? "bg-foreground text-background"
+                    : "bg-foreground/[0.05] text-foreground")
+                }
+              >
+                {m.content}
+              </div>
+            </div>
+          ))}
+
+          {loading && (
+            <div className="flex justify-start">
+              <div className="rounded-lg bg-foreground/[0.05] px-3 py-2 text-[12px] text-muted">
+                Thinking…
+              </div>
+            </div>
+          )}
+
+          {pendingRule && !loading && (
+            <div className="rounded-lg border border-brand/40 bg-brand/[0.06] px-3 py-2.5 space-y-2">
+              <div className="text-[10px] uppercase tracking-[0.15em] font-mono text-brand">
+                Proposed rule
+              </div>
+              <div className="font-mono text-[12px] text-foreground break-all">
+                {pendingRule.name}
+              </div>
+              <div className="text-[11px] text-muted">
+                {pendingRule.triggers.length} trigger
+                {pendingRule.triggers.length === 1 ? "" : "s"} →{" "}
+                {pendingRule.actions.length} action
+                {pendingRule.actions.length === 1 ? "" : "s"}
+              </div>
+              <div className="flex items-center gap-2 pt-0.5">
+                <button
+                  type="button"
+                  onClick={accept}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-foreground text-background text-[12px] font-medium hover:bg-foreground/90 transition-colors"
+                >
+                  Use this rule
+                </button>
+                <span className="text-[10px] text-muted">
+                  or keep chatting to refine it
+                </span>
+              </div>
+            </div>
+          )}
         </div>
-      )}
-    </div>
+
+        {/* Composer */}
+        <div className="border-t border-border p-3 space-y-2">
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                send();
+              }
+            }}
+            rows={2}
+            placeholder="Describe the automation…"
+            className="w-full px-3 py-2 rounded-md border border-border bg-background text-[12px] leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
+          />
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10px] font-mono text-muted">
+              Enter to send · Shift+Enter for a new line
+            </span>
+            <button
+              type="button"
+              onClick={send}
+              disabled={loading || input.trim().length === 0}
+              className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-md bg-foreground text-background text-[12px] font-medium hover:bg-foreground/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? "Sending…" : "Send"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }
 
