@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   accountsById,
   demoSignals,
@@ -106,6 +106,27 @@ const columns = STAGE_ORDER.map((stage) => ({
     .map((o) => toCard(o.id))
     .filter((c): c is DealCardData => c !== null),
 })).filter((col) => col.cards.length > 0);
+
+// Headlines for the rotating news filler card.
+const headlines = [...demoSignals]
+  .sort((a, b) => +new Date(b.detectedAt) - +new Date(a.detectedAt))
+  .slice(0, 8)
+  .map((s) => {
+    const o = opportunities.find((x) => x.id === s.oppId);
+    const acc = o ? accountsById.get(o.accountId) : undefined;
+    return { account: acc?.name ?? "Workspace", title: s.title };
+  });
+
+// Filler "product" cards slotted into the shorter columns so the board fills
+// in Tetris-style. Type drives both the widget and its accent: automation =
+// brand (orange) CTA into the composer; news = black live rotator.
+type FillerType = "automation" | "news";
+
+function scrollToComposer() {
+  document
+    .getElementById("automation-composer")
+    ?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
 
 // ── Top-level ────────────────────────────────────────────────────────────────
 
@@ -245,16 +266,43 @@ function StatCallout({ value, label }: { value: string; label: string }) {
 // ── Deal board (kanban by stage) ─────────────────────────────────────────────
 
 function DealBoard() {
+  const maxLen = Math.max(1, ...columns.map((c) => c.cards.length));
+  // Walk the columns assigning fillers from a global counter so types
+  // alternate across the whole board (Tetris-style variety).
+  let fi = 0;
+  const withFillers = columns.map((col) => {
+    const gap = maxLen - col.cards.length;
+    const fillers: { key: number; type: FillerType }[] = [];
+    for (let g = 0; g < gap; g++) {
+      fillers.push({ key: fi, type: fi % 2 === 0 ? "automation" : "news" });
+      fi++;
+    }
+    return { ...col, fillers };
+  });
+
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-      {columns.map((col) => (
-        <DealColumn key={col.stage} stage={col.stage} cards={col.cards} />
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-start">
+      {withFillers.map((col) => (
+        <DealColumn
+          key={col.stage}
+          stage={col.stage}
+          cards={col.cards}
+          fillers={col.fillers}
+        />
       ))}
     </div>
   );
 }
 
-function DealColumn({ stage, cards }: { stage: Stage; cards: DealCardData[] }) {
+function DealColumn({
+  stage,
+  cards,
+  fillers,
+}: {
+  stage: Stage;
+  cards: DealCardData[];
+  fillers: { key: number; type: FillerType }[];
+}) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -268,8 +316,82 @@ function DealColumn({ stage, cards }: { stage: Stage; cards: DealCardData[] }) {
         {cards.map((c) => (
           <DealCard key={c.id} card={c} />
         ))}
+        {fillers.map((f) =>
+          f.type === "automation" ? (
+            <AutomationFiller key={`f${f.key}`} />
+          ) : (
+            <NewsFiller key={`f${f.key}`} />
+          ),
+        )}
       </div>
     </div>
+  );
+}
+
+// ── Filler product cards (fill the column gaps) ──────────────────────────────
+
+function AutomationFiller() {
+  return (
+    <button
+      type="button"
+      onClick={scrollToComposer}
+      className="w-full text-left rounded-xl border border-brand bg-brand text-background p-4 transition-transform hover:-translate-y-0.5"
+    >
+      <div className="flex items-center justify-between">
+        <BoltIcon />
+        <span aria-hidden className="text-background/70 text-sm">
+          →
+        </span>
+      </div>
+      <div className="mt-3 text-sm font-semibold tracking-tight leading-snug">
+        Build an automation
+      </div>
+      <div className="mt-1 text-[11px] text-background/75 leading-snug">
+        Describe it in plain English — it drafts the rule for you.
+      </div>
+    </button>
+  );
+}
+
+function NewsFiller() {
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setI((n) => (n + 1) % headlines.length), 3500);
+    return () => clearInterval(id);
+  }, []);
+  const h = headlines[i];
+  return (
+    <div className="rounded-xl border border-foreground bg-foreground text-background p-4 min-h-[124px] flex flex-col">
+      <div className="flex items-center justify-between">
+        <span className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.18em] font-mono text-background/70">
+          <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          Live news
+        </span>
+        <span className="text-[10px] font-mono text-background/50 tabular-nums">
+          {i + 1}/{headlines.length}
+        </span>
+      </div>
+      <div key={i} className="mt-3 flex-1 animate-[fadeIn_0.4s_ease]">
+        <div className="text-[11px] font-semibold tracking-tight text-background/90">
+          {h?.account}
+        </div>
+        <div className="mt-1 text-[12px] leading-snug text-background/75 line-clamp-3">
+          {h?.title}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BoltIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z"
+        fill="currentColor"
+        className="text-background"
+      />
+    </svg>
   );
 }
 

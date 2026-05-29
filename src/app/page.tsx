@@ -532,7 +532,9 @@ function StepAutomations() {
       title="Automations"
       sub="Create automations across your entire organization."
     >
-      <InteractiveSignals />
+      <div id="automation-composer" className="scroll-mt-20">
+        <InteractiveSignals />
+      </div>
     </StepShell>
   );
 }
