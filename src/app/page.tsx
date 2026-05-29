@@ -742,8 +742,8 @@ function MarketIntelLiveSection() {
       </h2>
       <p className="mt-4 text-base text-foreground/70 leading-relaxed max-w-2xl">
         Four sources in, one clean feed out. AI sorts every item the moment it
-        lands — account news to the right account, market-wide moves to their
-        own stream.
+        lands. Account news goes to the right account, market-wide moves to
+        their own stream.
       </p>
 
       <DataSourcesRow />
