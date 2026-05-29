@@ -36,6 +36,7 @@ import { SemanticSearchBox } from "@/components/landing/semantic-search-box";
 import {
   getSignalsForAccount,
   getWorkspaceSignals,
+  rankTopWorkspaceNews,
   type ExternalSignal,
 } from "@/lib/external-signals";
 import { getUpcomingMeetings } from "@/data/upcoming-meetings-seed";
@@ -57,8 +58,11 @@ export const revalidate = 60;
 const CONTACT_MAILTO =
   "mailto:jacksonshuey@gmail.com?subject=Dugout%20walkthrough";
 
-const MARKET_INTEL_LOOKBACK_DAYS = 30;
-const MARKET_INTEL_PREVIEW_LIMIT = 5;
+// "Top news of the week": rank a wide pool from the past week down to a small,
+// publisher-diverse set.
+const TOP_NEWS_LOOKBACK_DAYS = 7;
+const TOP_NEWS_POOL = 100;
+const TOP_NEWS_COUNT = 6;
 
 // Landing page. Single scroll: vision → integration constellation →
 // onboarding walkthrough → live demo embedded.
@@ -800,18 +804,19 @@ function formatRelativeTime(iso: string | null): string {
   return `${days}d ago`;
 }
 
-// Fetches workspace-scoped signals for the SortableWorkspaceFeed below.
-// The sort itself happens client-side (workspace_relevance, occurred_at,
-// signal type magnitude); the server just hands the rows down. Fails soft
-// to an empty array so a Supabase outage doesn't take down the landing.
+// Builds the "Top news of the week" feed. Fetches a wide pool of the week's
+// workspace signals, ranks them by relevance/impact with a per-publisher cap
+// (so one newsletter digest can't monopolize the feed), then moderates only
+// the handful actually shown. Fails soft to [] so a Supabase outage doesn't
+// take down the landing.
 async function fetchWorkspaceFeed(): Promise<ExternalSignal[]> {
   try {
     const sinceIso = new Date(
-      Date.now() - MARKET_INTEL_LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
+      Date.now() - TOP_NEWS_LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
     ).toISOString();
-    const raw = await getWorkspaceSignals(sinceIso, MARKET_INTEL_PREVIEW_LIMIT);
-    // OpenAI moderation pass before the workspace feed renders.
-    return await moderateSignals(raw);
+    const pool = await getWorkspaceSignals(sinceIso, TOP_NEWS_POOL);
+    const top = rankTopWorkspaceNews(pool, TOP_NEWS_COUNT);
+    return await moderateSignals(top);
   } catch {
     return [];
   }

@@ -191,6 +191,79 @@ export async function getWorkspaceSignals(
   return (data ?? []) as ExternalSignal[];
 }
 
+// "Top news of the week" ranking. getWorkspaceSignals returns by recency, so a
+// single newsletter digest that emits several signals can monopolize the feed.
+// This ranks a fetched pool by relevance → impact → recency AND caps how many
+// items any one publisher contributes, so the top feed is genuinely diverse
+// rather than "whatever the latest digest dumped." Pure; callers fetch a wide
+// pool, rank here, then moderate only the slice they display.
+const RELEVANCE_RANK: Record<string, number> = {
+  high: 3,
+  medium: 2,
+  low: 1,
+  none: 0,
+};
+
+const TYPE_MAGNITUDE: Record<string, number> = {
+  ma_acquisition: 5,
+  leadership_change: 5,
+  champion_job_change: 4,
+  funding_round: 4,
+  layoff: 4,
+  earnings: 3,
+  regulatory_action: 3,
+  product_launch: 2,
+  press_release: 2,
+  partnership: 2,
+  competitor_mention: 1,
+  other: 0,
+};
+
+function impactOf(s: ExternalSignal): number {
+  if (typeof s.impact_score === "number") return s.impact_score;
+  const tierBase =
+    ({ high: 70, medium: 50, low: 30, none: 10 } as const)[
+      s.workspace_relevance ?? "none"
+    ] ?? 10;
+  return Math.min(100, tierBase + (TYPE_MAGNITUDE[s.type] ?? 0) * 4);
+}
+
+export function rankTopWorkspaceNews(
+  signals: ExternalSignal[],
+  n: number,
+  perPublisherCap = 2,
+): ExternalSignal[] {
+  const sorted = [...signals].sort((a, b) => {
+    const ra = RELEVANCE_RANK[a.workspace_relevance ?? "none"] ?? 0;
+    const rb = RELEVANCE_RANK[b.workspace_relevance ?? "none"] ?? 0;
+    if (ra !== rb) return rb - ra;
+    const ia = impactOf(a);
+    const ib = impactOf(b);
+    if (ia !== ib) return ib - ia;
+    return a.occurred_at < b.occurred_at ? 1 : -1;
+  });
+
+  const seen: Record<string, number> = {};
+  const out: ExternalSignal[] = [];
+  for (const s of sorted) {
+    const pub = s.publisher_canonical_name ?? s.source;
+    if ((seen[pub] ?? 0) >= perPublisherCap) continue;
+    seen[pub] = (seen[pub] ?? 0) + 1;
+    out.push(s);
+    if (out.length >= n) break;
+  }
+  // Backfill (ignoring the cap) only if too few publishers to fill n.
+  if (out.length < n) {
+    const chosen = new Set(out);
+    for (const s of sorted) {
+      if (chosen.has(s)) continue;
+      out.push(s);
+      if (out.length >= n) break;
+    }
+  }
+  return out;
+}
+
 // Account-level signals tagged as high or medium workspace relevance by the
 // two-stage Haiku news filter (PR #31). These are account-specific items
 // (account_id != WORKSPACE_ACCOUNT_ID) that the filter determined are worth
