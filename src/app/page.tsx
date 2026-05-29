@@ -58,7 +58,7 @@ const TOP_NEWS_COUNT = 6;
 // shell's first byte.
 export default function LandingPage() {
   return (
-    <div className="bg-background">
+    <div className="bg-[#fbf6f3]">
       <Hero />
       <OnboardingWalkthrough />
       <MarketIntelLiveSection />
