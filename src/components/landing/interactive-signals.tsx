@@ -600,7 +600,7 @@ export function InteractiveSignals() {
         <div className="rounded-lg border border-brand/30 bg-brand/[0.03] p-4 flex items-center justify-between gap-3 flex-wrap">
           <div>
             <h4 className="text-sm font-semibold tracking-tight flex items-center gap-2">
-              Build a rule with AI
+              Build an Automation with AI
               <span className="text-[9px] font-mono uppercase tracking-[0.1em] px-1.5 py-0.5 rounded bg-brand text-background">
                 beta
               </span>
@@ -1070,7 +1070,7 @@ function RuleChatModal({
       className="fixed inset-0 z-50 flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
-      aria-label="Build a rule with AI"
+      aria-label="Build an Automation with AI"
     >
       <div
         className="absolute inset-0 bg-foreground/40 backdrop-blur-sm"
@@ -1081,7 +1081,7 @@ function RuleChatModal({
         {/* Header */}
         <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border">
           <h4 className="text-sm font-semibold tracking-tight flex items-center gap-2">
-            Build a rule with AI
+            Build an Automation with AI
             <span className="text-[9px] font-mono uppercase tracking-[0.1em] px-1.5 py-0.5 rounded bg-brand text-background">
               AI
             </span>
@@ -1309,7 +1309,7 @@ function RuleComposer({
       <div className="flex items-baseline justify-between flex-wrap gap-2">
         <div>
           <h4 className="text-sm font-semibold tracking-tight flex items-center gap-2">
-            {isEditing ? `Edit rule · ${editingRule!.name}` : "Build a rule stream"}
+            {isEditing ? `Edit rule · ${editingRule!.name}` : "Automation Composer"}
             {isEditing && (
               <span className="text-[9px] font-mono uppercase tracking-[0.1em] px-1.5 py-0.5 rounded bg-brand text-background">
                 editing
