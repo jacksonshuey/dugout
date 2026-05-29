@@ -1,6 +1,7 @@
 import {
   STAGE_AGE_BENCHMARK_DAYS,
   type CallTranscript,
+  type Contact,
   type DealHealth,
   type EvaluationContext,
   type Opportunity,
@@ -10,6 +11,10 @@ import {
 } from "./types";
 import { daysBetween, TODAY } from "./utils";
 import { CONTRACT_IDLE_AMOUNT_FLOOR_DEFAULT } from "./workspace";
+import {
+  computeChampionEngagement,
+  RE_ENGAGEMENT_ENTER_THRESHOLD,
+} from "./champion-engagement";
 
 // Regex library for the Contracting-stage rules. Exported so the
 // ProcurementTracker (and tests) can reuse the same patterns when computing
@@ -550,6 +555,64 @@ const ruleChampionGhost: SignalRule = {
       }),
 };
 
+// Resolve the contacts mapped onto an opportunity from its contactRoleIds.
+function oppContacts(opp: Opportunity, ctx: EvaluationContext): Contact[] {
+  return opp.contactRoleIds
+    .map((cid) => ctx.contacts.find((c) => c.id === cid))
+    .filter((c): c is Contact => c !== undefined);
+}
+
+// CHAMPION_ENGAGEMENT_LOW - the converged-score sibling of CHAMPION_GHOST.
+// Where CHAMPION_GHOST fires on recency alone (7+ days silent), this rule reads
+// the multi-signal champion engagement score (responsiveness + recency +
+// meeting reliability + call sentiment + initiative). It catches the champion
+// who still replies but cancels meetings, goes terse, and stops multithreading -
+// disengagement that pure recency misses. Below the 0.3 threshold the
+// recommended action is to enroll the champion in the re-engagement sequence.
+//
+// Suppressed when the champion has departed (CHAMPION_DEPARTED owns that case
+// with a different playbook - you don't email-sequence someone who left).
+const ruleChampionEngagementLow: SignalRule = {
+  id: "CHAMPION_ENGAGEMENT_LOW",
+  name: "Champion engagement below re-engagement threshold",
+  description:
+    "Converged champion engagement score (responsiveness, recency, meeting reliability, call sentiment, multithreading) has dropped below 0.3. Multi-signal read on a fading champion - broader than CHAMPION_GHOST's recency-only trigger.",
+  severity: "action",
+  strategicPriority: "P5",
+  evaluate: (ctx) => {
+    const out: Signal[] = [];
+    for (const opp of ctx.opportunities) {
+      const contacts = oppContacts(opp, ctx);
+      if (championDeparted(opp, ctx)) continue;
+      const engagement = computeChampionEngagement({
+        opportunity: opp,
+        contacts,
+        activities: ctx.activities,
+        calls: ctx.calls,
+      });
+      // No champion → committee-gap rules speak to the absence; nothing to
+      // re-engage here.
+      if (engagement.championId === null) continue;
+      if (engagement.score >= RE_ENGAGEMENT_ENTER_THRESHOLD) continue;
+      out.push({
+        id: ruleId("CHAMPION_ENGAGEMENT_LOW", opp.id),
+        ruleId: "CHAMPION_ENGAGEMENT_LOW",
+        oppId: opp.id,
+        severity: "action",
+        // Champion present but fading across multiple signals - canonical
+        // champion_disengagement (same type CHAMPION_GHOST uses).
+        signalType: "champion_disengagement",
+        title: `Champion engagement low (${engagement.score.toFixed(2)})`,
+        body: `Champion engagement has dropped to ${engagement.score.toFixed(2)}, below the ${RE_ENGAGEMENT_ENTER_THRESHOLD} re-engagement threshold. ${engagement.drivers.join("; ")}.`,
+        suggestedAction:
+          "Enroll the champion in the Champion re-engagement sequence and send a low-pressure value-add touch before the next scheduled meeting.",
+        detectedAt: TODAY.toISOString(),
+      });
+    }
+    return out;
+  },
+};
+
 // Champion Departed - a more specific (and worse) version of CHAMPION_GHOST.
 // In production this is driven by LinkedIn Sales Navigator alerts on saved
 // leads, cross-referenced with per-user CRM activity. In the demo, it's
@@ -849,6 +912,7 @@ const ruleAbmShadowResearch: SignalRule = {
 export const RULES: SignalRule[] = [
   ruleChampionDeparted,
   ruleChampionGhost,
+  ruleChampionEngagementLow,
   ruleBudgetApprovalRisk,
   ruleContractIdle,
   ruleSelectedVendorNoFinance,
