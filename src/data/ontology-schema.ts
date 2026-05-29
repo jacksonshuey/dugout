@@ -123,10 +123,11 @@ export const ONTOLOGY_SCHEMA: readonly FieldSchema[] = [
     label: "contract_term_months",
     type: "int",
     group: "deal",
-    source: "Salesforce",
+    source: "Salesforce (Contract)",
     derivation: "raw",
     unit: "months",
-    description: "Contract length",
+    description:
+      "Contract length — Contract.ContractTerm (not a standard Opportunity field)",
   },
 
   // ===== Engagement =====
@@ -154,8 +155,8 @@ export const ONTOLOGY_SCHEMA: readonly FieldSchema[] = [
     type: "date",
     group: "engagement",
     source: "Gong",
-    derivation: "raw",
-    description: "Most recent customer meeting",
+    derivation: "computed",
+    description: "Most recent customer meeting — max(call.started) across Gong calls",
   },
   {
     key: "days_since_last_touch",
@@ -184,8 +185,8 @@ export const ONTOLOGY_SCHEMA: readonly FieldSchema[] = [
     type: "string",
     group: "people",
     source: "Salesforce",
-    derivation: "raw",
-    description: "Title of primary champion",
+    derivation: "computed",
+    description: "Title of primary champion — Contact.Title via OpportunityContactRole",
   },
   {
     key: "contact_count",
