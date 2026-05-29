@@ -2,17 +2,30 @@
 
 import { useEffect, useRef, useState } from "react";
 
-// Semantic search over the ONTOLOGY: find canonical fields by meaning
-// (e.g. "where does close date live" → Deal.close_date). Hits
-// /api/semantic-search?scope=schema. Degrades cleanly to an empty state until
-// the ontology index is populated (scripts/embed-ontology.ts).
+// Unified semantic search over EVERYTHING embedded — ontology fields,
+// integrations, and ingested intel (signals, news, emails, transcripts) — by
+// meaning. e.g. "where does close date live" → Deal.close_date; "salesforce" →
+// the Salesforce integration + what it connects to. Hits
+// /api/semantic-search?scope=all. Degrades cleanly to an empty state until the
+// vector index is populated (scripts/embed-*.ts).
 
 interface Hit {
   id: string;
   content: string;
-  sourceId: string; // canonical field path, e.g. "Deal.close_date"
+  sourceId: string; // field path, integration name, or intel id
+  sourceTable: string; // which corpus it came from
   similarity: number;
 }
+
+// Human label + whether the sourceId is worth showing as a title, per corpus.
+const SOURCE_META: Record<string, { label: string; titled: boolean }> = {
+  integration: { label: "Integration", titled: true },
+  ontology_field: { label: "Schema", titled: true },
+  external_signals: { label: "Signal", titled: false },
+  inbound_emails: { label: "Email", titled: false },
+  granola_transcripts: { label: "Transcript", titled: false },
+  web_scrapes: { label: "Web", titled: false },
+};
 
 const DEBOUNCE_MS = 350;
 
@@ -24,7 +37,7 @@ function description(content: string): string {
 }
 
 export function SemanticSearchBox({
-  placeholder = "Search the ontology by meaning — e.g. “where does close date live?”",
+  placeholder = "Search anything by meaning — fields, integrations, signals, news…",
 }: {
   placeholder?: string;
 }) {
@@ -44,7 +57,7 @@ export function SemanticSearchBox({
     const id = ++reqId.current;
     const t = setTimeout(async () => {
       try {
-        const params = new URLSearchParams({ q, scope: "schema" });
+        const params = new URLSearchParams({ q, scope: "all" });
         const res = await fetch(`/api/semantic-search?${params}`);
         const data = (await res.json()) as { matches: Hit[] };
         if (id !== reqId.current) return; // a newer query superseded this one
@@ -83,31 +96,43 @@ export function SemanticSearchBox({
 
       {state === "done" && query.trim() && hits.length === 0 && (
         <div className="mt-3 rounded-lg border border-dashed border-border bg-foreground/[0.015] p-4 text-[12px] text-muted italic">
-          No matching fields. (Ontology search is live once the schema index is
-          populated.)
+          No matches. (Search is live once the vector index is populated.)
         </div>
       )}
 
       {hits.length > 0 && (
         <div className="mt-3 space-y-2">
-          {hits.map((h) => (
-            <div
-              key={h.id}
-              className="rounded-lg border border-border bg-background p-3 flex items-start gap-3"
-            >
-              <span className="text-[10px] font-mono py-0.5 px-2 rounded border border-border bg-foreground/[0.04] text-muted shrink-0 inline-flex items-center justify-center tabular-nums mt-0.5">
-                {(h.similarity * 100).toFixed(0)}%
-              </span>
-              <div className="flex-1 min-w-0">
-                <div className="text-[13px] font-mono font-semibold tracking-tight">
-                  {h.sourceId}
-                </div>
-                <div className="text-[13px] text-muted leading-snug mt-0.5 line-clamp-2">
-                  {description(h.content)}
+          {hits.map((h) => {
+            const meta = SOURCE_META[h.sourceTable] ?? {
+              label: h.sourceTable,
+              titled: false,
+            };
+            return (
+              <div
+                key={h.id}
+                className="rounded-lg border border-border bg-background p-3 flex items-start gap-3"
+              >
+                <span className="text-[10px] font-mono py-0.5 px-2 rounded border border-border bg-foreground/[0.04] text-muted shrink-0 inline-flex items-center justify-center tabular-nums mt-0.5">
+                  {(h.similarity * 100).toFixed(0)}%
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[9px] font-mono uppercase tracking-[0.1em] py-0.5 px-1.5 rounded border border-border text-muted shrink-0">
+                      {meta.label}
+                    </span>
+                    {meta.titled && (
+                      <span className="text-[13px] font-mono font-semibold tracking-tight truncate">
+                        {h.sourceId}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[13px] text-muted leading-snug mt-1 line-clamp-2">
+                    {description(h.content)}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

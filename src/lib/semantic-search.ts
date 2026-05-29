@@ -34,11 +34,21 @@ function preview(s: string, n = 200): string {
 // fields), vs the intel sources (signals/news/transcripts/emails). Used to
 // scope a search to one side or the other.
 export const ONTOLOGY_SOURCE_TABLE = "ontology_field";
+export const INTEGRATION_SOURCE_TABLE = "integration";
 export const INTEL_SOURCE_TABLES = [
   "external_signals",
   "inbound_emails",
   "granola_transcripts",
   "web_scrapes",
+];
+
+// Everything that's been embedded: intel + the structured layers (ontology
+// fields, integrations). Passing this (or null) to matchDocuments searches
+// across all of it, so a single box can "look up anything".
+export const ALL_SOURCE_TABLES = [
+  ...INTEL_SOURCE_TABLES,
+  ONTOLOGY_SOURCE_TABLE,
+  INTEGRATION_SOURCE_TABLE,
 ];
 
 export async function semanticSearch(

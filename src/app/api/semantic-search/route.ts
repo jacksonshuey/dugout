@@ -3,6 +3,7 @@ import {
   semanticSearch,
   INTEL_SOURCE_TABLES,
   ONTOLOGY_SOURCE_TABLE,
+  ALL_SOURCE_TABLES,
 } from "@/lib/semantic-search";
 
 // Read-only semantic search over the ingested intel already shown publicly on
@@ -27,12 +28,16 @@ export async function GET(req: Request) {
       ? Math.min(limitRaw, MAX_LIMIT)
       : 8;
 
-  // scope=schema searches the embedded ontology (canonical fields); anything
-  // else searches the ingested intel (and explicitly excludes the schema rows).
+  // scope=all searches everything embedded (intel + ontology + integrations);
+  // scope=schema scopes to the ontology (canonical fields); anything else
+  // searches the ingested intel only.
+  const scope = searchParams.get("scope");
   const sourceTables =
-    searchParams.get("scope") === "schema"
-      ? [ONTOLOGY_SOURCE_TABLE]
-      : INTEL_SOURCE_TABLES;
+    scope === "all"
+      ? ALL_SOURCE_TABLES
+      : scope === "schema"
+        ? [ONTOLOGY_SOURCE_TABLE]
+        : INTEL_SOURCE_TABLES;
 
   if (!query) return NextResponse.json({ query: "", matches: [] });
 

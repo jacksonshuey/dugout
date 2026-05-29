@@ -39,7 +39,7 @@ function FeedRow({ signal }: { signal: ExternalSignal }) {
   const relevance = signal.workspace_relevance;
   return (
     <div className="rounded-lg border border-border bg-background p-3 flex items-start gap-3">
-      <span className="text-[10px] font-mono uppercase tracking-[0.1em] py-0.5 rounded border border-border bg-foreground/[0.04] text-muted shrink-0 inline-flex items-center justify-center max-w-[200px] truncate px-2">
+      <span className="text-[10px] font-mono uppercase tracking-[0.1em] py-0.5 rounded border border-border bg-foreground/[0.04] text-muted shrink-0 inline-flex items-center justify-start w-40 truncate px-2">
         {publisher}
       </span>
       <div className="flex-1 min-w-0">

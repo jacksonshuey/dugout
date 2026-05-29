@@ -1,16 +1,4 @@
-import {
-  accounts,
-  activities,
-  assetDeliveries,
-  calls,
-  contacts,
-  opportunities,
-  reps,
-} from "@/data/seed";
 import { Suspense } from "react";
-import { evaluateAll } from "@/lib/signal-engine";
-import { DEFAULT_CONFIG } from "@/lib/workspace";
-import { DemoConsoleGate } from "@/components/landing/demo-console-gate";
 import {
   BrandLogo,
   getBrandName,
@@ -32,18 +20,12 @@ import { checkAllHealth } from "@/lib/integration-health";
 import { RefreshButton } from "@/components/landing/refresh-button";
 import { ClientNewsTicker } from "@/components/landing/client-news-ticker";
 import { SortableWorkspaceFeed } from "@/components/landing/sortable-workspace-feed";
-import { SemanticSearchBox } from "@/components/landing/semantic-search-box";
 import {
-  getSignalsForAccount,
   getWorkspaceSignals,
   rankTopWorkspaceNews,
   type ExternalSignal,
 } from "@/lib/external-signals";
-import { getUpcomingMeetings } from "@/data/upcoming-meetings-seed";
-import {
-  moderateBriefSignals,
-  moderateSignals,
-} from "@/lib/signal-moderator";
+import { moderateSignals } from "@/lib/signal-moderator";
 import {
   getLivePipelineSnapshot,
   type LivePipelineSnapshot,
@@ -82,101 +64,8 @@ export default function LandingPage() {
       <Hero />
       <OnboardingWalkthrough />
       <MarketIntelLiveSection />
-      <section id="demo" className="border-t border-border bg-foreground/[0.02]">
-        <div className="max-w-6xl mx-auto px-6 py-20 sm:py-24">
-          <h2 className="text-3xl sm:text-4xl font-semibold tracking-tight">
-            Dashboard
-          </h2>
-          <p className="mt-2 text-sm text-muted">
-            Live pipeline. The pre-meeting brief on the right pulls fresh
-            news for upcoming meetings on every refresh: SEC filings,
-            funding announcements, exec changes, so an AE never walks in
-            cold on what their account just did publicly.
-          </p>
-          <div className="mt-6 max-w-2xl">
-            <SemanticSearchBox />
-          </div>
-        </div>
-        <Suspense fallback={<DashboardFallback />}>
-          <DemoConsole />
-        </Suspense>
-      </section>
       <NextUpSection />
       <Footer />
-    </div>
-  );
-}
-
-// The live demo dashboard. Isolated into its own async boundary so the
-// pre-meeting brief's Supabase fetch + GPT-4o moderation pass run off the
-// shell's critical render path. The workspace config is the default preset —
-// the landing page never personalizes per-cookie (that lives on /console), so
-// reading it here would only force the whole route dynamic.
-async function DemoConsole() {
-  const workspace = DEFAULT_CONFIG;
-
-  // Pre-fetch real external signals for each upcoming meeting account so the
-  // pre-meeting brief shows live data instead of the fallback seed.
-  // Fails soft per-account so a Supabase timeout on one account doesn't blank
-  // the whole panel.
-  const meetingAccountIds = getUpcomingMeetings(3).map((m) => m.account_id);
-  const briefSignalsEntries = await Promise.all(
-    meetingAccountIds.map(async (id) => {
-      try {
-        const sigs = await getSignalsForAccount(id, 5);
-        return [id, sigs] as const;
-      } catch {
-        return [id, [] as ExternalSignal[]] as const;
-      }
-    }),
-  );
-  const rawBriefSignals = Object.fromEntries(briefSignalsEntries) as Record<
-    string,
-    ExternalSignal[]
-  >;
-  // OpenAI moderation pass: corrects hedging, timing overclaims, and
-  // imprecise regulatory citations before the AE sees them. Falls back
-  // to originals silently if the key is missing or the call fails.
-  const briefSignals = await moderateBriefSignals(rawBriefSignals);
-
-  const ctx = {
-    opportunities,
-    accounts,
-    contacts,
-    activities,
-    calls,
-    deliveries: assetDeliveries,
-    reps,
-    config: {
-      companyName: workspace.companyName,
-      assets: workspace.assets,
-      stack: workspace.stack,
-      contractIdleAmountFloor: workspace.contractIdleAmountFloor,
-    },
-  };
-  const signals = evaluateAll(ctx);
-
-  return (
-    <DemoConsoleGate
-      basePath="/"
-      signals={signals}
-      opportunities={opportunities}
-      accounts={accounts}
-      contacts={contacts}
-      activities={activities}
-      calls={calls}
-      deliveries={assetDeliveries}
-      reps={reps}
-      workspace={workspace}
-      briefSignals={briefSignals}
-    />
-  );
-}
-
-function DashboardFallback() {
-  return (
-    <div className="px-6 pb-20">
-      <div className="max-w-6xl mx-auto h-[420px] rounded-xl border border-border bg-foreground/[0.02] animate-pulse" />
     </div>
   );
 }
@@ -186,14 +75,19 @@ function DashboardFallback() {
 // ---------------------------------------------------------------------------
 
 function NextUpSection() {
-  const items: { title: string; viz: React.ReactNode }[] = [
+  const items: { title: string; desc?: string; viz: React.ReactNode }[] = [
     {
       title: "Organization-specific integration scaffolding",
       viz: <IntegrationScaffoldingViz />,
     },
     {
-      title: "Workflow automations",
+      title: "Internally deployed agents",
       viz: <WorkflowAutomationsViz />,
+    },
+    {
+      title: "Semantic search across everything",
+      desc: "Ask in plain language for any field, integration, signal, or past meeting and get the right match by meaning, not keywords. One search over the entire workspace.",
+      viz: <SemanticSearchViz />,
     },
     {
       title: "User account creation",
@@ -206,11 +100,11 @@ function NextUpSection() {
       <h2 className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight max-w-3xl">
         What&apos;s next.
       </h2>
-      <ol className="mt-10 grid grid-cols-1 sm:grid-cols-3 gap-4 auto-rows-fr">
+      <ol className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 auto-rows-fr">
         {items.map((item, i) => (
           <li
             key={item.title}
-            className="rounded-xl border border-border bg-background p-5 flex flex-col gap-4"
+            className="rounded-xl border border-border bg-background p-5 flex flex-col gap-3"
           >
             <div className="flex items-center justify-between">
               <span className="text-[11px] uppercase tracking-[0.15em] font-mono text-brand">
@@ -223,6 +117,11 @@ function NextUpSection() {
             <h3 className="text-base font-semibold tracking-tight leading-snug">
               {item.title}
             </h3>
+            {item.desc && (
+              <p className="text-[13px] text-muted leading-relaxed">
+                {item.desc}
+              </p>
+            )}
             <div className="mt-auto pt-2 flex items-center justify-center">
               {item.viz}
             </div>
@@ -276,6 +175,22 @@ function WorkflowAutomationsViz() {
       <rect x="174" y="36" width="76" height="28" rx="6" fill="var(--brand)" fillOpacity="0.12" stroke="var(--brand)" strokeWidth="1.5" />
       <text x="212" y="48" textAnchor="middle" fontSize="9" fontFamily="ui-monospace, monospace" fontWeight="600" fill="var(--brand)">action</text>
       <text x="212" y="59" textAnchor="middle" fontSize="8" fontFamily="ui-monospace, monospace" fill="var(--brand)" fillOpacity="0.75">Slack DM AE</text>
+    </svg>
+  );
+}
+
+function SemanticSearchViz() {
+  // A query pill with a magnifier, then three ranked match bars of
+  // decreasing width pulsing in sequence — the "search by meaning" feel.
+  return (
+    <svg viewBox="0 0 220 110" className="w-full h-28" aria-hidden>
+      <rect x="18" y="12" width="184" height="24" rx="12" fill="var(--brand)" fillOpacity="0.08" stroke="var(--brand)" strokeWidth="1.4" />
+      <circle cx="34" cy="24" r="5" fill="none" stroke="var(--brand)" strokeWidth="1.6" />
+      <line x1="37.7" y1="27.7" x2="42" y2="32" stroke="var(--brand)" strokeWidth="1.6" />
+      <text x="50" y="27.5" fontSize="9" fontFamily="ui-monospace, monospace" fill="var(--brand)" fillOpacity="0.8">salesforce</text>
+      <rect x="18" y="50" width="150" height="14" rx="4" fill="var(--brand)" fillOpacity="0.20" className="pulse-stagger" />
+      <rect x="18" y="70" width="120" height="14" rx="4" fill="#7C3AED" fillOpacity="0.18" className="pulse-stagger pulse-stagger-2" />
+      <rect x="18" y="90" width="96" height="14" rx="4" fill="#00A1E0" fillOpacity="0.18" className="pulse-stagger pulse-stagger-3" />
     </svg>
   );
 }
@@ -582,9 +497,6 @@ function StepOntology() {
       title="Ontology"
       sub="Every raw API field from every source zippers into a canonical object. One Account, one Contact, one Meeting, regardless of how many tools recorded it."
     >
-      <div className="mb-4 max-w-2xl">
-        <SemanticSearchBox />
-      </div>
       <div className="rounded-xl border border-border bg-foreground/[0.02] p-4">
         <ConnectivityGraph />
       </div>

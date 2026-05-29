@@ -11,7 +11,10 @@ export type DocSourceTable =
   | "granola_transcripts"
   | "web_scrapes"
   // The embedded ontology schema (canonical fields), for schema search.
-  | "ontology_field";
+  | "ontology_field"
+  // Embedded integration specs (one row per connected source/tool), so a
+  // search like "salesforce" surfaces the integration itself + what it feeds.
+  | "integration";
 
 export interface DocEmbeddingInput {
   source_table: DocSourceTable;
