@@ -76,12 +76,37 @@ const KPIS = [
   },
 ];
 
-const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const weekdaySignals = WEEKDAYS.map((_, i) => {
-  const target = (i + 1) % 7; // Mon=1 … Sun=0
-  return demoSignals.filter((s) => new Date(s.detectedAt).getDay() === target).length;
+// Week calendar of signals — the Mon–Sun grid we built, placing each signal on
+// its detected day (anchored to the week of the most recent signal).
+const WD_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function startOfWeek(d: Date): Date {
+  const x = new Date(d);
+  const offset = (x.getDay() + 6) % 7; // Monday-start
+  x.setDate(x.getDate() - offset);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+const newestSignalMs = Math.max(...demoSignals.map((s) => +new Date(s.detectedAt)));
+const calWeekStart = startOfWeek(new Date(newestSignalMs));
+const calWeekDays = Array.from({ length: 7 }, (_, i) => {
+  const d = new Date(calWeekStart);
+  d.setDate(d.getDate() + i);
+  return d;
 });
-const peakIdx = weekdaySignals.indexOf(Math.max(...weekdaySignals));
+const signalsByDay = new Map<
+  string,
+  { id: string; account: string; severity: string }[]
+>();
+for (const s of demoSignals) {
+  const d = new Date(s.detectedAt);
+  d.setHours(0, 0, 0, 0);
+  const key = d.toDateString();
+  const list = signalsByDay.get(key) ?? [];
+  list.push({ id: s.id, account: accountName(s.oppId), severity: s.severity });
+  signalsByDay.set(key, list);
+}
 
 const STAGE_ORDER = [
   "Intro",
@@ -171,7 +196,7 @@ export function OverviewDashboardBody() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
-        <SignalsBarCard />
+        <SignalsCalendarCard />
         <PipelineDonutCard />
       </div>
 
@@ -220,100 +245,49 @@ function KpiCard({
   );
 }
 
-// ── Signals bar chart ─────────────────────────────────────────────────────────
+// ── Signals week calendar ─────────────────────────────────────────────────────
 
-function SignalsBarCard() {
-  const max = Math.max(1, ...weekdaySignals);
-  const W = 520;
-  const H = 220;
-  const padL = 28;
-  const padB = 28;
-  const padT = 28;
-  const slot = (W - padL) / WEEKDAYS.length;
-  const barW = slot * 0.46;
-  const chartH = H - padB - padT;
-  const yTicks = [0, max / 2, max];
-
+function SignalsCalendarCard() {
   return (
     <div className="rounded-xl border border-border bg-background p-5">
       <div className="flex items-center justify-between">
         <h3 className="text-base font-semibold tracking-tight">Signals this week</h3>
         <span className="text-[11px] font-mono text-muted rounded-md border border-border px-2 py-1">
-          Weekday
+          This week
         </span>
       </div>
 
-      <div className="relative mt-4">
-        <svg viewBox={`0 0 ${W} ${H}`} className="w-full" aria-hidden>
-          {yTicks.map((t, i) => {
-            const y = padT + chartH * (1 - t / max);
-            return (
-              <g key={i}>
-                <line
-                  x1={padL}
-                  x2={W}
-                  y1={y.toFixed(2)}
-                  y2={y.toFixed(2)}
-                  className="stroke-border"
-                  strokeWidth="1"
-                  strokeDasharray="3 4"
-                />
-                <text
-                  x={padL - 6}
-                  y={(y + 3).toFixed(2)}
-                  textAnchor="end"
-                  className="fill-muted"
-                  fontSize="9"
-                  fontFamily="ui-monospace, monospace"
-                >
-                  {Math.round(t)}
-                </text>
-              </g>
-            );
-          })}
-          {weekdaySignals.map((c, i) => {
-            const h = (c / max) * chartH;
-            const x = padL + i * slot + (slot - barW) / 2;
-            const y = padT + chartH - h;
-            const peak = i === peakIdx;
-            return (
-              <g key={i}>
-                <rect
-                  x={x.toFixed(2)}
-                  y={y.toFixed(2)}
-                  width={barW.toFixed(2)}
-                  height={Math.max(h, 2).toFixed(2)}
-                  rx="4"
-                  className={peak ? "fill-brand" : "fill-foreground/[0.10]"}
-                />
-                <text
-                  x={(x + barW / 2).toFixed(2)}
-                  y={H - 8}
-                  textAnchor="middle"
-                  className="fill-muted"
-                  fontSize="10"
-                  fontFamily="ui-monospace, monospace"
-                >
-                  {WEEKDAYS[i]}
-                </text>
-              </g>
-            );
-          })}
-        </svg>
-
-        {/* Peak tooltip bubble */}
-        <div
-          className="pointer-events-none absolute -translate-x-1/2 -translate-y-full rounded-lg border border-border bg-background px-2.5 py-1.5 shadow-lg"
-          style={{
-            left: `${((peakIdx + 0.5) / WEEKDAYS.length) * 100}%`,
-            top: `${(padT / H) * 100}%`,
-          }}
-        >
-          <div className="text-[12px] font-semibold tracking-tight tabular-nums">
-            {weekdaySignals[peakIdx]} signals
-          </div>
-          <div className="text-[10px] font-mono text-muted">{WEEKDAYS[peakIdx]} · peak</div>
-        </div>
+      <div className="mt-4 grid grid-cols-7 gap-px rounded-lg overflow-hidden bg-border">
+        {calWeekDays.map((d) => {
+          const items = signalsByDay.get(d.toDateString()) ?? [];
+          const shown = items.slice(0, 3);
+          const extra = items.length - shown.length;
+          return (
+            <div key={d.toDateString()} className="bg-background min-h-[150px] p-2">
+              <div className="text-[9px] font-mono uppercase tracking-[0.1em] text-muted">
+                {WD_SHORT[d.getDay()]} {d.getDate()}
+              </div>
+              <div className="mt-1.5 space-y-1">
+                {shown.map((it) => (
+                  <div
+                    key={it.id}
+                    title={it.account}
+                    className="flex items-center gap-1 rounded border border-border bg-foreground/[0.02] px-1.5 py-1 text-[10px] leading-tight"
+                  >
+                    <span
+                      aria-hidden
+                      className={`h-1.5 w-1.5 rounded-full shrink-0 ${severityDot(it.severity)}`}
+                    />
+                    <span className="truncate">{it.account}</span>
+                  </div>
+                ))}
+                {extra > 0 && (
+                  <div className="pl-0.5 text-[10px] text-muted">+{extra} more</div>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
