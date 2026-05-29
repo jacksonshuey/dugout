@@ -1500,26 +1500,44 @@ function OntologyTriggerBody({
   onChange: (next: OntologyTrigger) => void;
 }) {
   const schema = getFieldSchema(trigger.field);
+  // Enum values render as a multi-line chip picker, so keep those stacked.
+  // Everything else reads as one line: field → operator → value.
+  const inline = !!schema && schema.type !== "enum";
+  const picker = (
+    <FieldPicker
+      value={trigger.field}
+      onChange={(f) => {
+        // Pick a sensible default comparator + value for the new field's type
+        const defaultComp = comparatorsFor(f.type)[0]!;
+        let defaultValue = "";
+        if (f.type === "enum" && f.enumValues && f.enumValues.length > 0)
+          defaultValue = f.enumValues[0]!;
+        else if (f.type === "int" || f.type === "float") defaultValue = "0";
+        else if (f.type === "bool") defaultValue = "true";
+        onChange({
+          kind: "ontology",
+          field: f.key,
+          comparator: defaultComp,
+          value: defaultValue,
+        });
+      }}
+    />
+  );
+
+  if (inline) {
+    return (
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+        <div className="sm:w-[44%] sm:shrink-0">{picker}</div>
+        <div className="min-w-0 flex-1">
+          <OntologyValueEditor schema={schema!} trigger={trigger} onChange={onChange} />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-2">
-      <FieldPicker
-        value={trigger.field}
-        onChange={(f) => {
-          // Pick a sensible default comparator + value for the new field's type
-          const defaultComp = comparatorsFor(f.type)[0]!;
-          let defaultValue = "";
-          if (f.type === "enum" && f.enumValues && f.enumValues.length > 0)
-            defaultValue = f.enumValues[0]!;
-          else if (f.type === "int" || f.type === "float") defaultValue = "0";
-          else if (f.type === "bool") defaultValue = "true";
-          onChange({
-            kind: "ontology",
-            field: f.key,
-            comparator: defaultComp,
-            value: defaultValue,
-          });
-        }}
-      />
+      {picker}
       {schema && <OntologyValueEditor schema={schema} trigger={trigger} onChange={onChange} />}
     </div>
   );
