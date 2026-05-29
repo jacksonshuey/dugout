@@ -962,7 +962,7 @@ const CHAT_EXAMPLES = [
 const CHAT_GREETING =
   "Tell me what to watch for and what to do — e.g. “flag stalled six-figure deals and DM the AE.” I'll draft the rule and you can refine it.";
 
-type ChatTurn = { role: "user" | "assistant"; content: string };
+type ChatTurn = { id: number; role: "user" | "assistant"; content: string };
 
 // Mounted only while open (the parent gates it), so useState initializers give
 // a fresh conversation each time without any reset-in-effect.
@@ -979,19 +979,32 @@ function RuleChatModal({
   const [pendingRule, setPendingRule] = useState<RuleDraft | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const turnId = useRef(0);
 
-  // Focus the input on open and wire Escape-to-close. No setState here.
+  // Read the latest onClose without listing it as an effect dep — otherwise an
+  // inline `onClose={() => …}` prop would tear down/re-add the listener on
+  // every parent render. Synced in an effect (no ref writes during render).
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  // Focus the input on open and wire Escape-to-close. Registered once. On
+  // unmount, also abort any in-flight request so we don't burn tokens on a
+  // result no one will see.
   useEffect(() => {
     const t = setTimeout(() => inputRef.current?.focus(), 50);
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") onCloseRef.current();
     };
     window.addEventListener("keydown", onKey);
     return () => {
       clearTimeout(t);
       window.removeEventListener("keydown", onKey);
+      abortRef.current?.abort();
     };
-  }, [onClose]);
+  }, []);
 
   // Keep the transcript pinned to the latest message.
   useEffect(() => {
@@ -1001,16 +1014,25 @@ function RuleChatModal({
   const send = async () => {
     const text = input.trim();
     if (!text || loading) return;
-    const next: ChatTurn[] = [...messages, { role: "user", content: text }];
+    const next: ChatTurn[] = [
+      ...messages,
+      { id: turnId.current++, role: "user", content: text },
+    ];
     setMessages(next);
     setInput("");
     setPendingRule(null);
     setLoading(true);
+    const ac = new AbortController();
+    abortRef.current = ac;
     try {
       const res = await fetch("/api/build-rule", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ messages: next }),
+        // Strip client-only ids before sending the transcript to the API.
+        body: JSON.stringify({
+          messages: next.map(({ role, content }) => ({ role, content })),
+        }),
+        signal: ac.signal,
       });
       const data = (await res.json()) as {
         reply?: string;
@@ -1019,12 +1041,21 @@ function RuleChatModal({
       };
       const reply =
         data.reply ?? data.error ?? "Something went wrong — try rephrasing.";
-      setMessages((m) => [...m, { role: "assistant", content: reply }]);
-      if (data.rule) setPendingRule(data.rule);
-    } catch {
       setMessages((m) => [
         ...m,
-        { role: "assistant", content: "Network error reaching the builder — try again." },
+        { id: turnId.current++, role: "assistant", content: reply },
+      ]);
+      if (data.rule) setPendingRule(data.rule);
+    } catch (err) {
+      // Aborted on close — the modal is unmounting, so don't touch state.
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      setMessages((m) => [
+        ...m,
+        {
+          id: turnId.current++,
+          role: "assistant",
+          content: "Network error reaching the builder — try again.",
+        },
       ]);
     } finally {
       setLoading(false);
@@ -1090,9 +1121,9 @@ function RuleChatModal({
             </div>
           )}
 
-          {messages.map((m, i) => (
+          {messages.map((m) => (
             <div
-              key={i}
+              key={m.id}
               className={m.role === "user" ? "flex justify-end" : "flex justify-start"}
             >
               <div
