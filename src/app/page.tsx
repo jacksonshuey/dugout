@@ -30,6 +30,12 @@ import {
   getLivePipelineSnapshot,
   type LivePipelineSnapshot,
 } from "@/lib/live-pipeline";
+import {
+  accountsById,
+  calls,
+  demoSignals,
+  opportunities,
+} from "@/data/seed";
 
 // 60-second ISR window. Tight enough that the workspace inbox + transform
 // visual feel fresh on each visit; loose enough that Supabase isn't hit on
@@ -64,9 +70,132 @@ export default function LandingPage() {
       <Hero />
       <OnboardingWalkthrough />
       <MarketIntelLiveSection />
+      <OverviewDashboard />
       <NextUpSection />
       <Footer />
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Overview dashboard — workspace at a glance. A KPI strip (all derived from
+// the seeded pipeline/signals so the numbers stay consistent with the rest of
+// the page) over a compact live activity feed. Relative ages are anchored to
+// the most recent seeded signal so the feed reads fresh in the demo.
+// ---------------------------------------------------------------------------
+
+function fmtCompactUSD(n: number): string {
+  if (n >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
+  if (n >= 1e6) return `$${(n / 1e6).toFixed(2)}M`;
+  if (n >= 1e3) return `$${Math.round(n / 1e3)}k`;
+  return `$${n}`;
+}
+
+function relAgo(ms: number): string {
+  const h = ms / 3.6e6;
+  if (h < 1) return "just now";
+  if (h < 24) return `${Math.round(h)}h`;
+  return `${Math.round(h / 24)}d`;
+}
+
+function severityDot(sev: string): string {
+  if (sev === "blocking") return "bg-rose-500";
+  if (sev === "action") return "bg-amber-500";
+  return "bg-sky-500";
+}
+
+function OverviewDashboard() {
+  const pipelineValue = opportunities.reduce((sum, o) => sum + o.amount, 0);
+  const signalsFiring = demoSignals.length;
+  const atRisk = new Set(
+    demoSignals.filter((s) => s.severity === "blocking").map((s) => s.oppId),
+  ).size;
+
+  const latestCall = Math.max(...calls.map((c) => +new Date(c.callDate)));
+  const meetingsThisWeek = calls.filter(
+    (c) => latestCall - +new Date(c.callDate) <= 7 * 8.64e7,
+  ).length;
+
+  const newestSignal = Math.max(
+    ...demoSignals.map((s) => +new Date(s.detectedAt)),
+  );
+  const feed = [...demoSignals]
+    .sort((a, b) => +new Date(b.detectedAt) - +new Date(a.detectedAt))
+    .slice(0, 6)
+    .map((s) => {
+      const opp = opportunities.find((o) => o.id === s.oppId);
+      const acc = opp ? accountsById.get(opp.accountId) : undefined;
+      return {
+        id: s.id,
+        account: acc?.name ?? "Workspace",
+        title: s.title,
+        severity: s.severity,
+        ago: relAgo(newestSignal - +new Date(s.detectedAt)),
+      };
+    });
+
+  const metrics = [
+    { value: fmtCompactUSD(pipelineValue), label: "pipeline" },
+    { value: String(signalsFiring), label: "signals firing" },
+    { value: String(atRisk), label: "at risk" },
+    { value: String(meetingsThisWeek), label: "meetings · 7d" },
+  ];
+
+  return (
+    <section className="max-w-6xl mx-auto px-6 py-20 sm:py-24 border-t border-border">
+      <SectionEyebrow>Live workspace</SectionEyebrow>
+      <h2 className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight max-w-3xl">
+        Your workspace at a glance.
+      </h2>
+
+      <div className="mt-10 grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {metrics.map((m) => (
+          <div
+            key={m.label}
+            className="rounded-xl border border-border bg-background p-5"
+          >
+            <div className="text-3xl sm:text-4xl font-semibold tracking-tight tabular-nums">
+              {m.value}
+            </div>
+            <div className="mt-1 text-[10px] uppercase tracking-[0.18em] font-mono text-muted">
+              {m.label}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-4 rounded-xl border border-border bg-background overflow-hidden">
+        <div className="px-5 py-3 border-b border-border flex items-center justify-between">
+          <span className="text-[10px] uppercase tracking-[0.18em] font-mono text-muted">
+            Activity
+          </span>
+          <span className="text-[10px] font-mono text-muted">
+            {signalsFiring} signals
+          </span>
+        </div>
+        <ul className="divide-y divide-border">
+          {feed.map((f) => (
+            <li key={f.id} className="px-5 py-3 flex items-center gap-3">
+              <span
+                aria-hidden
+                className={
+                  "h-1.5 w-1.5 rounded-full shrink-0 " + severityDot(f.severity)
+                }
+              />
+              <span className="text-[12px] font-semibold tracking-tight shrink-0">
+                {f.account}
+              </span>
+              <span className="text-[12px] text-foreground/70 truncate">
+                {f.title}
+              </span>
+              <span className="ml-auto text-[10px] font-mono text-muted shrink-0">
+                {f.ago}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
   );
 }
 
