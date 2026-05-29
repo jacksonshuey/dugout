@@ -1,22 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   accountsById,
-  calls,
+  contacts,
   demoSignals,
   opportunities,
+  reps,
 } from "@/data/seed";
 
-// Interactive body of the "Live workspace" dashboard. Four KPI cards — click
-// one to expand a breakdown of the rows behind the number — over a compact
-// activity feed. Everything is derived from the seeded pipeline/signals so the
-// figures stay consistent with the rest of the page. Feed/breakdown ages are
-// anchored to the most recent seeded signal so it reads fresh in the demo.
-
-type PanelKey = "pipeline" | "signals" | "atrisk" | "meetings";
+// "Live workspace" analytics dashboard — KPI stat cards, a weekday signals bar
+// chart, a pipeline-by-stage donut, and two list panels (recent deals + a
+// needs-attention signal queue). Layout follows a property-CRM reference but
+// uses Dugout's tokens. All figures derive from the seeded pipeline/signals so
+// they stay consistent with the rest of the page. Month-over-month deltas are
+// illustrative (no time series in the seed).
 
 const oppById = new Map(opportunities.map((o) => [o.id, o]));
+const repById = new Map(reps.map((r) => [r.id, r]));
 
 function accountName(oppId: string): string {
   const opp = oppById.get(oppId);
@@ -31,16 +33,177 @@ function fmtCompactUSD(n: number): string {
   return `$${n}`;
 }
 
-function fmtUSD(n: number): string {
-  return `$${n.toLocaleString("en-US")}`;
+function fmtDate(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(+d)
+    ? "—"
+    : d.toLocaleDateString("en-US", { day: "2-digit", month: "short" });
 }
 
-function relAgo(ms: number): string {
-  const h = ms / 3.6e6;
-  if (h < 1) return "just now";
-  if (h < 24) return `${Math.round(h)}h`;
-  return `${Math.round(h / 24)}d`;
+function initials(name: string): string {
+  return name
+    .split(" ")
+    .map((p) => p[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 }
+
+// ── Derived data ────────────────────────────────────────────────────────────
+
+const pipelineValue = opportunities.reduce((s, o) => s + o.amount, 0);
+const dealCount = opportunities.length;
+const signalsFiring = demoSignals.length;
+
+const KPIS = [
+  {
+    label: "Open pipeline",
+    value: fmtCompactUSD(pipelineValue),
+    delta: 18,
+    last: fmtCompactUSD(pipelineValue / 1.18),
+    icon: <MoneyIcon />,
+  },
+  {
+    label: "Active deals",
+    value: String(dealCount),
+    delta: 14,
+    last: String(Math.round(dealCount / 1.14)),
+    icon: <DealIcon />,
+  },
+  {
+    label: "Signals firing",
+    value: String(signalsFiring),
+    delta: 27,
+    last: String(Math.round(signalsFiring / 1.27)),
+    icon: <BoltIcon />,
+  },
+];
+
+// Week calendar of signals — the Mon–Sun grid we built, placing each signal on
+// its detected day (anchored to the week of the most recent signal).
+const WD_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function startOfWeek(d: Date): Date {
+  const x = new Date(d);
+  const offset = (x.getDay() + 6) % 7; // Monday-start
+  x.setDate(x.getDate() - offset);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+const newestSignalMs = Math.max(...demoSignals.map((s) => +new Date(s.detectedAt)));
+const calWeekStart = startOfWeek(new Date(newestSignalMs));
+const calWeekDays = Array.from({ length: 7 }, (_, i) => {
+  const d = new Date(calWeekStart);
+  d.setDate(d.getDate() + i);
+  return d;
+});
+// Meetings on the calendar, formatted "Jackson <> {name}". Built from the key
+// account people (champions, exec sponsors, GCs) and spread round-robin across
+// the work week (Mon–Fri) so the week reads busy.
+const MEETING_ROLES = new Set(["Champion", "Executive Sponsor", "GC"]);
+const meetingPeople = contacts.filter((c) => MEETING_ROLES.has(c.role));
+
+interface CalMeeting {
+  id: string;
+  name: string;
+  title: string;
+  role: string;
+  account: string;
+  industry: string;
+  hq: string;
+  dateLabel: string;
+}
+
+const meetingsByDay = new Map<string, CalMeeting[]>();
+meetingPeople.forEach((c, i) => {
+  const day = calWeekDays[i % 5]; // Mon–Fri
+  if (!day) return;
+  const key = day.toDateString();
+  const acc = accountsById.get(c.accountId);
+  const list = meetingsByDay.get(key) ?? [];
+  list.push({
+    id: c.id,
+    name: c.name,
+    title: c.title,
+    role: c.role,
+    account: acc?.name ?? "Account",
+    industry: acc?.industry ?? "",
+    hq: acc?.hqLocation ?? "",
+    dateLabel: `${WD_SHORT[day.getDay()]} ${day.getDate()}`,
+  });
+  meetingsByDay.set(key, list);
+});
+
+const STAGE_ORDER = [
+  "Intro",
+  "Qualified",
+  "Demo Sat",
+  "Evaluating",
+  "Selected Vendor",
+  "Contracting",
+];
+const STAGE_COLOR = [
+  "text-brand",
+  "text-severity-green",
+  "text-severity-action",
+  "text-severity-awareness",
+  "text-foreground/40",
+  "text-muted",
+];
+const stageAgg = STAGE_ORDER.map((stage, idx) => ({
+  stage,
+  amount: opportunities
+    .filter((o) => o.stage === stage)
+    .reduce((s, o) => s + o.amount, 0),
+  colorClass: STAGE_COLOR[idx % STAGE_COLOR.length],
+})).filter((s) => s.amount > 0);
+
+// Precompute donut arc dash/offset at module scope so the component render
+// stays pure (no cumulative mutation during render).
+const DONUT_C = 2 * Math.PI * 64;
+const donutSegments = (() => {
+  let cum = 0;
+  return stageAgg.map((seg) => {
+    const len = (seg.amount / pipelineValue) * DONUT_C;
+    const dash = `${len.toFixed(2)} ${(DONUT_C - len).toFixed(2)}`;
+    const offset = (-cum).toFixed(2);
+    cum += len;
+    return { stage: seg.stage, colorClass: seg.colorClass, dash, offset };
+  });
+})();
+
+const recentDeals = [...opportunities]
+  .sort((a, b) => b.amount - a.amount)
+  .slice(0, 5)
+  .map((o) => ({
+    id: o.id,
+    account: accountsById.get(o.accountId)?.name ?? "Account",
+    name: o.name,
+    date: fmtDate(o.closeDate),
+    amount: o.amount,
+  }));
+
+const SEV_RANK: Record<string, number> = { blocking: 0, action: 1, awareness: 2 };
+const attention = [...demoSignals]
+  .sort(
+    (a, b) =>
+      (SEV_RANK[a.severity] ?? 9) - (SEV_RANK[b.severity] ?? 9) ||
+      +new Date(b.detectedAt) - +new Date(a.detectedAt),
+  )
+  .slice(0, 5)
+  .map((s) => {
+    const o = oppById.get(s.oppId);
+    const owner = o ? repById.get(o.ownerId) : undefined;
+    return {
+      id: s.id,
+      severity: s.severity,
+      title: s.title,
+      account: accountName(s.oppId),
+      ruleId: s.ruleId,
+      owner: owner?.name ?? "Unassigned",
+    };
+  });
 
 function severityDot(sev: string): string {
   if (sev === "blocking") return "bg-rose-500";
@@ -48,263 +211,346 @@ function severityDot(sev: string): string {
   return "bg-sky-500";
 }
 
-// ── Derived datasets (static seed → compute once) ──────────────────────────
-
-const pipelineValue = opportunities.reduce((sum, o) => sum + o.amount, 0);
-const signalsFiring = demoSignals.length;
-const atRiskOppIds = [
-  ...new Set(
-    demoSignals.filter((s) => s.severity === "blocking").map((s) => s.oppId),
-  ),
-];
-const newestSignal = Math.max(...demoSignals.map((s) => +new Date(s.detectedAt)));
-const latestCall = Math.max(...calls.map((c) => +new Date(c.callDate)));
-const meetingsThisWeek = calls.filter(
-  (c) => latestCall - +new Date(c.callDate) <= 7 * 8.64e7,
-);
-
-const pipelineRows = [...opportunities]
-  .sort((a, b) => b.amount - a.amount)
-  .map((o) => ({
-    id: o.id,
-    account: accountsById.get(o.accountId)?.name ?? "Workspace",
-    stage: o.stage,
-    amount: o.amount,
-  }));
-
-const signalRows = [...demoSignals]
-  .sort((a, b) => +new Date(b.detectedAt) - +new Date(a.detectedAt))
-  .map((s) => ({
-    id: s.id,
-    account: accountName(s.oppId),
-    title: s.title,
-    severity: s.severity,
-    ago: relAgo(newestSignal - +new Date(s.detectedAt)),
-  }));
-
-const atRiskRows = atRiskOppIds.map((oppId) => {
-  const sig = demoSignals.find(
-    (s) => s.oppId === oppId && s.severity === "blocking",
-  );
-  return {
-    id: oppId,
-    account: accountName(oppId),
-    title: sig?.title ?? "Blocking signal",
-    action: sig?.suggestedAction ?? "",
-  };
-});
-
-const meetingRows = [...meetingsThisWeek]
-  .sort((a, b) => +new Date(b.callDate) - +new Date(a.callDate))
-  .map((c) => ({
-    id: c.id,
-    account: accountName(c.oppId),
-    durationMin: c.durationMin,
-    ago: relAgo(latestCall - +new Date(c.callDate)),
-    summary: c.summary,
-  }));
-
-const feed = signalRows.slice(0, 6);
-
-const CARDS: { key: PanelKey; value: string; label: string }[] = [
-  { key: "pipeline", value: fmtCompactUSD(pipelineValue), label: "pipeline" },
-  { key: "signals", value: String(signalsFiring), label: "signals firing" },
-  { key: "atrisk", value: String(atRiskOppIds.length), label: "at risk" },
-  { key: "meetings", value: String(meetingsThisWeek.length), label: "meetings · 7d" },
-];
-
-const PANEL_TITLE: Record<PanelKey, string> = {
-  pipeline: "Open pipeline by account",
-  signals: "Signals firing",
-  atrisk: "At-risk deals",
-  meetings: "Meetings · last 7 days",
-};
+// ── Layout ───────────────────────────────────────────────────────────────────
 
 export function OverviewDashboardBody() {
-  const [open, setOpen] = useState<PanelKey | null>(null);
-
   return (
-    <>
-      <div className="mt-10 grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {CARDS.map((c) => {
-          const active = open === c.key;
+    <div className="mt-8 space-y-4">
+      <div className="grid gap-4 sm:grid-cols-3">
+        {KPIS.map((k) => (
+          <KpiCard key={k.label} {...k} />
+        ))}
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
+        <MeetingsCalendarCard />
+        <PipelineDonutCard />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <RecentDealsCard />
+        <AttentionCard />
+      </div>
+    </div>
+  );
+}
+
+// ── KPI cards ─────────────────────────────────────────────────────────────────
+
+function KpiCard({
+  label,
+  value,
+  delta,
+  last,
+  icon,
+}: {
+  label: string;
+  value: string;
+  delta: number;
+  last: string;
+  icon: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-xl border border-border bg-background p-5">
+      <div className="flex items-center gap-3">
+        <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-brand/[0.08] text-brand">
+          {icon}
+        </span>
+        <span className="text-sm text-muted">{label}</span>
+      </div>
+      <div className="mt-4 flex items-end gap-2.5 flex-wrap">
+        <div className="text-3xl sm:text-4xl font-semibold tracking-tight tabular-nums leading-none">
+          {value}
+        </div>
+        <span className="inline-flex items-center gap-1 rounded-full bg-severity-green-bg px-2 py-0.5 text-[11px] font-medium text-severity-green">
+          <span aria-hidden>↗</span>
+          {delta}%
+        </span>
+      </div>
+      <div className="mt-1.5 text-[11px] text-muted">Last month {last}</div>
+    </div>
+  );
+}
+
+// ── Meetings week calendar ────────────────────────────────────────────────────
+
+function MeetingsCalendarCard() {
+  const [selected, setSelected] = useState<CalMeeting | null>(null);
+  return (
+    <div className="rounded-xl border border-border bg-background p-5">
+      <div className="flex items-center justify-between">
+        <h3 className="text-base font-semibold tracking-tight">Meetings this week</h3>
+        <span className="text-[11px] font-mono text-muted rounded-md border border-border px-2 py-1">
+          This week
+        </span>
+      </div>
+
+      <div className="mt-4 grid grid-cols-7 gap-px rounded-lg overflow-hidden bg-border">
+        {calWeekDays.map((d) => {
+          const items = meetingsByDay.get(d.toDateString()) ?? [];
+          const shown = items.slice(0, 3);
+          const extra = items.length - shown.length;
           return (
-            <button
-              key={c.key}
-              type="button"
-              onClick={() => setOpen(active ? null : c.key)}
-              aria-expanded={active}
-              className={
-                "text-left rounded-xl border bg-background p-5 transition-colors " +
-                (active
-                  ? "border-brand ring-2 ring-brand/20"
-                  : "border-border hover:border-foreground/30")
-              }
-            >
-              <div className="flex items-start justify-between">
-                <div className="text-3xl sm:text-4xl font-semibold tracking-tight tabular-nums">
-                  {c.value}
-                </div>
-                <span
-                  aria-hidden
-                  className={
-                    "text-muted text-[10px] mt-1 transition-transform " +
-                    (active ? "rotate-180" : "")
-                  }
-                >
-                  ▾
-                </span>
+            <div key={d.toDateString()} className="bg-background min-h-[150px] p-2">
+              <div className="text-[9px] font-mono uppercase tracking-[0.1em] text-muted">
+                {WD_SHORT[d.getDay()]} {d.getDate()}
               </div>
-              <div className="mt-1 text-[10px] uppercase tracking-[0.18em] font-mono text-muted">
-                {c.label}
+              <div className="mt-1.5 space-y-1">
+                {shown.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => setSelected(m)}
+                    title={`Jackson <> ${m.name} · ${m.account}`}
+                    className="block w-full text-left rounded border border-brand/20 bg-brand/[0.06] px-1.5 py-1 leading-tight transition-colors hover:border-brand/50 hover:bg-brand/[0.12]"
+                  >
+                    <div className="flex items-center gap-1 text-[8px] uppercase tracking-[0.08em] text-brand/80">
+                      <span aria-hidden className="h-1 w-1 rounded-full shrink-0 bg-brand" />
+                      Jackson &lt;&gt;
+                    </div>
+                    <div className="text-[10px] font-medium text-foreground/90 leading-snug line-clamp-2">
+                      {m.name}
+                    </div>
+                  </button>
+                ))}
+                {extra > 0 && (
+                  <div className="pl-0.5 text-[10px] text-muted">+{extra} more</div>
+                )}
               </div>
-            </button>
+            </div>
           );
         })}
       </div>
 
-      {open && (
-        <div className="mt-4 rounded-xl border border-brand/40 bg-background overflow-hidden">
-          <div className="px-5 py-3 border-b border-border flex items-center justify-between">
-            <span className="text-[10px] uppercase tracking-[0.18em] font-mono text-brand">
-              {PANEL_TITLE[open]}
-            </span>
-            <button
-              type="button"
-              onClick={() => setOpen(null)}
-              aria-label="Close breakdown"
-              className="text-muted hover:text-foreground text-sm leading-none"
-            >
-              ✕
-            </button>
-          </div>
-          <div className="max-h-80 overflow-y-auto">
-            <Breakdown panel={open} />
-          </div>
-        </div>
+      {selected && (
+        <MeetingDetailModal meeting={selected} onClose={() => setSelected(null)} />
       )}
+    </div>
+  );
+}
 
-      <div className="mt-4 rounded-xl border border-border bg-background overflow-hidden">
-        <div className="px-5 py-3 border-b border-border flex items-center justify-between">
-          <span className="text-[10px] uppercase tracking-[0.18em] font-mono text-muted">
-            Activity
-          </span>
-          <span className="text-[10px] font-mono text-muted">
-            {signalsFiring} signals
-          </span>
+function MeetingDetailModal({
+  meeting,
+  onClose,
+}: {
+  meeting: CalMeeting;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  if (typeof document === "undefined") return null;
+
+  const rows: [string, string][] = [
+    ["Account", meeting.industry ? `${meeting.account} · ${meeting.industry}` : meeting.account],
+    ["Attendee", `${meeting.name} — ${meeting.title}`],
+    ["Role", meeting.role],
+    ["Location", meeting.hq || "—"],
+    ["When", `${meeting.dateLabel} · this week`],
+  ];
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Meeting details"
+    >
+      <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={onClose} aria-hidden />
+      <div className="relative w-full max-w-sm rounded-xl border border-border bg-background shadow-2xl overflow-hidden">
+        <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-border">
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.18em] font-mono text-brand">
+              Meeting
+            </div>
+            <h4 className="mt-1 text-base font-semibold tracking-tight">
+              Jackson &lt;&gt; {meeting.name}
+            </h4>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="text-muted hover:text-foreground text-lg leading-none shrink-0"
+          >
+            ×
+          </button>
         </div>
-        <ul className="divide-y divide-border">
-          {feed.map((f) => (
-            <li key={f.id} className="px-5 py-3 flex items-center gap-3">
+        <dl className="divide-y divide-border">
+          {rows.map(([k, v]) => (
+            <div key={k} className="flex items-baseline gap-3 px-5 py-2.5">
+              <dt className="w-20 shrink-0 text-[10px] uppercase tracking-[0.15em] font-mono text-muted">
+                {k}
+              </dt>
+              <dd className="text-[13px] text-foreground/85 leading-snug">{v}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+// ── Pipeline donut ──────────────────────────────────────────────────────────
+
+function PipelineDonutCard() {
+  return (
+    <div className="rounded-xl border border-border bg-background p-5">
+      <h3 className="text-base font-semibold tracking-tight">Pipeline by stage</h3>
+
+      <div className="mt-4 flex items-center gap-5">
+        <div className="relative shrink-0">
+          <svg viewBox="0 0 160 160" className="h-[136px] w-[136px]" aria-hidden>
+            <g transform="rotate(-90 80 80)">
+              <circle
+                cx="80"
+                cy="80"
+                r="64"
+                fill="none"
+                strokeWidth="20"
+                className="stroke-border"
+              />
+              {donutSegments.map((seg) => (
+                <circle
+                  key={seg.stage}
+                  cx="80"
+                  cy="80"
+                  r="64"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="20"
+                  strokeDasharray={seg.dash}
+                  strokeDashoffset={seg.offset}
+                  className={seg.colorClass}
+                />
+              ))}
+            </g>
+          </svg>
+          <div className="absolute inset-0 flex flex-col items-center justify-center">
+            <div className="text-lg font-semibold tracking-tight tabular-nums">
+              {fmtCompactUSD(pipelineValue)}
+            </div>
+            <div className="text-[10px] text-muted">open</div>
+          </div>
+        </div>
+
+        <ul className="flex-1 min-w-0 space-y-1.5">
+          {stageAgg.map((seg) => (
+            <li key={seg.stage} className="flex items-center gap-2 text-[12px]">
               <span
                 aria-hidden
-                className={"h-1.5 w-1.5 rounded-full shrink-0 " + severityDot(f.severity)}
+                className={`h-2 w-2 rounded-full shrink-0 bg-current ${seg.colorClass}`}
               />
-              <span className="text-[12px] font-semibold tracking-tight shrink-0">
-                {f.account}
-              </span>
-              <span className="text-[12px] text-foreground/70 truncate">
-                {f.title}
-              </span>
-              <span className="ml-auto text-[10px] font-mono text-muted shrink-0">
-                {f.ago}
+              <span className="truncate text-foreground/80">{seg.stage}</span>
+              <span className="ml-auto font-mono text-[11px] text-muted tabular-nums shrink-0">
+                {fmtCompactUSD(seg.amount)}
               </span>
             </li>
           ))}
         </ul>
       </div>
-    </>
+    </div>
   );
 }
 
-function Breakdown({ panel }: { panel: PanelKey }) {
-  if (panel === "pipeline") {
-    return (
-      <table className="w-full text-[12px]">
-        <tbody className="divide-y divide-border">
-          {pipelineRows.map((r) => (
-            <tr key={r.id}>
-              <td className="px-5 py-2.5 font-semibold tracking-tight">{r.account}</td>
-              <td className="px-2 py-2.5 text-muted">{r.stage}</td>
-              <td className="px-5 py-2.5 text-right tabular-nums">{fmtUSD(r.amount)}</td>
-            </tr>
-          ))}
-        </tbody>
-        <tfoot>
-          <tr className="border-t border-border">
-            <td className="px-5 py-2.5 text-[10px] uppercase tracking-[0.15em] font-mono text-muted" colSpan={2}>
-              Total
-            </td>
-            <td className="px-5 py-2.5 text-right font-semibold tabular-nums">
-              {fmtUSD(pipelineValue)}
-            </td>
-          </tr>
-        </tfoot>
-      </table>
-    );
-  }
+// ── Recent deals ──────────────────────────────────────────────────────────────
 
-  if (panel === "signals") {
-    return (
+function RecentDealsCard() {
+  return (
+    <div className="rounded-xl border border-border bg-background overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
+        <h3 className="text-base font-semibold tracking-tight">Recent deals</h3>
+        <span className="text-[11px] font-mono text-muted">{dealCount} total</span>
+      </div>
       <ul className="divide-y divide-border">
-        {signalRows.map((s) => (
-          <li key={s.id} className="px-5 py-2.5 flex items-center gap-3 text-[12px]">
+        {recentDeals.map((d) => (
+          <li key={d.id} className="flex items-center gap-3 px-5 py-3">
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-foreground/[0.06] text-[11px] font-semibold text-foreground/70 shrink-0">
+              {initials(d.account)}
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="text-[13px] font-semibold tracking-tight truncate">
+                {d.account}
+              </div>
+              <div className="text-[11px] text-muted truncate">{d.name}</div>
+            </div>
+            <div className="text-right shrink-0">
+              <div className="text-[13px] font-semibold tabular-nums text-severity-green">
+                {fmtCompactUSD(d.amount)}
+              </div>
+              <div className="text-[10px] font-mono text-muted">{d.date}</div>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// ── Needs attention (signal queue) ─────────────────────────────────────────────
+
+function AttentionCard() {
+  return (
+    <div className="rounded-xl border border-border bg-background overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
+        <h3 className="text-base font-semibold tracking-tight">Needs attention</h3>
+        <span className="text-[11px] font-mono text-muted">{signalsFiring} signals</span>
+      </div>
+      <ul className="divide-y divide-border">
+        {attention.map((a) => (
+          <li key={a.id} className="flex items-center gap-3 px-5 py-3">
             <span
               aria-hidden
-              className={"h-1.5 w-1.5 rounded-full shrink-0 " + severityDot(s.severity)}
+              className={`h-2 w-2 rounded-full shrink-0 ${severityDot(a.severity)}`}
             />
-            <span className="font-semibold tracking-tight shrink-0">{s.account}</span>
-            <span className="text-foreground/70 truncate">{s.title}</span>
-            <span className="ml-auto text-[10px] font-mono text-muted shrink-0">{s.ago}</span>
-          </li>
-        ))}
-      </ul>
-    );
-  }
-
-  if (panel === "atrisk") {
-    if (atRiskRows.length === 0) {
-      return (
-        <div className="px-5 py-6 text-[12px] text-muted italic text-center">
-          No deals are blocked right now.
-        </div>
-      );
-    }
-    return (
-      <ul className="divide-y divide-border">
-        {atRiskRows.map((r) => (
-          <li key={r.id} className="px-5 py-3 text-[12px]">
-            <div className="flex items-center gap-2">
-              <span aria-hidden className="h-1.5 w-1.5 rounded-full shrink-0 bg-rose-500" />
-              <span className="font-semibold tracking-tight">{r.account}</span>
-              <span className="text-foreground/70">· {r.title}</span>
-            </div>
-            {r.action && (
-              <div className="mt-1 pl-3.5 text-[11px] text-muted leading-snug">
-                → {r.action}
+            <div className="min-w-0 flex-1">
+              <div className="text-[13px] font-semibold tracking-tight truncate">
+                {a.title}
               </div>
-            )}
+              <div className="text-[11px] text-muted truncate">
+                {a.account} · <span className="font-mono">{a.ruleId}</span>
+              </div>
+            </div>
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-foreground/[0.06] text-[9px] font-semibold text-foreground/70 shrink-0" title={a.owner}>
+              {initials(a.owner)}
+            </span>
           </li>
         ))}
       </ul>
-    );
-  }
+    </div>
+  );
+}
 
-  // meetings
+// ── Icons ─────────────────────────────────────────────────────────────────────
+
+function MoneyIcon() {
   return (
-    <ul className="divide-y divide-border">
-      {meetingRows.map((m) => (
-        <li key={m.id} className="px-5 py-3 text-[12px]">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold tracking-tight">{m.account}</span>
-            <span className="text-[10px] font-mono text-muted">{m.durationMin}m</span>
-            <span className="ml-auto text-[10px] font-mono text-muted">{m.ago}</span>
-          </div>
-          <div className="mt-1 text-[11px] text-muted leading-snug line-clamp-2">
-            {m.summary}
-          </div>
-        </li>
-      ))}
-    </ul>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="3" y="6" width="18" height="12" rx="2" stroke="currentColor" strokeWidth="1.6" />
+      <circle cx="12" cy="12" r="2.5" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  );
+}
+
+function DealIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="3" y="7" width="18" height="13" rx="2" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M8 7V5.5A1.5 1.5 0 0 1 9.5 4h5A1.5 1.5 0 0 1 16 5.5V7" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  );
+}
+
+function BoltIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z" fill="currentColor" />
+    </svg>
   );
 }
