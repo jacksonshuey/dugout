@@ -118,9 +118,9 @@ interface CalMeeting {
   timeLabel: string;
 }
 
-// Calendar day window (08:00–18:00) used to lay meetings out on a time axis.
+// Calendar day window. Starts at 08:00; the end is trimmed to the last
+// meeting (see below) so the axis doesn't trail off into empty evening hours.
 const DAY_START_MIN = 8 * 60;
-const DAY_END_MIN = 18 * 60;
 // Per-weekday base start (Mon–Fri) so columns don't line up in rigid rows.
 const DAY_BASE_START = [9 * 60, 8 * 60 + 30, 9 * 60 + 30, 8 * 60, 10 * 60];
 // Varied meeting lengths and gaps, walked round-robin so each day reads organic.
@@ -165,6 +165,14 @@ meetingPeople.forEach((c, i) => {
   });
   meetingsByDay.set(key, list);
 });
+
+// Trim the axis to the last meeting's end (rounded up to the hour) so the
+// calendar doesn't show empty evening rows.
+const lastMeetingEnd = Math.max(
+  DAY_START_MIN + 60,
+  ...[...meetingsByDay.values()].flat().map((m) => m.startMin + m.durationMin),
+);
+const DAY_END_MIN = Math.ceil(lastMeetingEnd / 60) * 60;
 
 // Hour gridlines/labels down the time axis.
 const HOUR_MARKS = Array.from(
@@ -461,17 +469,17 @@ function MeetingsCalendarCard() {
                       type="button"
                       onClick={() => setSelected(m)}
                       title={`${m.timeLabel} · Jackson <> ${m.name} · ${m.account}`}
-                      className="absolute inset-x-0.5 z-10 overflow-hidden rounded border border-brand/20 bg-brand/[0.06] px-1.5 py-1 text-left leading-tight transition-colors hover:border-brand/50 hover:bg-brand/[0.12]"
+                      className="absolute inset-x-0.5 z-10 overflow-hidden rounded border border-brand/20 bg-brand/[0.06] px-1 py-1 text-left leading-tight transition-colors hover:border-brand/50 hover:bg-brand/[0.12]"
                       style={{
                         top: (m.startMin - DAY_START_MIN) * PX_PER_MIN,
-                        height: Math.max(m.durationMin * PX_PER_MIN, 30),
+                        height: Math.max(m.durationMin * PX_PER_MIN, 36),
                       }}
                     >
-                      <div className="flex items-center gap-1 text-[8px] uppercase tracking-[0.08em] text-brand/80">
+                      <div className="flex items-center gap-1 text-[7px] uppercase tracking-[0.06em] text-brand/80">
                         <span aria-hidden className="h-1 w-1 rounded-full shrink-0 bg-brand" />
                         {m.timeLabel}
                       </div>
-                      <div className="text-[10px] font-medium text-foreground/90 leading-snug line-clamp-1">
+                      <div className="text-[9px] font-medium text-foreground/90 leading-tight line-clamp-2 break-words">
                         {m.name}
                       </div>
                     </button>

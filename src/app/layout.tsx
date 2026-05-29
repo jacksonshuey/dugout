@@ -3,6 +3,7 @@ import { Inter, Fraunces, Geist_Mono } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { Nav } from "@/components/nav";
+import { AmbientGlow, CursorGlow } from "@/components/cursor-glow";
 
 // Fonts match Jackson's personal site: Inter for body, Fraunces for the
 // display serif used in headings, Geist Mono retained for code-style
@@ -39,6 +40,8 @@ export default function RootLayout({
       className={`${inter.variable} ${fraunces.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        <AmbientGlow />
+        <CursorGlow />
         <Nav />
         <main className="flex-1 min-h-0">{children}</main>
         <Analytics />
