@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { semanticSearch } from "@/lib/semantic-search";
+import {
+  semanticSearch,
+  INTEL_SOURCE_TABLES,
+  ONTOLOGY_SOURCE_TABLE,
+} from "@/lib/semantic-search";
 
 // Read-only semantic search over the ingested intel already shown publicly on
 // the landing page (signals, news, filings, transcripts, emails). Powers the
@@ -23,10 +27,21 @@ export async function GET(req: Request) {
       ? Math.min(limitRaw, MAX_LIMIT)
       : 8;
 
+  // scope=schema searches the embedded ontology (canonical fields); anything
+  // else searches the ingested intel (and explicitly excludes the schema rows).
+  const sourceTables =
+    searchParams.get("scope") === "schema"
+      ? [ONTOLOGY_SOURCE_TABLE]
+      : INTEL_SOURCE_TABLES;
+
   if (!query) return NextResponse.json({ query: "", matches: [] });
 
   try {
-    const matches = await semanticSearch(query, { accountId: account, limit });
+    const matches = await semanticSearch(query, {
+      accountId: account,
+      limit,
+      sourceTables,
+    });
     return NextResponse.json(
       { query, matches },
       { headers: { "cache-control": "no-store" } },

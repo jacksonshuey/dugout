@@ -9,7 +9,9 @@ export type DocSourceTable =
   | "external_signals"
   | "inbound_emails"
   | "granola_transcripts"
-  | "web_scrapes";
+  | "web_scrapes"
+  // The embedded ontology schema (canonical fields), for schema search.
+  | "ontology_field";
 
 export interface DocEmbeddingInput {
   source_table: DocSourceTable;
@@ -83,7 +85,11 @@ export async function deleteEmbeddingsForSources(
 // instead of failing the turn.
 export async function matchDocuments(
   queryEmbedding: number[],
-  opts: { matchCount?: number; accountId?: string | null } = {},
+  opts: {
+    matchCount?: number;
+    accountId?: string | null;
+    sourceTables?: string[] | null;
+  } = {},
 ): Promise<MatchedDoc[]> {
   let sb;
   try {
@@ -98,6 +104,7 @@ export async function matchDocuments(
       query_embedding: JSON.stringify(queryEmbedding),
       match_count: opts.matchCount ?? 8,
       filter_account: opts.accountId ?? null,
+      filter_source_tables: opts.sourceTables ?? null,
     });
     if (error || !data) return [];
     return (data as Record<string, unknown>[]).map((r) => ({

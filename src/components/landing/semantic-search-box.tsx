@@ -22,14 +22,21 @@ interface Hit {
 
 const DEBOUNCE_MS = 350;
 
+type Scope = "intel" | "schema";
+
 export function SemanticSearchBox({
   placeholder = "Search by meaning — e.g. “pricing pressure on enterprise deals”",
   accountSlug,
+  dualScope = false,
 }: {
   placeholder?: string;
   accountSlug?: string;
+  // When true, render an Intel / Schema toggle (used in the ontology section).
+  // Intel = ingested content; Schema = the canonical ontology fields.
+  dualScope?: boolean;
 }) {
   const [query, setQuery] = useState("");
+  const [scope, setScope] = useState<Scope>("intel");
   const [hits, setHits] = useState<Hit[]>([]);
   const [state, setState] = useState<"idle" | "loading" | "done">("idle");
   const reqId = useRef(0);
@@ -47,6 +54,7 @@ export function SemanticSearchBox({
       try {
         const params = new URLSearchParams({ q });
         if (accountSlug) params.set("account", accountSlug);
+        if (dualScope) params.set("scope", scope);
         const res = await fetch(`/api/semantic-search?${params}`);
         const data = (await res.json()) as { matches: Hit[] };
         if (id !== reqId.current) return; // a newer query superseded this one
@@ -59,10 +67,28 @@ export function SemanticSearchBox({
       }
     }, DEBOUNCE_MS);
     return () => clearTimeout(t);
-  }, [query, accountSlug]);
+  }, [query, accountSlug, dualScope, scope]);
 
   return (
     <div>
+      {dualScope && (
+        <div className="flex items-center gap-2 mb-2">
+          {(["intel", "schema"] as const).map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setScope(s)}
+              className={`text-[10px] font-mono uppercase tracking-[0.1em] py-1 px-2.5 rounded border transition-colors ${
+                scope === s
+                  ? "border-brand/40 bg-brand/10 text-brand"
+                  : "border-border bg-background text-muted hover:text-foreground hover:border-foreground/30"
+              }`}
+            >
+              {s === "intel" ? "Intel" : "Schema"}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="relative">
         <span
           aria-hidden
@@ -101,6 +127,11 @@ export function SemanticSearchBox({
                 {(h.similarity * 100).toFixed(0)}%
               </span>
               <div className="flex-1 min-w-0">
+                {h.sourceTable === "ontology_field" && (
+                  <div className="text-[13px] font-mono font-semibold tracking-tight">
+                    {h.sourceId}
+                  </div>
+                )}
                 <div className="text-sm tracking-tight leading-snug line-clamp-3">
                   {h.content || h.summary}
                 </div>

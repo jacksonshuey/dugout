@@ -30,9 +30,24 @@ function preview(s: string, n = 200): string {
   return t.length > n ? `${t.slice(0, n - 1)}…` : t;
 }
 
+// The source_table that holds the embedded ontology schema (canonical
+// fields), vs the intel sources (signals/news/transcripts/emails). Used to
+// scope a search to one side or the other.
+export const ONTOLOGY_SOURCE_TABLE = "ontology_field";
+export const INTEL_SOURCE_TABLES = [
+  "external_signals",
+  "inbound_emails",
+  "granola_transcripts",
+  "web_scrapes",
+];
+
 export async function semanticSearch(
   query: string,
-  opts: { accountId?: string | null; limit?: number } = {},
+  opts: {
+    accountId?: string | null;
+    limit?: number;
+    sourceTables?: string[] | null;
+  } = {},
 ): Promise<SemanticHit[]> {
   const q = query.trim();
   if (!q) return [];
@@ -43,6 +58,7 @@ export async function semanticSearch(
   const docs = await matchDocuments(vector, {
     matchCount: opts.limit ?? 8,
     accountId: opts.accountId ?? null,
+    sourceTables: opts.sourceTables ?? null,
   });
 
   return docs.map((d) => ({

@@ -46,11 +46,13 @@ describe("semanticSearch", () => {
     const hits = await semanticSearch("genai risk", {
       accountId: "acc_moderna",
       limit: 5,
+      sourceTables: ["external_signals"],
     });
 
     expect(matchMock).toHaveBeenCalledWith([0.1, 0.2], {
       matchCount: 5,
       accountId: "acc_moderna",
+      sourceTables: ["external_signals"],
     });
     expect(hits).toHaveLength(1);
     // Citation triple present for the /ask agent's collectCitations().

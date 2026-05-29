@@ -59,9 +59,10 @@ create index if not exists doc_embeddings_account_idx
 -- param. The client passes JSON.stringify(embedding) — e.g. '[0.01,...]' —
 -- and we cast it here, which pgvector accepts unambiguously.
 create or replace function match_documents(
-  query_embedding text,
-  match_count     int  default 8,
-  filter_account  text default null
+  query_embedding      text,
+  match_count          int    default 8,
+  filter_account       text   default null,
+  filter_source_tables text[] default null
 )
 returns table (
   id           uuid,
@@ -85,12 +86,17 @@ as $$
     d.content,
     1 - (d.embedding <=> query_embedding::vector(1536)) as similarity
   from doc_embeddings d
-  -- No filter → search everything. Scoped to an account → that account PLUS
+  -- Account: no filter → any account. Scoped to an account → that account PLUS
   -- workspace-wide intel ('__workspace__'), since market-wide news is relevant
   -- to any account question.
-  where filter_account is null
-     or d.account_id = filter_account
-     or d.account_id = '__workspace__'
+  where (filter_account is null
+         or d.account_id = filter_account
+         or d.account_id = '__workspace__')
+  -- Source tables: no filter → all. Otherwise restrict to the given set
+  -- (intel search excludes the 'ontology_field' schema index; schema search
+  -- restricts TO it).
+    and (filter_source_tables is null
+         or d.source_table = any(filter_source_tables))
   order by d.embedding <=> query_embedding::vector(1536)
   limit match_count;
 $$;
