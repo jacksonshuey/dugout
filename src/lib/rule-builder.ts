@@ -15,9 +15,9 @@ import {
 } from "./rule-model";
 
 // Server-side half of the natural-language rule builder. Two jobs:
-//   1. buildRuleSystemPrompt() — serializes the live ontology schema + the
-//      trigger/action contract into an LLM system prompt, so the model can
-//      only reference fields/comparators/actions that actually exist.
+//   1. buildRuleChatSystemPrompt() — serializes the live ontology schema +
+//      the trigger/action contract into a conversational LLM system prompt,
+//      so the model can only reference fields/comparators/actions that exist.
 //   2. validateRuleDraft() — coerces the model's JSON back into a RuleDraft,
 //      dropping anything that doesn't satisfy the schema. The composer then
 //      renders whatever survives; the user edits and saves. Tolerant by
@@ -39,8 +39,9 @@ const ACTION_KINDS: ActionKind[] = [
 
 const TWO_NUMBER_COMPARATORS: Comparator[] = ["between", "outside_of"];
 
-export function buildRuleSystemPrompt(): string {
-  // Group the ontology fields so the model sees them the way the UI does.
+// Serialize the live ontology fields + action catalog into the blocks the
+// model needs to reference real fields/comparators/actions.
+function serializeSchema(): { fieldBlock: string; actionBlock: string } {
   const groups = new Map<FieldGroup, string[]>();
   for (const f of ONTOLOGY_SCHEMA) {
     const comps = comparatorsFor(f.type).join(", ");
@@ -61,7 +62,29 @@ export function buildRuleSystemPrompt(): string {
     return `- ${t.action.kind}${paramNote} — ${t.label}`;
   }).join("\n");
 
-  return `You are a sales-automation rule builder for Dugout. Convert the user's plain-English request into ONE rule expressed as strict JSON.
+  return { fieldBlock, actionBlock };
+}
+
+// Conversational system prompt. The model holds a short back-and-forth with
+// the user and, each turn, returns BOTH a natural-language `reply` and an
+// optional `rule`. When the request maps onto the supported ontology
+// fields/actions it builds the rule; when it asks for something we don't
+// track, it does NOT error — it explains briefly and proposes the closest
+// supported automation, then asks if the user wants that instead.
+export function buildRuleChatSystemPrompt(): string {
+  const { fieldBlock, actionBlock } = serializeSchema();
+
+  return `You are Dugout's automation assistant. You help a sales rep turn plain-English ideas into ONE automation rule, conversationally. Keep replies short (1-3 sentences), friendly, and concrete.
+
+Every turn, respond with ONLY a JSON object (no prose, no code fences):
+{
+  "reply": "<short message to the user>",
+  "rule": <rule object, or null>
+}
+
+Set "rule" when you can fully express the user's intent with the supported fields and actions below. Otherwise set "rule" to null and use "reply" to either ask a brief clarifying question OR — if they want something Dugout can't do — explain what isn't supported and propose the closest supported automation, ending with a question like "want me to set that up?". NEVER refuse with a bare error; always offer a path forward.
+
+When you include a rule, your reply should one-line summarize it and invite edits (e.g. "Here's a rule that flags stalled six-figure deals and DMs the AE — use it or tell me what to change.").
 
 A rule is { "name", "triggers", "actions" }:
 - "name": SCREAMING_SNAKE_CASE label, <= 40 chars (e.g. "STALE_HIGH_VALUE_DEAL").
@@ -77,13 +100,13 @@ A rule is { "name", "triggers", "actions" }:
 3. Meeting: { "kind": "meeting", "source": "${MEETING_SOURCES.join("|")}", "mode": "word|ai_extract", "pattern": "<text>" }
 4. AI extract: { "kind": "ai_extract", "source": "${AI_EXTRACT_SOURCES.join("|")}", "concept": "<what to detect>" }
 
-## Ontology fields
+## Ontology fields (the only data Dugout tracks)
 ${fieldBlock}
 
-## Actions
+## Actions (the only things a rule can do)
 ${actionBlock}
 
-Respond with ONLY the JSON object — no prose, no code fences. If the request is unrelated to building a rule, return { "name": "", "triggers": [], "actions": [] }.`;
+If the user references data we don't track (e.g. NPS score, support tickets, website visits) or an action we can't take (e.g. send a text, create a Jira ticket), that's the redirect case: say so plainly and suggest the nearest supported field/action instead.`;
 }
 
 // ---------------------------------------------------------------------------
