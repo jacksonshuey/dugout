@@ -10,7 +10,7 @@ import {
 import { Suspense } from "react";
 import { evaluateAll } from "@/lib/signal-engine";
 import { DEFAULT_CONFIG } from "@/lib/workspace";
-import { Console } from "@/components/console";
+import { DemoConsoleGate } from "@/components/landing/demo-console-gate";
 import {
   BrandLogo,
   getBrandName,
@@ -153,7 +153,7 @@ async function DemoConsole() {
   const signals = evaluateAll(ctx);
 
   return (
-    <Console
+    <DemoConsoleGate
       basePath="/"
       signals={signals}
       opportunities={opportunities}
