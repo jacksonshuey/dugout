@@ -383,6 +383,16 @@ const BRANDS: Record<string, BrandSpec> = {
     glyph: <LetterGlyph letter="W" />,
     domain: "webflow.com",
   },
+
+  // AgentMail — inbound newsletter inbox (landing "Data sources" row).
+  // newsapi / sec / firecrawl already exist above.
+  agentmail: {
+    name: "AgentMail",
+    bg: "#111827",
+    fg: "white",
+    glyph: <LetterGlyph letter="A" />,
+    domain: "agentmail.to",
+  },
 };
 
 // Public API - render a single branded chip.

@@ -583,25 +583,25 @@ function DataSourcesRow() {
   return (
     <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <SourceCard
-        icon="✉"
+        brand="agentmail"
         name="AgentMail"
         role="Newsletter inbox · Svix-signed webhooks"
         detail="One inbox per workspace, AI-tagged by account."
       />
       <SourceCard
-        icon="N"
+        brand="newsapi"
         name="NewsAPI"
         role="Mainstream press · daily cron"
         detail="Mainstream news, routed to the matching account."
       />
       <SourceCard
-        icon="§"
+        brand="sec"
         name="SEC EDGAR"
         role="Public filings · 10-K, 8-K, 6-K"
         detail="Filings on tracked companies, summarized in minutes."
       />
       <SourceCard
-        icon="F"
+        brand="firecrawl"
         name="Firecrawl"
         role="Account site scrapes · nightly"
         detail="Per-account site scrapes: earnings, talks, launches."
@@ -611,12 +611,12 @@ function DataSourcesRow() {
 }
 
 function SourceCard({
-  icon,
+  brand,
   name,
   role,
   detail,
 }: {
-  icon: string;
+  brand: BrandKey;
   name: string;
   role: string;
   detail: string;
@@ -624,12 +624,7 @@ function SourceCard({
   return (
     <div className="rounded-lg border border-border bg-background p-4 space-y-2">
       <div className="flex items-center gap-2.5">
-        <span
-          aria-hidden
-          className="inline-flex items-center justify-center w-8 h-8 rounded border border-border bg-foreground/[0.04] text-foreground font-mono font-bold text-sm shrink-0"
-        >
-          {icon}
-        </span>
+        <BrandLogo brand={brand} size={32} title={name} />
         <div className="min-w-0">
           <h3 className="text-sm font-semibold tracking-tight">{name}</h3>
           <div className="text-[10px] uppercase tracking-[0.15em] font-mono text-muted leading-snug">
@@ -746,9 +741,9 @@ function MarketIntelLiveSection() {
         Workspace-wide intel, ranked by relevance.
       </h2>
       <p className="mt-4 text-base text-foreground/70 leading-relaxed max-w-2xl">
-        Four pipes in, one feed out. AI classifies every input as it lands:
-        account mentions route to the right drawer, market-wide moves bubble
-        below.
+        Four sources in, one clean feed out. AI sorts every item the moment it
+        lands — account news to the right account, market-wide moves to their
+        own stream.
       </p>
 
       <DataSourcesRow />
