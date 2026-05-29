@@ -211,6 +211,23 @@ function severityDot(sev: string): string {
   return "bg-sky-500";
 }
 
+// Account-relevant news for the cycling ticker — every account-tagged signal,
+// newest first, with a relative age anchored to the most recent one.
+function relAgo(ms: number): string {
+  const h = ms / 3.6e6;
+  if (h < 1) return "just now";
+  if (h < 24) return `${Math.round(h)}h`;
+  return `${Math.round(h / 24)}d`;
+}
+const accountNews = [...demoSignals]
+  .sort((a, b) => +new Date(b.detectedAt) - +new Date(a.detectedAt))
+  .map((s) => ({
+    id: s.id,
+    account: accountName(s.oppId),
+    title: s.title,
+    ago: relAgo(newestSignalMs - +new Date(s.detectedAt)),
+  }));
+
 // ── Layout ───────────────────────────────────────────────────────────────────
 
 export function OverviewDashboardBody() {
@@ -230,6 +247,40 @@ export function OverviewDashboardBody() {
       <div className="grid gap-4 lg:grid-cols-2">
         <RecentDealsCard />
         <AttentionCard />
+      </div>
+
+      <AccountNewsTicker />
+    </div>
+  );
+}
+
+// ── Cycling account-news ticker ───────────────────────────────────────────────
+
+function AccountNewsTicker() {
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    if (accountNews.length <= 1) return;
+    const id = setInterval(() => setI((n) => (n + 1) % accountNews.length), 3500);
+    return () => clearInterval(id);
+  }, []);
+  const n = accountNews[i];
+  if (!n) return null;
+  return (
+    <div className="rounded-xl border border-foreground bg-foreground text-background overflow-hidden">
+      <div className="flex items-center gap-4 px-5 py-4">
+        <span className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.18em] font-mono text-background/70 shrink-0">
+          <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          Account news
+        </span>
+        <div key={n.id} className="min-w-0 flex-1 flex items-baseline gap-2">
+          <span className="text-[13px] font-semibold tracking-tight shrink-0">
+            {n.account}
+          </span>
+          <span className="text-[13px] text-background/75 truncate">{n.title}</span>
+        </div>
+        <span className="shrink-0 text-[11px] font-mono text-background/50 tabular-nums">
+          {n.ago} · {i + 1}/{accountNews.length}
+        </span>
       </div>
     </div>
   );
