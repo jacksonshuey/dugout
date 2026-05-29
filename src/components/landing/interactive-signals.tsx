@@ -12,6 +12,17 @@ import {
   type FieldSchema,
   type FieldType,
 } from "@/data/ontology-schema";
+import {
+  ACTION_TEMPLATES,
+  type Action,
+  type AIExtractTrigger,
+  type MeetingTrigger,
+  type NewsTrigger,
+  type OntologyTrigger,
+  type RuleDraft,
+  type Trigger,
+  type TriggerKind,
+} from "@/lib/rule-model";
 
 // Interactive rules view.
 //
@@ -208,75 +219,9 @@ const ACCOUNTS: Account[] = [
   },
 ];
 
-// ---------------------------------------------------------------------------
-// Trigger model — kind-discriminated. Only the ontology kind evaluates
-// against ACCOUNTS; the others are explanatory (they describe upstream
-// sources the engine watches).
-// ---------------------------------------------------------------------------
-
-type TriggerKind = "ontology" | "news" | "meeting" | "ai_extract";
-
-interface OntologyTrigger {
-  kind: "ontology";
-  field: string;
-  comparator: Comparator;
-  // Value semantics depend on comparator:
-  // - numeric (>, <, ==, >=, <=, !=): number string
-  // - in / not_in: comma-joined list of selected enum values
-  // - contains / ai_matches: pattern string
-  // - within_days / more_than_days_ago: integer string
-  // - before / after: ISO date string
-  value: string;
-}
-
-interface NewsTrigger {
-  kind: "news";
-  source: "SEC EDGAR" | "NewsAPI" | "AgentMail digest";
-  mode: "word" | "ai_semantic";
-  pattern: string;
-}
-
-interface MeetingTrigger {
-  kind: "meeting";
-  source: "Gong" | "Granola";
-  mode: "word" | "ai_extract";
-  pattern: string;
-}
-
-interface AIExtractTrigger {
-  kind: "ai_extract";
-  source: "email" | "meeting" | "account summary";
-  concept: string;
-}
-
-type Trigger =
-  | OntologyTrigger
-  | NewsTrigger
-  | MeetingTrigger
-  | AIExtractTrigger;
-
-// ---------------------------------------------------------------------------
-// Action model — the "stream" chained after the triggers
-// ---------------------------------------------------------------------------
-
-type Action =
-  | { kind: "slack_dm_owner" }
-  | { kind: "slack_channel"; channel: string }
-  | { kind: "dock_workspace"; template: string }
-  | { kind: "outreach_sequence"; template: string }
-  | { kind: "send_asset"; asset: string }
-  | { kind: "snooze"; days: number }
-  | { kind: "notify_csm" };
-
-const ACTION_TEMPLATES: { label: string; action: Action }[] = [
-  { label: "DM the AE on the matching account", action: { kind: "slack_dm_owner" } },
-  { label: "Post to channel", action: { kind: "slack_channel", channel: "#deals" } },
-  { label: "Create Dock workspace", action: { kind: "dock_workspace", template: "CFO Leave-Behind" } },
-  { label: "Enroll Outreach sequence", action: { kind: "outreach_sequence", template: "Champion re-engagement" } },
-  { label: "Send asset", action: { kind: "send_asset", asset: "Latest SOC 2 packet" } },
-  { label: "Notify CSM", action: { kind: "notify_csm" } },
-  { label: "Snooze 7 days", action: { kind: "snooze", days: 7 } },
-];
+// The trigger/action/rule-draft model lives in @/lib/rule-model so the AI
+// rule-builder route can validate LLM output into the exact shapes this
+// composer renders and edits.
 
 // ---------------------------------------------------------------------------
 // Eval — does an ontology trigger fire on a given account?
@@ -596,26 +541,30 @@ const TIERS: { key: Severity | "all"; label: string }[] = [
 export function InteractiveSignals() {
   const [tier, setTier] = useState<Severity | "all">("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [handled, setHandled] = useState<Set<string>>(new Set());
   // All rules — seeded + user-authored — live in one state slice so every
   // rule is editable through the composer.
   const [rules, setRules] = useState<ActiveRule[]>(SEEDED_RULES);
   const [editingId, setEditingId] = useState<string | null>(null);
+  // AI-authored draft seeded into the composer. `draftNonce` re-mounts the
+  // composer each time a fresh draft arrives so its useState initializers
+  // pick up the new triggers/actions.
+  const [draft, setDraft] = useState<RuleDraft | null>(null);
+  const [draftNonce, setDraftNonce] = useState(0);
 
   const editingRule = editingId ? rules.find((r) => r.id === editingId) ?? null : null;
 
-  const remaining = rules.filter((r) => !handled.has(r.id));
-  const visible = remaining.filter((r) => tier === "all" || r.severity === tier);
-  const counts = {
-    all: remaining.length,
-    blocking: remaining.filter((r) => r.severity === "blocking").length,
-    action: remaining.filter((r) => r.severity === "action").length,
-    awareness: remaining.filter((r) => r.severity === "awareness").length,
+  const handleAIDraft = (rule: RuleDraft) => {
+    setEditingId(null);
+    setDraft(rule);
+    setDraftNonce((n) => n + 1);
   };
 
-  const markHandled = (id: string) => {
-    setHandled((s) => new Set(s).add(id));
-    if (expandedId === id) setExpandedId(null);
+  const visible = rules.filter((r) => tier === "all" || r.severity === tier);
+  const counts = {
+    all: rules.length,
+    blocking: rules.filter((r) => r.severity === "blocking").length,
+    action: rules.filter((r) => r.severity === "action").length,
+    awareness: rules.filter((r) => r.severity === "awareness").length,
   };
 
   const handleSave = (rule: ActiveRule) => {
@@ -645,12 +594,15 @@ export function InteractiveSignals() {
 
   return (
     <div className="space-y-6">
+      {!editingRule && <RuleChat onDraft={handleAIDraft} />}
+
       <RuleComposer
-        // Re-mount the composer whenever the edit target changes (or when
-        // switching back to create-new mode). Lets us seed state from
-        // editingRule via useState initializers — no effect-driven syncing.
-        key={editingRule?.id ?? "new"}
+        // Re-mount the composer whenever the edit target changes (or when a
+        // fresh AI draft arrives). Lets us seed state from editingRule/draft
+        // via useState initializers — no effect-driven syncing.
+        key={editingRule?.id ?? (draft ? `draft-${draftNonce}` : "new")}
         editingRule={editingRule}
+        draft={editingRule ? null : draft}
         onSave={handleSave}
         onCancelEdit={() => setEditingId(null)}
       />
@@ -659,7 +611,7 @@ export function InteractiveSignals() {
         <div className="flex items-baseline justify-between">
           <h4 className="text-sm font-semibold tracking-tight">Active rules</h4>
           <span className="text-[10px] uppercase tracking-[0.15em] font-mono text-muted">
-            {remaining.length} firing
+            {rules.length} firing
           </span>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -686,7 +638,7 @@ export function InteractiveSignals() {
         <div className="space-y-2">
           {visible.length === 0 ? (
             <div className="rounded-lg border border-dashed border-border bg-foreground/[0.015] p-6 text-center text-[12px] text-muted italic">
-              Queue clear. Restore handled rules to reset.
+              No rules in this tier.
             </div>
           ) : (
             visible.map((r) => (
@@ -695,21 +647,11 @@ export function InteractiveSignals() {
                 rule={r}
                 expanded={expandedId === r.id}
                 onToggle={() => setExpandedId(expandedId === r.id ? null : r.id)}
-                onHandle={() => markHandled(r.id)}
                 onEdit={() => handleEdit(r.id)}
                 onRemove={() => handleDelete(r.id)}
                 isEditing={editingId === r.id}
               />
             ))
-          )}
-          {handled.size > 0 && (
-            <button
-              type="button"
-              onClick={() => setHandled(new Set())}
-              className="w-full text-center text-[11px] uppercase tracking-[0.15em] font-mono text-brand hover:underline pt-2"
-            >
-              Restore {handled.size} handled rule{handled.size === 1 ? "" : "s"}
-            </button>
           )}
         </div>
       </div>
@@ -725,7 +667,6 @@ function RuleCard({
   rule,
   expanded,
   onToggle,
-  onHandle,
   onEdit,
   onRemove,
   isEditing,
@@ -733,7 +674,6 @@ function RuleCard({
   rule: ActiveRule;
   expanded: boolean;
   onToggle: () => void;
-  onHandle: () => void;
   onEdit: () => void;
   onRemove: () => void;
   isEditing: boolean;
@@ -821,13 +761,6 @@ function RuleCard({
             </Field>
           )}
           <div className="flex items-center gap-2 pt-1">
-            <button
-              type="button"
-              onClick={onHandle}
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-foreground text-background text-[11px] font-medium hover:bg-foreground/90 transition-colors"
-            >
-              ✓ Mark handled
-            </button>
             <button
               type="button"
               onClick={onEdit}
@@ -985,35 +918,182 @@ function actionDescription(a: Action): string {
 }
 
 // ===========================================================================
+// AI rule chat — plain-English request → /api/build-rule → seeds the composer
+// ===========================================================================
+
+const CHAT_EXAMPLES = [
+  "Flag deals over $150k that have had fewer than 3 meetings in 30 days, and DM the AE.",
+  "When a Selected Vendor account goes 14+ days without a touch, notify the CSM.",
+  "If a champion's engagement score drops below 0.3, enroll them in re-engagement.",
+];
+
+function RuleChat({ onDraft }: { onDraft: (rule: RuleDraft) => void }) {
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+  const [lastPrompt, setLastPrompt] = useState<string | null>(null);
+
+  const submit = async () => {
+    const prompt = input.trim();
+    if (!prompt || loading) return;
+    setLoading(true);
+    setError(null);
+    setNote(null);
+    try {
+      const res = await fetch("/api/build-rule", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ prompt }),
+      });
+      const data = (await res.json()) as {
+        rule?: RuleDraft;
+        warnings?: string[];
+        error?: string;
+      };
+      if (data.error || !data.rule) {
+        setError(data.error ?? "Couldn't build a rule from that.");
+        return;
+      }
+      setLastPrompt(prompt);
+      const triggerCount = data.rule.triggers.length;
+      const actionCount = data.rule.actions.length;
+      const base = `Drafted a rule with ${triggerCount} trigger${
+        triggerCount === 1 ? "" : "s"
+      } → ${actionCount} action${
+        actionCount === 1 ? "" : "s"
+      }. Review and edit below, then save.`;
+      setNote(
+        data.warnings && data.warnings.length > 0
+          ? `${base} Note: ${data.warnings.join(" ")}`
+          : base,
+      );
+      setInput("");
+      onDraft(data.rule);
+    } catch {
+      setError("Network error reaching the rule builder. Try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="rounded-lg border border-border bg-foreground/[0.015] p-4 space-y-3">
+      <div className="flex items-baseline justify-between flex-wrap gap-2">
+        <h4 className="text-sm font-semibold tracking-tight flex items-center gap-2">
+          Describe it in plain English
+          <span className="text-[9px] font-mono uppercase tracking-[0.1em] px-1.5 py-0.5 rounded bg-brand text-background">
+            AI
+          </span>
+        </h4>
+        <span className="text-[10px] uppercase tracking-[0.15em] font-mono text-muted">
+          → builds the rule below
+        </span>
+      </div>
+      <p className="text-[11px] text-muted leading-relaxed">
+        Tell Dugout what to watch for and what to do. It drafts the rule into
+        the composer — edit anything, then save it to your stream.
+      </p>
+
+      <div className="flex flex-col gap-2">
+        <textarea
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              submit();
+            }
+          }}
+          rows={2}
+          placeholder="e.g. Flag stalled six-figure deals and DM the AE…"
+          className="w-full px-3 py-2 rounded-md border border-border bg-background text-[12px] leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
+        />
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[10px] font-mono text-muted">
+            Enter to build · Shift+Enter for a new line
+          </span>
+          <button
+            type="button"
+            onClick={submit}
+            disabled={loading || input.trim().length === 0}
+            className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-md bg-foreground text-background text-[12px] font-medium hover:bg-foreground/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? "Building…" : "Build rule"}
+          </button>
+        </div>
+      </div>
+
+      {!input && !note && !error && (
+        <div className="flex flex-wrap gap-1.5">
+          {CHAT_EXAMPLES.map((ex) => (
+            <button
+              key={ex}
+              type="button"
+              onClick={() => setInput(ex)}
+              className="text-left px-2 py-1 rounded border border-dashed border-border text-[10px] text-muted hover:text-foreground hover:border-foreground/30 transition-colors max-w-full truncate"
+              title={ex}
+            >
+              {ex}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {error && (
+        <div className="rounded-md border border-rose-300/40 bg-rose-500/[0.06] px-3 py-2 text-[11px] text-rose-700 dark:text-rose-300">
+          {error}
+        </div>
+      )}
+      {note && (
+        <div className="rounded-md border border-brand/30 bg-brand/[0.06] px-3 py-2 text-[11px] text-foreground">
+          {lastPrompt && (
+            <span className="block text-[10px] font-mono text-muted mb-0.5 truncate">
+              “{lastPrompt}”
+            </span>
+          )}
+          {note}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ===========================================================================
 // Composer
 // ===========================================================================
 
 function RuleComposer({
   editingRule,
+  draft,
   onSave,
   onCancelEdit,
 }: {
   editingRule: ActiveRule | null;
+  draft: RuleDraft | null;
   onSave: (rule: ActiveRule) => void;
   onCancelEdit: () => void;
 }) {
-  // Seed state directly from editingRule via useState initializers. The
-  // parent re-mounts this component (key=editingRule.id) whenever the edit
-  // target changes, so this initialization is always fresh — no effect-
-  // driven syncing required.
-  const [name, setName] = useState(editingRule?.name ?? "LOW_MEETING_VELOCITY");
+  // Seed state directly from editingRule (edit mode) or an AI draft via
+  // useState initializers. The parent re-mounts this component (key changes
+  // when the edit target or draft changes), so this initialization is always
+  // fresh — no effect-driven syncing required.
+  const [name, setName] = useState(
+    editingRule?.name ?? draft?.name ?? "LOW_MEETING_VELOCITY",
+  );
   const [triggers, setTriggers] = useState<Trigger[]>(
-    editingRule?.triggers ?? [
-      {
-        kind: "ontology",
-        field: "meeting_count_30d",
-        comparator: "<",
-        value: "5",
-      },
-    ],
+    editingRule?.triggers ??
+      draft?.triggers ?? [
+        {
+          kind: "ontology",
+          field: "meeting_count_30d",
+          comparator: "<",
+          value: "5",
+        },
+      ],
   );
   const [actions, setActions] = useState<Action[]>(
-    editingRule?.actions ?? [{ kind: "slack_dm_owner" }],
+    editingRule?.actions ?? draft?.actions ?? [{ kind: "slack_dm_owner" }],
   );
 
   const isEditing = editingRule !== null;
@@ -1171,35 +1251,6 @@ function RuleComposer({
         >
           + THEN action
         </button>
-      </div>
-
-      <div className="rounded-md border border-border bg-background p-3 space-y-1.5">
-        <div className="flex items-baseline justify-between">
-          <span className="text-[10px] uppercase tracking-[0.15em] font-mono text-muted">
-            Live preview · accounts that would fire
-          </span>
-          <span className="text-[10px] font-mono text-brand">
-            {matches.length} of {ACCOUNTS.length}
-          </span>
-        </div>
-        {matches.length === 0 ? (
-          <div className="text-[11px] text-muted italic">
-            No accounts match this rule yet. Loosen a trigger or add an ontology condition.
-          </div>
-        ) : (
-          <div className="flex flex-wrap gap-1.5">
-            {matches.map((a) => (
-              <span
-                key={a.name}
-                className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded border border-brand/30 bg-brand/[0.06] text-[11px] text-foreground"
-                title={`AE: ${a.owner_ae}`}
-              >
-                {a.name}
-                <span className="text-[9px] font-mono text-muted">{a.owner_ae}</span>
-              </span>
-            ))}
-          </div>
-        )}
       </div>
 
       <div className="flex items-center justify-end gap-2">

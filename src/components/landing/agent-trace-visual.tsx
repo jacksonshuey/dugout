@@ -15,12 +15,12 @@ import type { AgentStep, AgentTrace } from "@/lib/news-batches";
 
 const AGENT_META: Record<
   AgentStep["agent"],
-  { n: number; glyph: string; role: string }
+  { n: number; role: string }
 > = {
-  gate: { n: 1, glyph: "⊘", role: "decides: is this material news? (runs first)" },
-  summarize: { n: 2, glyph: "∑", role: "distills the email to one summary" },
-  categorize: { n: 3, glyph: "#", role: "sorts into a news category" },
-  append: { n: 4, glyph: "→", role: "records the entry to the feed" },
+  gate: { n: 1, role: "decides: is this material news? (runs first)" },
+  summarize: { n: 2, role: "distills the email to one summary" },
+  categorize: { n: 3, role: "sorts into a news category" },
+  append: { n: 4, role: "records the entry to the feed" },
 };
 
 const REVEAL_MS = 1900; // beat between steps — slow enough to read each handoff
@@ -275,9 +275,6 @@ function StepRow({
         <div className="flex items-baseline justify-between gap-3">
           <div className="min-w-0">
             <span className="text-sm font-semibold tracking-tight">
-              <span className="text-muted font-mono text-xs mr-1.5">
-                {meta.glyph}
-              </span>
               Agent {meta.n} · {step.label}
             </span>
             <div className="text-[11px] text-muted leading-snug">{meta.role}</div>
