@@ -122,6 +122,9 @@ const headlines = [...demoSignals]
 // brand (orange) CTA into the composer; news = black live rotator.
 type FillerType = "automation" | "news";
 
+// Shared collapsed-card height so every column's rows align (symmetric board).
+const CARD_MIN_H = "min-h-[150px]";
+
 function scrollToComposer() {
   document
     .getElementById("automation-composer")
@@ -320,7 +323,7 @@ function DealColumn({
           f.type === "automation" ? (
             <AutomationFiller key={`f${f.key}`} />
           ) : (
-            <NewsFiller key={`f${f.key}`} />
+            <NewsFiller key={`f${f.key}`} offset={f.key} />
           ),
         )}
       </div>
@@ -335,7 +338,7 @@ function AutomationFiller() {
     <button
       type="button"
       onClick={scrollToComposer}
-      className="w-full text-left rounded-xl border border-brand bg-brand text-background p-4 transition-transform hover:-translate-y-0.5"
+      className={`w-full text-left rounded-xl border border-brand bg-brand text-background p-4 flex flex-col ${CARD_MIN_H} transition-transform hover:-translate-y-0.5`}
     >
       <div className="flex items-center justify-between">
         <BoltIcon />
@@ -343,7 +346,7 @@ function AutomationFiller() {
           →
         </span>
       </div>
-      <div className="mt-3 text-sm font-semibold tracking-tight leading-snug">
+      <div className="mt-auto pt-3 text-sm font-semibold tracking-tight leading-snug">
         Build an automation
       </div>
       <div className="mt-1 text-[11px] text-background/75 leading-snug">
@@ -353,15 +356,15 @@ function AutomationFiller() {
   );
 }
 
-function NewsFiller() {
-  const [i, setI] = useState(0);
+function NewsFiller({ offset = 0 }: { offset?: number }) {
+  const [i, setI] = useState(offset % headlines.length);
   useEffect(() => {
     const id = setInterval(() => setI((n) => (n + 1) % headlines.length), 3500);
     return () => clearInterval(id);
   }, []);
   const h = headlines[i];
   return (
-    <div className="rounded-xl border border-foreground bg-foreground text-background p-4 min-h-[124px] flex flex-col">
+    <div className={`rounded-xl border border-foreground bg-foreground text-background p-4 flex flex-col ${CARD_MIN_H}`}>
       <div className="flex items-center justify-between">
         <span className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.18em] font-mono text-background/70">
           <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -371,11 +374,11 @@ function NewsFiller() {
           {i + 1}/{headlines.length}
         </span>
       </div>
-      <div key={i} className="mt-3 flex-1 animate-[fadeIn_0.4s_ease]">
+      <div key={i} className="mt-auto pt-3">
         <div className="text-[11px] font-semibold tracking-tight text-background/90">
           {h?.account}
         </div>
-        <div className="mt-1 text-[12px] leading-snug text-background/75 line-clamp-3">
+        <div className="mt-1 text-[12px] leading-snug text-background/75 line-clamp-2">
           {h?.title}
         </div>
       </div>
@@ -403,7 +406,7 @@ function DealCard({ card }: { card: DealCardData }) {
       onClick={() => setOpen((v) => !v)}
       aria-expanded={open}
       className={
-        "w-full text-left rounded-xl border p-4 transition-colors " +
+        `w-full text-left rounded-xl border p-4 flex flex-col ${CARD_MIN_H} transition-colors ` +
         (open
           ? "border-foreground/40 bg-foreground text-background"
           : "border-border bg-background hover:border-foreground/30")
@@ -443,7 +446,7 @@ function DealCard({ card }: { card: DealCardData }) {
         </div>
       )}
 
-      <div className="mt-3 flex items-center justify-between">
+      <div className="mt-auto pt-3 flex items-center justify-between">
         <span
           className={
             "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] font-mono " +
