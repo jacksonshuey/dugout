@@ -1110,7 +1110,7 @@ function RuleChatModal({
           <h4 className="text-sm font-semibold tracking-tight flex items-center gap-2">
             Build an Automation with AI
             <span className="text-[9px] font-mono uppercase tracking-[0.1em] px-1.5 py-0.5 rounded bg-brand text-background">
-              AI
+              beta
             </span>
           </h4>
           <button
