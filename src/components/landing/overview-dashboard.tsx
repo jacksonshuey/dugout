@@ -187,14 +187,16 @@ function WeekdayBars({ counts }: { counts: number[] }) {
         />
       ))}
       {counts.map((c, i) => {
-        const h = (c / max) * (H - pad * 2);
-        const x = pad + i * slot + (slot - barW) / 2;
-        const y = H - pad - h;
+        // Round to fixed precision so SSR/client SVG strings match exactly.
+        const h = Number(((c / max) * (H - pad * 2)).toFixed(3));
+        const x = Number((pad + i * slot + (slot - barW) / 2).toFixed(3));
+        const y = Number((H - pad - h).toFixed(3));
+        const w = Number(barW.toFixed(3));
         return (
           <g key={i}>
-            <rect x={x} y={y} width={barW} height={Math.max(h, 2)} rx="3" className="fill-foreground" />
+            <rect x={x} y={y} width={w} height={Math.max(h, 2)} rx="3" className="fill-foreground" />
             <text
-              x={x + barW / 2}
+              x={Number((x + w / 2).toFixed(3))}
               y={H - 4}
               textAnchor="middle"
               className="fill-muted"
@@ -221,12 +223,16 @@ function Gauge({ pct, label }: { pct: number; label: string }) {
     <div className="relative w-[180px] h-[104px]">
       <svg viewBox="0 0 180 100" className="w-full h-full" aria-hidden>
         {Array.from({ length: ticks }, (_, i) => {
-          // 180° sweep, left (180°) → right (0°)
+          // 180° sweep, left (180°) → right (0°). Round coordinates to a fixed
+          // precision so the SVG strings match exactly between server render
+          // and client hydration (raw floats differ in their last digit).
           const angle = Math.PI - (i / (ticks - 1)) * Math.PI;
-          const x1 = cx + rInner * Math.cos(angle);
-          const y1 = cy - rInner * Math.sin(angle);
-          const x2 = cx + rOuter * Math.cos(angle);
-          const y2 = cy - rOuter * Math.sin(angle);
+          const cos = Math.cos(angle);
+          const sin = Math.sin(angle);
+          const x1 = (cx + rInner * cos).toFixed(3);
+          const y1 = (cy - rInner * sin).toFixed(3);
+          const x2 = (cx + rOuter * cos).toFixed(3);
+          const y2 = (cy - rOuter * sin).toFixed(3);
           return (
             <line
               key={i}
