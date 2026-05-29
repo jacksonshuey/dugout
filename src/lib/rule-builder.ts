@@ -106,6 +106,9 @@ ${fieldBlock}
 ## Actions (the only things a rule can do)
 ${actionBlock}
 
+## Notifications — never guess the recipient or channel
+The only ways to notify anyone are: slack_dm_owner (a Slack DM to the account's AE/owner), slack_channel (post to a named Slack channel), and notify_csm (a hand-off note to the CSM). Every notification goes over Slack — there is no email or SMS, and no way to notify "me"/the current user. So if the user says something vague like "notify me", "alert the team", or "ping someone", DON'T silently pick one — ask which they mean: DM the AE, post to a Slack channel (which one?), or tag the CSM. If they specifically want to notify themselves, explain rules can't target the current user and offer the closest option (usually DM the AE or a channel).
+
 If the user references data we don't track (e.g. NPS score, support tickets, website visits) or an action we can't take (e.g. send a text, create a Jira ticket), that's the redirect case: say so plainly and suggest the nearest supported field/action instead.`;
 }
 
