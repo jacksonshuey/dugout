@@ -541,7 +541,6 @@ const TIERS: { key: Severity | "all"; label: string }[] = [
 export function InteractiveSignals() {
   const [tier, setTier] = useState<Severity | "all">("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [handled, setHandled] = useState<Set<string>>(new Set());
   // All rules — seeded + user-authored — live in one state slice so every
   // rule is editable through the composer.
   const [rules, setRules] = useState<ActiveRule[]>(SEEDED_RULES);
@@ -560,18 +559,12 @@ export function InteractiveSignals() {
     setDraftNonce((n) => n + 1);
   };
 
-  const remaining = rules.filter((r) => !handled.has(r.id));
-  const visible = remaining.filter((r) => tier === "all" || r.severity === tier);
+  const visible = rules.filter((r) => tier === "all" || r.severity === tier);
   const counts = {
-    all: remaining.length,
-    blocking: remaining.filter((r) => r.severity === "blocking").length,
-    action: remaining.filter((r) => r.severity === "action").length,
-    awareness: remaining.filter((r) => r.severity === "awareness").length,
-  };
-
-  const markHandled = (id: string) => {
-    setHandled((s) => new Set(s).add(id));
-    if (expandedId === id) setExpandedId(null);
+    all: rules.length,
+    blocking: rules.filter((r) => r.severity === "blocking").length,
+    action: rules.filter((r) => r.severity === "action").length,
+    awareness: rules.filter((r) => r.severity === "awareness").length,
   };
 
   const handleSave = (rule: ActiveRule) => {
@@ -618,7 +611,7 @@ export function InteractiveSignals() {
         <div className="flex items-baseline justify-between">
           <h4 className="text-sm font-semibold tracking-tight">Active rules</h4>
           <span className="text-[10px] uppercase tracking-[0.15em] font-mono text-muted">
-            {remaining.length} firing
+            {rules.length} firing
           </span>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -645,7 +638,7 @@ export function InteractiveSignals() {
         <div className="space-y-2">
           {visible.length === 0 ? (
             <div className="rounded-lg border border-dashed border-border bg-foreground/[0.015] p-6 text-center text-[12px] text-muted italic">
-              Queue clear. Restore handled rules to reset.
+              No rules in this tier.
             </div>
           ) : (
             visible.map((r) => (
@@ -654,21 +647,11 @@ export function InteractiveSignals() {
                 rule={r}
                 expanded={expandedId === r.id}
                 onToggle={() => setExpandedId(expandedId === r.id ? null : r.id)}
-                onHandle={() => markHandled(r.id)}
                 onEdit={() => handleEdit(r.id)}
                 onRemove={() => handleDelete(r.id)}
                 isEditing={editingId === r.id}
               />
             ))
-          )}
-          {handled.size > 0 && (
-            <button
-              type="button"
-              onClick={() => setHandled(new Set())}
-              className="w-full text-center text-[11px] uppercase tracking-[0.15em] font-mono text-brand hover:underline pt-2"
-            >
-              Restore {handled.size} handled rule{handled.size === 1 ? "" : "s"}
-            </button>
           )}
         </div>
       </div>
@@ -684,7 +667,6 @@ function RuleCard({
   rule,
   expanded,
   onToggle,
-  onHandle,
   onEdit,
   onRemove,
   isEditing,
@@ -692,7 +674,6 @@ function RuleCard({
   rule: ActiveRule;
   expanded: boolean;
   onToggle: () => void;
-  onHandle: () => void;
   onEdit: () => void;
   onRemove: () => void;
   isEditing: boolean;
@@ -780,13 +761,6 @@ function RuleCard({
             </Field>
           )}
           <div className="flex items-center gap-2 pt-1">
-            <button
-              type="button"
-              onClick={onHandle}
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-foreground text-background text-[11px] font-medium hover:bg-foreground/90 transition-colors"
-            >
-              ✓ Mark handled
-            </button>
             <button
               type="button"
               onClick={onEdit}
