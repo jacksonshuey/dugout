@@ -2,6 +2,7 @@
 
 import {
   accountsById,
+  contacts,
   demoSignals,
   opportunities,
   reps,
@@ -95,18 +96,24 @@ const calWeekDays = Array.from({ length: 7 }, (_, i) => {
   d.setDate(d.getDate() + i);
   return d;
 });
-const signalsByDay = new Map<
+// Meetings on the calendar, formatted "Jackson <> {name}". Built from the key
+// account people (champions, exec sponsors, GCs) and spread round-robin across
+// the work week (Mon–Fri) so the week reads busy.
+const MEETING_ROLES = new Set(["Champion", "Executive Sponsor", "GC"]);
+const meetingPeople = contacts.filter((c) => MEETING_ROLES.has(c.role));
+const meetingsByDay = new Map<
   string,
-  { id: string; account: string; severity: string }[]
+  { id: string; label: string; account: string }[]
 >();
-for (const s of demoSignals) {
-  const d = new Date(s.detectedAt);
-  d.setHours(0, 0, 0, 0);
-  const key = d.toDateString();
-  const list = signalsByDay.get(key) ?? [];
-  list.push({ id: s.id, account: accountName(s.oppId), severity: s.severity });
-  signalsByDay.set(key, list);
-}
+meetingPeople.forEach((c, i) => {
+  const day = calWeekDays[i % 5]; // Mon–Fri
+  if (!day) return;
+  const key = day.toDateString();
+  const acc = accountsById.get(c.accountId)?.name ?? "Account";
+  const list = meetingsByDay.get(key) ?? [];
+  list.push({ id: c.id, label: `Jackson <> ${c.name}`, account: acc });
+  meetingsByDay.set(key, list);
+});
 
 const STAGE_ORDER = [
   "Intro",
@@ -196,7 +203,7 @@ export function OverviewDashboardBody() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
-        <SignalsCalendarCard />
+        <MeetingsCalendarCard />
         <PipelineDonutCard />
       </div>
 
@@ -245,13 +252,13 @@ function KpiCard({
   );
 }
 
-// ── Signals week calendar ─────────────────────────────────────────────────────
+// ── Meetings week calendar ────────────────────────────────────────────────────
 
-function SignalsCalendarCard() {
+function MeetingsCalendarCard() {
   return (
     <div className="rounded-xl border border-border bg-background p-5">
       <div className="flex items-center justify-between">
-        <h3 className="text-base font-semibold tracking-tight">Signals this week</h3>
+        <h3 className="text-base font-semibold tracking-tight">Meetings this week</h3>
         <span className="text-[11px] font-mono text-muted rounded-md border border-border px-2 py-1">
           This week
         </span>
@@ -259,7 +266,7 @@ function SignalsCalendarCard() {
 
       <div className="mt-4 grid grid-cols-7 gap-px rounded-lg overflow-hidden bg-border">
         {calWeekDays.map((d) => {
-          const items = signalsByDay.get(d.toDateString()) ?? [];
+          const items = meetingsByDay.get(d.toDateString()) ?? [];
           const shown = items.slice(0, 3);
           const extra = items.length - shown.length;
           return (
@@ -268,17 +275,14 @@ function SignalsCalendarCard() {
                 {WD_SHORT[d.getDay()]} {d.getDate()}
               </div>
               <div className="mt-1.5 space-y-1">
-                {shown.map((it) => (
+                {shown.map((m) => (
                   <div
-                    key={it.id}
-                    title={it.account}
-                    className="flex items-center gap-1 rounded border border-border bg-foreground/[0.02] px-1.5 py-1 text-[10px] leading-tight"
+                    key={m.id}
+                    title={`${m.label} · ${m.account}`}
+                    className="flex items-center gap-1 rounded border border-brand/20 bg-brand/[0.06] px-1.5 py-1 text-[10px] leading-tight"
                   >
-                    <span
-                      aria-hidden
-                      className={`h-1.5 w-1.5 rounded-full shrink-0 ${severityDot(it.severity)}`}
-                    />
-                    <span className="truncate">{it.account}</span>
+                    <span aria-hidden className="h-1.5 w-1.5 rounded-full shrink-0 bg-brand" />
+                    <span className="truncate">{m.label}</span>
                   </div>
                 ))}
                 {extra > 0 && (
