@@ -113,15 +113,43 @@ interface CalMeeting {
   industry: string;
   hq: string;
   dateLabel: string;
+  startMin: number; // minutes from midnight
+  durationMin: number;
+  timeLabel: string;
+}
+
+// Calendar day window. Starts at 08:00; the end is trimmed to the last
+// meeting (see below) so the axis doesn't trail off into empty evening hours.
+const DAY_START_MIN = 8 * 60;
+// Per-weekday base start (Mon–Fri) so columns don't line up in rigid rows.
+const DAY_BASE_START = [9 * 60, 8 * 60 + 30, 9 * 60 + 30, 8 * 60, 10 * 60];
+// Varied meeting lengths and gaps, walked round-robin so each day reads organic.
+const DURATIONS = [30, 60, 45, 90, 30, 45];
+const GAPS = [30, 15, 45, 30, 15];
+
+function fmtTime(min: number): string {
+  const h24 = Math.floor(min / 60);
+  const m = min % 60;
+  const period = h24 < 12 ? "AM" : "PM";
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+  return m === 0 ? `${h12} ${period}` : `${h12}:${String(m).padStart(2, "0")} ${period}`;
 }
 
 const meetingsByDay = new Map<string, CalMeeting[]>();
+const dayCursor = new Map<string, number>(); // next free minute per day
 meetingPeople.forEach((c, i) => {
-  const day = calWeekDays[i % 5]; // Mon–Fri
+  const dayIdx = i % 5; // Mon–Fri
+  const day = calWeekDays[dayIdx];
   if (!day) return;
   const key = day.toDateString();
   const acc = accountsById.get(c.accountId);
   const list = meetingsByDay.get(key) ?? [];
+
+  const startMin = dayCursor.get(key) ?? DAY_BASE_START[dayIdx] ?? DAY_START_MIN;
+  const durationMin = DURATIONS[(list.length + dayIdx) % DURATIONS.length] ?? 45;
+  const gap = GAPS[(list.length + dayIdx) % GAPS.length] ?? 30;
+  dayCursor.set(key, startMin + durationMin + gap);
+
   list.push({
     id: c.id,
     name: c.name,
@@ -131,9 +159,30 @@ meetingPeople.forEach((c, i) => {
     industry: acc?.industry ?? "",
     hq: acc?.hqLocation ?? "",
     dateLabel: `${WD_SHORT[day.getDay()]} ${day.getDate()}`,
+    startMin,
+    durationMin,
+    timeLabel: fmtTime(startMin),
   });
   meetingsByDay.set(key, list);
 });
+
+// Trim the axis to the last meeting's end (rounded up to the hour) so the
+// calendar doesn't show empty evening rows.
+const lastMeetingEnd = Math.max(
+  DAY_START_MIN + 60,
+  ...[...meetingsByDay.values()].flat().map((m) => m.startMin + m.durationMin),
+);
+const DAY_END_MIN = Math.ceil(lastMeetingEnd / 60) * 60;
+
+// Hour gridlines/labels down the time axis.
+const HOUR_MARKS = Array.from(
+  { length: Math.floor((DAY_END_MIN - DAY_START_MIN) / 60) + 1 },
+  (_, i) => DAY_START_MIN + i * 60,
+);
+
+// Vertical scale for the time axis.
+const PX_PER_MIN = 0.7;
+const TRACK_HEIGHT = (DAY_END_MIN - DAY_START_MIN) * PX_PER_MIN;
 
 const STAGE_ORDER = [
   "Intro",
@@ -173,6 +222,34 @@ const donutSegments = (() => {
   });
 })();
 
+// Stage close probabilities → weighted forecast (sum of amount × probability),
+// then broken out by close month for the bar chart under the donut.
+const STAGE_PROB: Record<string, number> = {
+  Intro: 0.1,
+  Qualified: 0.25,
+  "Demo Sat": 0.4,
+  Evaluating: 0.6,
+  "Selected Vendor": 0.8,
+  Contracting: 0.95,
+};
+const weightedForecast = opportunities.reduce(
+  (s, o) => s + o.amount * (STAGE_PROB[o.stage] ?? 0),
+  0,
+);
+const forecastByMonth = (() => {
+  const m = new Map<number, { label: string; amount: number }>();
+  opportunities.forEach((o) => {
+    const d = new Date(o.closeDate);
+    const k = d.getFullYear() * 12 + d.getMonth();
+    const label = d.toLocaleDateString("en-US", { month: "short" });
+    const cur = m.get(k) ?? { label, amount: 0 };
+    cur.amount += o.amount * (STAGE_PROB[o.stage] ?? 0);
+    m.set(k, cur);
+  });
+  return [...m.entries()].sort((a, b) => a[0] - b[0]).map(([, v]) => v);
+})();
+const forecastMax = Math.max(...forecastByMonth.map((f) => f.amount), 1);
+
 const recentDeals = [...opportunities]
   .sort((a, b) => b.amount - a.amount)
   .slice(0, 5)
@@ -211,6 +288,23 @@ function severityDot(sev: string): string {
   return "bg-sky-500";
 }
 
+// Account-relevant news for the cycling ticker — every account-tagged signal,
+// newest first, with a relative age anchored to the most recent one.
+function relAgo(ms: number): string {
+  const h = ms / 3.6e6;
+  if (h < 1) return "just now";
+  if (h < 24) return `${Math.round(h)}h`;
+  return `${Math.round(h / 24)}d`;
+}
+const accountNews = [...demoSignals]
+  .sort((a, b) => +new Date(b.detectedAt) - +new Date(a.detectedAt))
+  .map((s) => ({
+    id: s.id,
+    account: accountName(s.oppId),
+    title: s.title,
+    ago: relAgo(newestSignalMs - +new Date(s.detectedAt)),
+  }));
+
 // ── Layout ───────────────────────────────────────────────────────────────────
 
 export function OverviewDashboardBody() {
@@ -230,6 +324,40 @@ export function OverviewDashboardBody() {
       <div className="grid gap-4 lg:grid-cols-2">
         <RecentDealsCard />
         <AttentionCard />
+      </div>
+
+      <AccountNewsTicker />
+    </div>
+  );
+}
+
+// ── Cycling account-news ticker ───────────────────────────────────────────────
+
+function AccountNewsTicker() {
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    if (accountNews.length <= 1) return;
+    const id = setInterval(() => setI((n) => (n + 1) % accountNews.length), 3500);
+    return () => clearInterval(id);
+  }, []);
+  const n = accountNews[i];
+  if (!n) return null;
+  return (
+    <div className="rounded-xl border border-foreground bg-foreground text-background overflow-hidden">
+      <div className="flex items-center gap-4 px-5 py-4">
+        <span className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.18em] font-mono text-background/70 shrink-0">
+          <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+          Account news
+        </span>
+        <div key={n.id} className="min-w-0 flex-1 flex items-baseline gap-2">
+          <span className="text-[13px] font-semibold tracking-tight shrink-0">
+            {n.account}
+          </span>
+          <span className="text-[13px] text-background/75 truncate">{n.title}</span>
+        </div>
+        <span className="shrink-0 text-[11px] font-mono text-background/50 tabular-nums">
+          {n.ago} · {i + 1}/{accountNews.length}
+        </span>
       </div>
     </div>
   );
@@ -285,41 +413,82 @@ function MeetingsCalendarCard() {
         </span>
       </div>
 
-      <div className="mt-4 grid grid-cols-7 gap-px rounded-lg overflow-hidden bg-border">
-        {calWeekDays.map((d) => {
-          const items = meetingsByDay.get(d.toDateString()) ?? [];
-          const shown = items.slice(0, 3);
-          const extra = items.length - shown.length;
-          return (
-            <div key={d.toDateString()} className="bg-background min-h-[150px] p-2">
-              <div className="text-[9px] font-mono uppercase tracking-[0.1em] text-muted">
+      <div className="mt-4 overflow-x-auto">
+        {/* Day header row, aligned to the time-gutter + 7 columns below */}
+        <div className="flex min-w-[640px]">
+          <div className="w-12 shrink-0" />
+          <div className="grid flex-1 grid-cols-7">
+            {calWeekDays.map((d) => (
+              <div
+                key={d.toDateString()}
+                className="px-2 pb-1.5 text-[9px] font-mono uppercase tracking-[0.1em] text-muted"
+              >
                 {WD_SHORT[d.getDay()]} {d.getDate()}
               </div>
-              <div className="mt-1.5 space-y-1">
-                {shown.map((m) => (
-                  <button
-                    key={m.id}
-                    type="button"
-                    onClick={() => setSelected(m)}
-                    title={`Jackson <> ${m.name} · ${m.account}`}
-                    className="block w-full text-left rounded border border-brand/20 bg-brand/[0.06] px-1.5 py-1 leading-tight transition-colors hover:border-brand/50 hover:bg-brand/[0.12]"
-                  >
-                    <div className="flex items-center gap-1 text-[8px] uppercase tracking-[0.08em] text-brand/80">
-                      <span aria-hidden className="h-1 w-1 rounded-full shrink-0 bg-brand" />
-                      Jackson &lt;&gt;
-                    </div>
-                    <div className="text-[10px] font-medium text-foreground/90 leading-snug line-clamp-2">
-                      {m.name}
-                    </div>
-                  </button>
-                ))}
-                {extra > 0 && (
-                  <div className="pl-0.5 text-[10px] text-muted">+{extra} more</div>
-                )}
+            ))}
+          </div>
+        </div>
+
+        {/* Time axis + day columns */}
+        <div
+          className="relative flex min-w-[640px]"
+          style={{ height: TRACK_HEIGHT }}
+        >
+          {/* Hour labels (y-axis) */}
+          <div className="relative w-12 shrink-0">
+            {HOUR_MARKS.map((min) => (
+              <div
+                key={min}
+                className="absolute right-1.5 -translate-y-1/2 text-[9px] font-mono tabular-nums text-muted"
+                style={{ top: (min - DAY_START_MIN) * PX_PER_MIN }}
+              >
+                {fmtTime(min)}
               </div>
+            ))}
+          </div>
+
+          <div className="relative grid flex-1 grid-cols-7 gap-px rounded-lg overflow-hidden bg-border">
+            {/* Hour gridlines spanning all columns */}
+            <div className="pointer-events-none absolute inset-0 z-0">
+              {HOUR_MARKS.map((min) => (
+                <div
+                  key={min}
+                  className="absolute inset-x-0 border-t border-border/60"
+                  style={{ top: (min - DAY_START_MIN) * PX_PER_MIN }}
+                />
+              ))}
             </div>
-          );
-        })}
+
+            {calWeekDays.map((d) => {
+              const items = meetingsByDay.get(d.toDateString()) ?? [];
+              return (
+                <div key={d.toDateString()} className="relative bg-background">
+                  {items.map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => setSelected(m)}
+                      title={`${m.timeLabel} · Jackson <> ${m.name} · ${m.account}`}
+                      className="absolute inset-x-0.5 z-10 overflow-hidden rounded border border-brand/20 bg-brand/[0.06] px-1 py-1 text-left leading-tight transition-colors hover:border-brand/50 hover:bg-brand/[0.12]"
+                      style={{
+                        top: (m.startMin - DAY_START_MIN) * PX_PER_MIN,
+                        height: Math.max(m.durationMin * PX_PER_MIN, 36),
+                      }}
+                    >
+                      <div className="flex items-center gap-1 text-[7px] uppercase tracking-[0.06em] text-brand/80">
+                        <span aria-hidden className="h-1 w-1 rounded-full shrink-0 bg-brand" />
+                        {m.timeLabel}
+                      </div>
+                      <div className="text-[9px] font-medium text-foreground/90 leading-tight line-clamp-2 break-words">
+                        {m.name}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       {selected && (
@@ -454,6 +623,38 @@ function PipelineDonutCard() {
             </li>
           ))}
         </ul>
+      </div>
+
+      <div className="mt-5 border-t border-border pt-4">
+        <div className="flex items-baseline justify-between">
+          <h4 className="text-[13px] font-medium text-foreground/80">
+            Weighted forecast
+          </h4>
+          <span className="text-sm font-semibold tabular-nums">
+            {fmtCompactUSD(weightedForecast)}
+          </span>
+        </div>
+        <div className="mt-1 text-xs text-muted leading-snug">
+          probability-adjusted, by close month
+        </div>
+        <div className="mt-3 space-y-2">
+          {forecastByMonth.map((f) => (
+            <div key={f.label} className="flex items-center gap-2.5">
+              <span className="w-8 shrink-0 text-[10px] font-mono uppercase tracking-[0.08em] text-muted">
+                {f.label}
+              </span>
+              <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-foreground/[0.06]">
+                <div
+                  className="absolute inset-y-0 left-0 rounded-full bg-brand"
+                  style={{ width: `${(f.amount / forecastMax) * 100}%` }}
+                />
+              </div>
+              <span className="w-12 shrink-0 text-right font-mono text-[11px] tabular-nums text-muted">
+                {fmtCompactUSD(f.amount)}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

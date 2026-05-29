@@ -101,6 +101,86 @@ h1, h2 {
   }
 }
 
+/* AI automation banner — a slow, subtle orange (brand) tint that drifts across
+   the card so the hero feature reads as "live" without being distracting. */
+@keyframes ai-shimmer {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.ai-shimmer {
+  background-image: linear-gradient(
+    115deg,
+    rgba(155, 78, 42, 0.12) 0%,
+    rgba(155, 78, 42, 0.02) 30%,
+    rgba(155, 78, 42, 0.10) 55%,
+    rgba(155, 78, 42, 0.02) 80%,
+    rgba(155, 78, 42, 0.12) 100%
+  );
+  background-size: 220% 220%;
+  animation: ai-shimmer 9s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-shimmer {
+    animation: none;
+  }
+}
+
+/* Ambient orange blobs — a few large, soft brand-tinted radial gradients that
+   drift slowly behind the page, giving the whole product a faint, living warm
+   wash. Heavily blurred + very low alpha so they stay discrete. */
+@keyframes drift-1 {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%      { transform: translate3d(6vw, 8vh, 0) scale(1.2); }
+}
+@keyframes drift-2 {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1.1); }
+  50%      { transform: translate3d(-8vw, -6vh, 0) scale(1); }
+}
+@keyframes drift-3 {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50%      { transform: translate3d(5vw, -7vh, 0) scale(1.25); }
+}
+
+.ambient-blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(70px);
+  will-change: transform;
+}
+.ambient-blob-1 {
+  top: -10%;
+  left: -6%;
+  width: 38vw;
+  height: 38vw;
+  background: radial-gradient(circle, rgba(155, 78, 42, 0.08), transparent 70%);
+  animation: drift-1 26s ease-in-out infinite;
+}
+.ambient-blob-2 {
+  bottom: -16%;
+  right: -8%;
+  width: 44vw;
+  height: 44vw;
+  background: radial-gradient(circle, rgba(155, 78, 42, 0.07), transparent 70%);
+  animation: drift-2 32s ease-in-out infinite;
+}
+.ambient-blob-3 {
+  top: 38%;
+  left: 52%;
+  width: 32vw;
+  height: 32vw;
+  background: radial-gradient(circle, rgba(155, 78, 42, 0.06), transparent 70%);
+  animation: drift-3 38s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ambient-blob {
+    animation: none;
+  }
+}
+
 /* Dashed-path flow — used by the landing data-flow diagram. Subtle leftward
    march of dashes from sources → hub → sales. */
 @keyframes flow-dash {

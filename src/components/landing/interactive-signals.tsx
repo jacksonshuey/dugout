@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   comparatorsFor,
@@ -562,6 +562,21 @@ const TIERS: { key: Severity | "all"; label: string }[] = [
 // Root
 // ===========================================================================
 
+function SparkleIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden
+    >
+      <path d="M12 2l1.9 5.6L19.5 9.5 14 11.5 12 17l-2-5.5L4.5 9.5 10.1 7.6z" />
+      <path d="M19 14l.8 2.4 2.4.8-2.4.8-.8 2.4-.8-2.4-2.4-.8 2.4-.8z" />
+    </svg>
+  );
+}
+
 export function InteractiveSignals() {
   const [tier, setTier] = useState<Severity | "all">("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -575,6 +590,13 @@ export function InteractiveSignals() {
   const [draft, setDraft] = useState<RuleDraft | null>(null);
   const [draftNonce, setDraftNonce] = useState(0);
   const [chatOpen, setChatOpen] = useState(false);
+  // When an example prompt is clicked, open the builder pre-seeded with it.
+  const [chatSeed, setChatSeed] = useState("");
+
+  const openChat = (seed = "") => {
+    setChatSeed(seed);
+    setChatOpen(true);
+  };
 
   const editingRule = editingId ? rules.find((r) => r.id === editingId) ?? null : null;
 
@@ -590,6 +612,67 @@ export function InteractiveSignals() {
     blocking: rules.filter((r) => r.severity === "blocking").length,
     action: rules.filter((r) => r.severity === "action").length,
     awareness: rules.filter((r) => r.severity === "awareness").length,
+  };
+
+  // FLIP animation for the card grid. We capture each card's screen position
+  // just before a state change, then (after React re-renders) translate each
+  // card from its old position back to its new one and transition to zero —
+  // so cards visibly slide to their new slots instead of snapping. No anim
+  // library is installed, so this is hand-rolled.
+  const gridRef = useRef<HTMLDivElement>(null);
+  const prevRects = useRef<Map<string, DOMRect>>(new Map());
+
+  const captureRects = () => {
+    const map = new Map<string, DOMRect>();
+    gridRef.current
+      ?.querySelectorAll<HTMLElement>("[data-card-id]")
+      .forEach((el) => {
+        const id = el.dataset.cardId;
+        if (id) map.set(id, el.getBoundingClientRect());
+      });
+    prevRects.current = map;
+  };
+
+  useLayoutEffect(() => {
+    const prev = prevRects.current;
+    if (prev.size === 0) return;
+    const els = gridRef.current?.querySelectorAll<HTMLElement>("[data-card-id]");
+    if (!els) return;
+    els.forEach((el) => {
+      const old = prev.get(el.dataset.cardId ?? "");
+      if (!old) return;
+      const next = el.getBoundingClientRect();
+      const dx = old.left - next.left;
+      const dy = old.top - next.top;
+      if (dx === 0 && dy === 0) return;
+      el.style.transition = "none";
+      el.style.transform = `translate(${dx}px, ${dy}px)`;
+    });
+    requestAnimationFrame(() => {
+      els.forEach((el) => {
+        el.style.transition =
+          "transform 600ms cubic-bezier(0.22, 1, 0.36, 1)";
+        el.style.transform = "";
+      });
+    });
+    prevRects.current = new Map();
+  });
+
+  // Click a card: animate it to the top-left slot and expand it. Clicking the
+  // already-expanded card collapses it (order is preserved). Other cards keep
+  // their relative order — they just slide to fill around the 2x2 block.
+  const handleToggle = (id: string) => {
+    captureRects();
+    if (expandedId === id) {
+      setExpandedId(null);
+      return;
+    }
+    setRules((rs) => {
+      const found = rs.find((r) => r.id === id);
+      if (!found) return rs;
+      return [found, ...rs.filter((r) => r.id !== id)];
+    });
+    setExpandedId(id);
   };
 
   const handleSave = (rule: ActiveRule) => {
@@ -620,31 +703,58 @@ export function InteractiveSignals() {
   return (
     <div className="space-y-6">
       {!editingRule && (
-        <div className="rounded-lg border border-brand/30 bg-brand/[0.03] p-4 flex items-center justify-between gap-3 flex-wrap">
-          <div>
-            <h4 className="text-sm font-semibold tracking-tight flex items-center gap-2">
-              Build an Automation with AI
-              <span className="text-[9px] font-mono uppercase tracking-[0.1em] px-1.5 py-0.5 rounded bg-brand text-background">
-                beta
-              </span>
-            </h4>
-            <p className="text-[11px] text-muted leading-relaxed mt-0.5">
-              Describe an automation in plain English and chat it into shape —
-              it drops into the composer below to edit and save.
-            </p>
+        <div className="ai-shimmer rounded-xl border border-brand/30 p-6">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div className="max-w-xl">
+              <h4 className="text-base font-semibold tracking-tight flex items-center gap-2">
+                <span
+                  aria-hidden
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-brand/15 text-brand"
+                >
+                  <SparkleIcon />
+                </span>
+                Build automations with AI
+                <span className="text-[9px] font-mono uppercase tracking-[0.1em] px-1.5 py-0.5 rounded bg-brand text-background">
+                  beta
+                </span>
+              </h4>
+              <p className="text-[13px] text-foreground/70 leading-relaxed mt-2">
+                Describe what you want in plain English and Dugout builds a live
+                automation across your entire organization — no rule syntax, no
+                setup. It drops into the composer below to fine-tune and save.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => openChat()}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md bg-foreground text-background text-[13px] font-medium hover:bg-foreground/90 transition-colors shrink-0"
+            >
+              <SparkleIcon />
+              Build automation
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setChatOpen(true)}
-            className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-md bg-foreground text-background text-[12px] font-medium hover:bg-foreground/90 transition-colors shrink-0"
-          >
-            Build rule
-          </button>
+
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <span className="text-[10px] font-mono uppercase tracking-[0.12em] text-muted shrink-0">
+              Try
+            </span>
+            {CHAT_EXAMPLES.map((ex) => (
+              <button
+                key={ex}
+                type="button"
+                onClick={() => openChat(ex)}
+                className="text-left text-[12px] leading-snug rounded-full border border-border bg-background/70 px-3 py-1.5 text-foreground/75 hover:border-brand/50 hover:text-foreground hover:bg-brand/[0.04] transition-colors"
+              >
+                {ex}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
       {chatOpen && (
         <RuleChatModal
+          initialPrompt={chatSeed}
           onClose={() => setChatOpen(false)}
           onAccept={handleAIDraft}
         />
@@ -663,7 +773,7 @@ export function InteractiveSignals() {
 
       <div className="space-y-3">
         <div className="flex items-baseline justify-between">
-          <h4 className="text-sm font-semibold tracking-tight">Active rules</h4>
+          <h4 className="text-sm font-semibold tracking-tight">Active automations</h4>
           <span className="text-[10px] uppercase tracking-[0.15em] font-mono text-muted">
             {rules.length} firing
           </span>
@@ -689,18 +799,22 @@ export function InteractiveSignals() {
             );
           })}
         </div>
-        <div className="space-y-2">
+        <div
+          ref={gridRef}
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 [grid-auto-rows:12rem]"
+        >
           {visible.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-border bg-foreground/[0.015] p-6 text-center text-[12px] text-muted italic">
+            <div className="col-span-full rounded-lg border border-dashed border-border bg-foreground/[0.015] p-6 text-center text-[12px] text-muted italic">
               No rules in this tier.
             </div>
           ) : (
             visible.map((r) => (
               <RuleCard
                 key={r.id}
+                cardId={r.id}
                 rule={r}
                 expanded={expandedId === r.id}
-                onToggle={() => setExpandedId(expandedId === r.id ? null : r.id)}
+                onToggle={() => handleToggle(r.id)}
                 onEdit={() => handleEdit(r.id)}
                 onRemove={() => handleDelete(r.id)}
                 isEditing={editingId === r.id}
@@ -718,6 +832,7 @@ export function InteractiveSignals() {
 // ===========================================================================
 
 function RuleCard({
+  cardId,
   rule,
   expanded,
   onToggle,
@@ -725,6 +840,7 @@ function RuleCard({
   onRemove,
   isEditing,
 }: {
+  cardId: string;
   rule: ActiveRule;
   expanded: boolean;
   onToggle: () => void;
@@ -735,53 +851,76 @@ function RuleCard({
   const cls = severityClasses(rule.severity);
   return (
     <div
+      data-card-id={cardId}
       className={
-        "rounded-lg border bg-background overflow-hidden transition-colors " +
+        "flex flex-col h-full rounded-xl border bg-background overflow-hidden transition-colors " +
+        (expanded ? "sm:col-span-2 sm:row-span-2 " : "") +
         (isEditing ? "border-brand/60 ring-2 ring-brand/20" : "border-border")
       }
     >
       <button
         type="button"
         onClick={onToggle}
-        className="w-full text-left p-3 flex items-start gap-3 hover:bg-foreground/[0.02] transition-colors"
+        className="w-full text-left p-4 sm:p-5 hover:bg-foreground/[0.02] transition-colors shrink-0"
         aria-expanded={expanded}
       >
-        <span
-          className={`text-[10px] font-mono uppercase tracking-[0.1em] py-0.5 rounded border shrink-0 inline-flex items-center justify-center w-[72px] ${cls}`}
-        >
-          {rule.severity}
-        </span>
-        <div className="flex-1 min-w-0">
-          <div className="text-sm font-semibold tracking-tight leading-snug flex items-center gap-2">
-            {rule.title}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <span
+              className={`text-[10px] font-mono uppercase tracking-[0.1em] py-0.5 rounded border shrink-0 inline-flex items-center justify-center w-[72px] ${cls}`}
+            >
+              {rule.severity}
+            </span>
             {rule.custom && (
-              <span className="text-[9px] font-mono uppercase tracking-[0.1em] px-1.5 py-0.5 rounded border border-brand/30 bg-brand/[0.06] text-brand">
+              <span className="text-[9px] font-mono uppercase tracking-[0.1em] px-1.5 py-0.5 rounded border border-brand/30 bg-brand/[0.06] text-brand shrink-0">
                 custom
               </span>
             )}
             {isEditing && (
-              <span className="text-[9px] font-mono uppercase tracking-[0.1em] px-1.5 py-0.5 rounded bg-brand text-background">
+              <span className="text-[9px] font-mono uppercase tracking-[0.1em] px-1.5 py-0.5 rounded bg-brand text-background shrink-0">
                 editing
               </span>
             )}
           </div>
-          <div className="text-xs text-muted leading-relaxed mt-0.5">
-            {rule.account} · <code className="font-mono text-[10px]">{rule.name}</code>
+          <div className="flex items-center gap-3 shrink-0">
+            <span className="text-[10px] font-mono text-muted">{rule.age}</span>
+            <span
+              aria-hidden
+              className={
+                "text-muted text-[10px] transition-transform " +
+                (expanded ? "rotate-180" : "")
+              }
+            >
+              ▼
+            </span>
           </div>
         </div>
-        <span className="text-[10px] font-mono text-muted shrink-0 mt-1">{rule.age}</span>
-        <span
-          aria-hidden
-          className={
-            "text-muted text-[10px] mt-1 shrink-0 transition-transform " +
-            (expanded ? "rotate-180" : "")
-          }
-        >
-          ▼
-        </span>
+
+        <div className="mt-3 space-y-1.5">
+          <div className="flex items-start gap-2">
+            <span className="text-[9px] font-mono uppercase tracking-[0.15em] text-brand shrink-0 w-9 pt-0.5">
+              If
+            </span>
+            <span className="text-sm font-semibold tracking-tight leading-snug line-clamp-2">
+              {rule.title}
+            </span>
+          </div>
+          <div className="flex items-start gap-2">
+            <span className="text-[9px] font-mono uppercase tracking-[0.15em] text-severity-green shrink-0 w-9 pt-0.5">
+              Then
+            </span>
+            <span className="text-[13px] text-foreground/80 leading-snug line-clamp-2">
+              {thenSummary(rule)}
+            </span>
+          </div>
+        </div>
+
+        <div className="mt-3 text-xs text-muted leading-relaxed">
+          {rule.account} · <code className="font-mono text-[10px]">{rule.name}</code>
+        </div>
       </button>
       {expanded && (
-        <div className="border-t border-border bg-foreground/[0.015] p-3 space-y-3 text-[12px]">
+        <div className="border-t border-border bg-foreground/[0.015] p-3 space-y-3 text-[12px] flex-1 overflow-y-auto">
           <Field label="Trigger chain">
             <TriggerChain triggers={rule.triggers} />
           </Field>
@@ -846,7 +985,7 @@ function TriggerChain({ triggers }: { triggers: Trigger[] }) {
       {triggers.map((t, i) => (
         <div key={i} className="flex items-start gap-2">
           <span className="text-[9px] font-mono uppercase tracking-[0.15em] text-muted shrink-0 w-10 pt-1">
-            {i === 0 ? "WHEN" : "AND"}
+            {i === 0 ? "IF" : "AND"}
           </span>
           <TriggerChip trigger={t} />
         </div>
@@ -975,6 +1114,14 @@ function actionDescription(a: Action): string {
   }
 }
 
+// Compact one-line summary of a rule's action stream for the collapsed card.
+function thenSummary(rule: ActiveRule): string {
+  if (rule.actions.length === 0) return "No actions configured";
+  const first = actionDescription(rule.actions[0]);
+  const extra = rule.actions.length - 1;
+  return extra > 0 ? `${first} · +${extra} more` : first;
+}
+
 // ===========================================================================
 // AI rule chat modal — a centered popup that chats with the user to come up
 // with a rule. On accept it seeds the composer; the user edits + saves there.
@@ -993,12 +1140,14 @@ type ChatTurn = { id: number; role: "user" | "assistant"; content: string };
 function RuleChatModal({
   onClose,
   onAccept,
+  initialPrompt = "",
 }: {
   onClose: () => void;
   onAccept: (rule: RuleDraft) => void;
+  initialPrompt?: string;
 }) {
   const [messages, setMessages] = useState<ChatTurn[]>([]);
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(initialPrompt);
   const [loading, setLoading] = useState(false);
   const [pendingRule, setPendingRule] = useState<RuleDraft | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -1110,7 +1259,7 @@ function RuleChatModal({
           <h4 className="text-sm font-semibold tracking-tight flex items-center gap-2">
             Build an Automation with AI
             <span className="text-[9px] font-mono uppercase tracking-[0.1em] px-1.5 py-0.5 rounded bg-brand text-background">
-              AI
+              beta
             </span>
           </h4>
           <button
@@ -1350,7 +1499,7 @@ function RuleComposer({
           </p>
         </div>
         <span className="text-[10px] uppercase tracking-[0.15em] font-mono text-muted">
-          WHEN → THEN
+          IF → THEN
         </span>
       </div>
 
@@ -1469,7 +1618,7 @@ function TriggerEditor({
     <div className="rounded-md border border-border bg-background p-2.5 space-y-2">
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-[9px] font-mono uppercase tracking-[0.15em] text-muted shrink-0 w-10">
-          {isFirst ? "WHEN" : "AND"}
+          {isFirst ? "IF" : "AND"}
         </span>
         <select
           value={trigger.kind}
