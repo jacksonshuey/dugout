@@ -82,6 +82,10 @@ export interface ExternalSignal {
   // heuristic when null. See impact-score.ts + migration
   // 20260526_external_signals_impact_score.sql.
   impact_score?: number | null;
+  // See NewExternalSignal.inbox_only. Optional + nullable so legacy rows
+  // type-check; pre-migration the column is undefined and reads behave
+  // exactly as before.
+  inbox_only?: boolean | null;
   created_at: string;
   // ---------------------------------------------------------------------------
   // Display-time fields populated by signal-moderator.ts. Never persisted to
@@ -117,6 +121,11 @@ export interface NewExternalSignal {
   // the workspace feed's Magnitude sort falls back to a heuristic for
   // null values. See impact-score.ts.
   impact_score?: ExternalSignal["impact_score"];
+  // True when the classifier deemed the bullet inbox-grade but not material
+  // enough for the headline feed (e.g. low/none workspace_relevance from the
+  // looser newsletter prompt). The feed queries filter inbox_only=false; the
+  // /inbox query reads everything. Default false at the DB level.
+  inbox_only?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -183,6 +192,7 @@ export async function getWorkspaceSignals(
     .select("*")
     .eq("account_id", WORKSPACE_ACCOUNT_ID)
     .is("suppressed_at", null)
+    .neq("inbox_only", true)
     .or("inbound_email_id.not.is.null,source_content_md.not.is.null")
     .gte("occurred_at", sinceIso)
     .order("occurred_at", { ascending: false })
@@ -281,6 +291,7 @@ export async function getHighRelevanceSignals(
     .from("external_signals")
     .select("*")
     .neq("account_id", WORKSPACE_ACCOUNT_ID)
+    .neq("inbox_only", true)
     .in("workspace_relevance", ["high", "medium"])
     .is("suppressed_at", null)
     .or("inbound_email_id.not.is.null,source_content_md.not.is.null")
@@ -289,6 +300,44 @@ export async function getHighRelevanceSignals(
     .limit(100);
   if (error) throw new Error(`Supabase read failed: ${error.message}`);
   return (data ?? []) as ExternalSignal[];
+}
+
+// /inbox read. Returns the merged bullet stream the inbox page renders:
+// account-tagged hits and workspace-pool bullets, including inbox_only rows.
+// Ordering matches the owner's mental model — "look for mentions of our
+// company first, then AI magnitude":
+//   1. tracked-account hits before WORKSPACE_ACCOUNT_ID items,
+//   2. then impact_score desc (with a derived fallback when null),
+//   3. then occurred_at desc.
+// Only newsletter-derived rows (have an inbound_email_id) are returned, so the
+// /inbox always has an inspectable source email to render in the side panel.
+export async function getInboxBullets(
+  lookbackDays: number = 14,
+  limit: number = 100,
+): Promise<ExternalSignal[]> {
+  const sb = supabaseAdmin();
+  const since = new Date(
+    Date.now() - lookbackDays * 24 * 60 * 60 * 1000,
+  ).toISOString();
+  const { data, error } = await sb
+    .from("external_signals")
+    .select("*")
+    .is("suppressed_at", null)
+    .not("inbound_email_id", "is", null)
+    .gte("occurred_at", since)
+    .order("occurred_at", { ascending: false })
+    .limit(limit);
+  if (error) throw new Error(`Supabase read failed: ${error.message}`);
+  const rows = (data ?? []) as ExternalSignal[];
+  return rows.sort((a, b) => {
+    const aTracked = a.account_id !== WORKSPACE_ACCOUNT_ID;
+    const bTracked = b.account_id !== WORKSPACE_ACCOUNT_ID;
+    if (aTracked !== bTracked) return aTracked ? -1 : 1;
+    const ai = impactOf(a);
+    const bi = impactOf(b);
+    if (ai !== bi) return bi - ai;
+    return a.occurred_at < b.occurred_at ? 1 : -1;
+  });
 }
 
 // Suppress a single signal from the workspace feed. Sets `suppressed_at`

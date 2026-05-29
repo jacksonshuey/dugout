@@ -133,9 +133,13 @@ async function classifyAndPersist(
     if (result.signals.length > 0) {
       await insertSignalsDedup(result.signals);
     }
-    await markClassified(row.id, result.signals.length);
+    await markClassified(
+      row.id,
+      result.signals.length,
+      result.classifier_error ?? null,
+    );
     console.log(
-      `[inbound-email/${provider}] classified ${row.id}: ${result.signals.length} signals (${result.matched} matched, ${result.workspace} workspace) via ${result.classifier_used}`,
+      `[inbound-email/${provider}] classified ${row.id}: ${result.signals.length} signals (${result.matched} matched, ${result.workspace} workspace) via ${result.classifier_used}${result.classifier_error ? ` err=${result.classifier_error.slice(0, 80)}` : ""}`,
     );
     return {
       ok: true,

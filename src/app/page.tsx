@@ -21,6 +21,8 @@ import { RefreshButton } from "@/components/landing/refresh-button";
 import { ClientNewsTicker } from "@/components/landing/client-news-ticker";
 import { SortableWorkspaceFeed } from "@/components/landing/sortable-workspace-feed";
 import {
+  getHighRelevanceSignals,
+  getWorkspaceSignals,
   rankTopWorkspaceNews,
   type ExternalSignal,
 } from "@/lib/external-signals";
@@ -40,8 +42,12 @@ export const revalidate = 60;
 const CONTACT_MAILTO =
   "mailto:jacksonshuey@gmail.com?subject=Dugout%20walkthrough";
 
-// "Top news of the week": rank the live company-news pool down to a small,
-// company-diverse set.
+// "Top news of the week": pull from three independent sources (SEC EDGAR for
+// public seed companies, Supabase workspace-wide newsletter pool, and
+// account-tagged high-relevance Supabase rows) and rank the merged pool down
+// to a small, publisher-diverse set.
+const TOP_NEWS_LOOKBACK_DAYS = 7;
+const TOP_NEWS_POOL = 100;
 const TOP_NEWS_COUNT = 6;
 
 // Landing page. Single scroll: vision → integration constellation →
@@ -724,18 +730,34 @@ function formatRelativeTime(iso: string | null): string {
   return `${days}d ago`;
 }
 
-// Builds the "Top news of the week" feed from live SEC EDGAR filings for the
-// real seed companies (authoritative, always fresh, no API keys). Ranks by
-// relevance/impact with a per-publisher (per-company) cap so the feed reads as
-// a diverse cross-section rather than one company's filing dump. Fails soft to
-// [] so an EDGAR hiccup doesn't take down the landing.
+// Builds the "Top news of the week" feed by merging three independent pools:
+//   - Live SEC EDGAR 8-K filings for the public seed companies (keyless).
+//   - Supabase workspace-wide newsletter signals (the AgentMail pipeline).
+//   - Supabase account-tagged high-relevance signals (newsletter + filings).
+// Each source is isolated and fails soft to [] so any one outage cannot empty
+// the feed. After merge we dedup by id and rank with the per-publisher cap.
 async function fetchWorkspaceFeed(): Promise<ExternalSignal[]> {
-  try {
-    const pool = await getLiveAccountNews();
-    return rankTopWorkspaceNews(pool, TOP_NEWS_COUNT);
-  } catch {
-    return [];
+  const sinceIso = new Date(
+    Date.now() - TOP_NEWS_LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
+  ).toISOString();
+  const lookbackMs = TOP_NEWS_LOOKBACK_DAYS * 24 * 60 * 60 * 1000;
+
+  const [live, workspace, highRel] = await Promise.all([
+    getLiveAccountNews().catch(() => [] as ExternalSignal[]),
+    getWorkspaceSignals(sinceIso, TOP_NEWS_POOL).catch(
+      () => [] as ExternalSignal[],
+    ),
+    getHighRelevanceSignals(lookbackMs).catch(() => [] as ExternalSignal[]),
+  ]);
+
+  const seen = new Set<string>();
+  const pool: ExternalSignal[] = [];
+  for (const s of [...live, ...workspace, ...highRel]) {
+    if (seen.has(s.id)) continue;
+    seen.add(s.id);
+    pool.push(s);
   }
+  return rankTopWorkspaceNews(pool, TOP_NEWS_COUNT);
 }
 
 // Synchronous chrome. The two regions that hit Supabase (and, for the feed,

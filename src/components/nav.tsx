@@ -24,6 +24,14 @@ export function Nav() {
           />
           <span className="font-semibold tracking-tight text-sm">Dugout</span>
         </Link>
+        <nav className="flex items-center gap-4 text-[12px] text-muted">
+          <Link
+            href="/inbox"
+            className="hover:text-foreground transition-colors"
+          >
+            Inbox
+          </Link>
+        </nav>
       </div>
     </header>
   );

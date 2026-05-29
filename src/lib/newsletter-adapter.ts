@@ -205,7 +205,7 @@ const TOOL_SCHEMA = {
 } as const;
 
 function buildClassifierPrompt(email: InboundEmail, body: string): string {
-  return `You are extracting material business signals from a newsletter for a B2B sales team that tracks specific companies and monitors the broader market.
+  return `You are extracting individual facts and data points from a newsletter for a news inbox that surfaces a granular bullet stream and ranks tracked-company mentions first.
 
 NEWSLETTER METADATA
 Sender: ${email.from_domain}
@@ -215,26 +215,27 @@ NEWSLETTER BODY
 ${body}
 
 YOUR JOB
-Extract every material business event mentioned that the sales team should know about. For each event:
-1. Identify the company/entity it concerns (the "mention" - exactly as it appears in the text, e.g. "Stripe", "Moderna", "OpenAI").
-2. Classify the event type using one of: leadership_change, champion_job_change, ma_acquisition, funding_round, layoff, earnings, product_launch, press_release, competitor_mention, regulatory_action, partnership, other.
-3. Write a 1-2 sentence factual summary (≤200 chars, no markdown).
-4. Tag the workspace_relevance tier per the rubric below - REQUIRED on every extraction.
-5. Score the impact_score (0-100 integer) per the rubric below - REQUIRED on every extraction.
-6. If a specific URL is referenced for that event, capture it (omit if no URL).
+Extract every concrete fact, datum, announcement, or claim worth its own one-line bullet. Aim for 5–20 items per newsletter; produce fewer ONLY when the newsletter genuinely has fewer facts (a single-topic alert). Prefer many small, atomic facts over a few summarized roll-ups. Each bullet should stand alone — a reader should learn one thing from it.
 
-Skip:
-- Opinion pieces, commentary, predictions, listicles
-- Routine product changelog items, minor releases
-- Items where the entity is too generic to track ("the market", "AI startups")
-- Items that are clearly ads or sponsored content
+For each item:
+1. Identify the company/entity it concerns (the "mention" — exactly as it appears in the text, e.g. "Stripe", "Moderna", "OpenAI"). If the fact is industry-wide and names no specific company, use the most specific noun phrase you can (e.g. "US Treasury", "EU Commission", "OpenAI ChatGPT").
+2. Classify the event type using one of: leadership_change, champion_job_change, ma_acquisition, funding_round, layoff, earnings, product_launch, press_release, competitor_mention, regulatory_action, partnership, other. When nothing else fits, use "other".
+3. Write a crisp 1-sentence factual summary (≤200 chars, no markdown). Lead with the entity + verb. Keep dollar amounts, dates, and proper nouns. Drop fluff.
+4. Tag the workspace_relevance tier per the rubric below — REQUIRED on every extraction. Lower-relevance facts are valuable in the inbox; don't suppress them.
+5. Score the impact_score (0-100 integer) per the rubric below — REQUIRED on every extraction.
+6. If a specific URL is referenced for that fact, capture it (omit if no URL).
+
+Skip ONLY:
+- Pure opinion / commentary that asserts no concrete fact.
+- Items that are clearly ads or sponsored sections.
+- Entities too generic to track ("the market", "AI startups") UNLESS the fact itself is specific (a dated number, a named policy).
 
 ${WORKSPACE_RELEVANCE_DEFINITION}
 
 ${IMPACT_SCORE_DEFINITION}
 
-# Output format - forced tool-use, mandatory
-You MUST emit your answer via the \`${TOOL_NAME}\` tool. Free-text replies are invalid. Return an empty items array when the newsletter contains no material events. Do not invent facts. No preamble.`;
+# Output format — forced tool-use, mandatory
+You MUST emit your answer via the \`${TOOL_NAME}\` tool. Free-text replies are invalid. Return an empty items array ONLY when the newsletter contains no concrete facts at all. Do not invent facts. No preamble.`;
 }
 
 // Test seam: callers (tests) can inject a fake Haiku call so we never hit
@@ -291,7 +292,12 @@ async function classifyWithHaiku(
   haikuCall?: NewsletterHaikuCall,
 ): Promise<RawExtraction[]> {
   const body = emailBodyForClassification(email);
-  if (body.trim().length < 50) return [];
+  if (body.trim().length < 50) {
+    console.warn(
+      `[newsletter-adapter] short_body skip id=${email.id} from=${email.from_domain} len=${body.trim().length}`,
+    );
+    return [];
+  }
 
   const prompt = buildClassifierPrompt(email, body);
   const call = haikuCall ?? callHaikuReal;
@@ -388,6 +394,10 @@ export interface NewsletterClassification {
   classifier_used: "haiku" | "none";
   matched: number;
   workspace: number;
+  // Populated when Haiku throws so the caller can persist it onto the
+  // inbound_emails row (classifier_error column) and the sweeper can pick the
+  // email up for retry instead of treating it as classified-with-zero-signals.
+  classifier_error?: string;
 }
 
 // Optional injection seam - tests can pass `haikuCall` to skip the network
@@ -404,18 +414,20 @@ export async function classifyNewsletter(
 ): Promise<NewsletterClassification> {
   let extractions: RawExtraction[];
   let classifier_used: "haiku" | "none" = "haiku";
+  let classifier_error: string | undefined;
   try {
     extractions = await classifyWithHaiku(email, deps.haikuCall);
   } catch (e) {
     // No heuristic fallback here - newsletters are too varied for keyword
     // matching to produce useful signals. Better to leave them unclassified
     // and let a re-run pick them up when Haiku is healthy again.
+    const errMsg = e instanceof Error ? e.message : String(e);
     console.warn(
-      `[newsletter-adapter] Haiku failed for ${email.id}:`,
-      e instanceof Error ? e.message : String(e),
+      `[newsletter-adapter] haiku_failed id=${email.id} from=${email.from_domain} subject="${email.subject ?? ""}" err=${errMsg}`,
     );
     extractions = [];
     classifier_used = "none";
+    classifier_error = errMsg.slice(0, 500);
   }
 
   // Source attribution. Lead-article URL is extracted once per email (cheap,
@@ -480,10 +492,17 @@ export async function classifyNewsletter(
       // AI-determined event magnitude (0-100) set by Haiku - drives the
       // workspace feed "Magnitude" sort. See impact-score.ts.
       impact_score: x.impact_score,
+      // Low/none relevance bullets are valuable in the inbox bullet stream but
+      // would dilute the headline feed — tag them so the feed query can skip
+      // them while the inbox query reads everything. Tracked-account hits are
+      // never demoted to inbox_only regardless of relevance score.
+      inbox_only:
+        !acc &&
+        (x.workspace_relevance === "low" || x.workspace_relevance === "none"),
     } as NewExternalSignal;
   });
 
-  return { signals, classifier_used, matched, workspace };
+  return { signals, classifier_used, matched, workspace, classifier_error };
 }
 
 // Exported for tests so the suite can assert the schema shape it cares
