@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   accountsById,
   contacts,
@@ -101,17 +103,35 @@ const calWeekDays = Array.from({ length: 7 }, (_, i) => {
 // the work week (Mon–Fri) so the week reads busy.
 const MEETING_ROLES = new Set(["Champion", "Executive Sponsor", "GC"]);
 const meetingPeople = contacts.filter((c) => MEETING_ROLES.has(c.role));
-const meetingsByDay = new Map<
-  string,
-  { id: string; label: string; account: string }[]
->();
+
+interface CalMeeting {
+  id: string;
+  name: string;
+  title: string;
+  role: string;
+  account: string;
+  industry: string;
+  hq: string;
+  dateLabel: string;
+}
+
+const meetingsByDay = new Map<string, CalMeeting[]>();
 meetingPeople.forEach((c, i) => {
   const day = calWeekDays[i % 5]; // Mon–Fri
   if (!day) return;
   const key = day.toDateString();
-  const acc = accountsById.get(c.accountId)?.name ?? "Account";
+  const acc = accountsById.get(c.accountId);
   const list = meetingsByDay.get(key) ?? [];
-  list.push({ id: c.id, label: `Jackson <> ${c.name}`, account: acc });
+  list.push({
+    id: c.id,
+    name: c.name,
+    title: c.title,
+    role: c.role,
+    account: acc?.name ?? "Account",
+    industry: acc?.industry ?? "",
+    hq: acc?.hqLocation ?? "",
+    dateLabel: `${WD_SHORT[day.getDay()]} ${day.getDate()}`,
+  });
   meetingsByDay.set(key, list);
 });
 
@@ -255,6 +275,7 @@ function KpiCard({
 // ── Meetings week calendar ────────────────────────────────────────────────────
 
 function MeetingsCalendarCard() {
+  const [selected, setSelected] = useState<CalMeeting | null>(null);
   return (
     <div className="rounded-xl border border-border bg-background p-5">
       <div className="flex items-center justify-between">
@@ -276,14 +297,21 @@ function MeetingsCalendarCard() {
               </div>
               <div className="mt-1.5 space-y-1">
                 {shown.map((m) => (
-                  <div
+                  <button
                     key={m.id}
-                    title={`${m.label} · ${m.account}`}
-                    className="flex items-center gap-1 rounded border border-brand/20 bg-brand/[0.06] px-1.5 py-1 text-[10px] leading-tight"
+                    type="button"
+                    onClick={() => setSelected(m)}
+                    title={`Jackson <> ${m.name} · ${m.account}`}
+                    className="block w-full text-left rounded border border-brand/20 bg-brand/[0.06] px-1.5 py-1 leading-tight transition-colors hover:border-brand/50 hover:bg-brand/[0.12]"
                   >
-                    <span aria-hidden className="h-1.5 w-1.5 rounded-full shrink-0 bg-brand" />
-                    <span className="truncate">{m.label}</span>
-                  </div>
+                    <div className="flex items-center gap-1 text-[8px] uppercase tracking-[0.08em] text-brand/80">
+                      <span aria-hidden className="h-1 w-1 rounded-full shrink-0 bg-brand" />
+                      Jackson &lt;&gt;
+                    </div>
+                    <div className="text-[10px] font-medium text-foreground/90 leading-snug line-clamp-2">
+                      {m.name}
+                    </div>
+                  </button>
                 ))}
                 {extra > 0 && (
                   <div className="pl-0.5 text-[10px] text-muted">+{extra} more</div>
@@ -293,7 +321,79 @@ function MeetingsCalendarCard() {
           );
         })}
       </div>
+
+      {selected && (
+        <MeetingDetailModal meeting={selected} onClose={() => setSelected(null)} />
+      )}
     </div>
+  );
+}
+
+function MeetingDetailModal({
+  meeting,
+  onClose,
+}: {
+  meeting: CalMeeting;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  if (typeof document === "undefined") return null;
+
+  const rows: [string, string][] = [
+    ["Account", meeting.industry ? `${meeting.account} · ${meeting.industry}` : meeting.account],
+    ["Attendee", `${meeting.name} — ${meeting.title}`],
+    ["Role", meeting.role],
+    ["Location", meeting.hq || "—"],
+    ["When", `${meeting.dateLabel} · this week`],
+  ];
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Meeting details"
+    >
+      <div className="absolute inset-0 bg-foreground/40 backdrop-blur-sm" onClick={onClose} aria-hidden />
+      <div className="relative w-full max-w-sm rounded-xl border border-border bg-background shadow-2xl overflow-hidden">
+        <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-border">
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.18em] font-mono text-brand">
+              Meeting
+            </div>
+            <h4 className="mt-1 text-base font-semibold tracking-tight">
+              Jackson &lt;&gt; {meeting.name}
+            </h4>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="text-muted hover:text-foreground text-lg leading-none shrink-0"
+          >
+            ×
+          </button>
+        </div>
+        <dl className="divide-y divide-border">
+          {rows.map(([k, v]) => (
+            <div key={k} className="flex items-baseline gap-3 px-5 py-2.5">
+              <dt className="w-20 shrink-0 text-[10px] uppercase tracking-[0.15em] font-mono text-muted">
+                {k}
+              </dt>
+              <dd className="text-[13px] text-foreground/85 leading-snug">{v}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+    </div>,
+    document.body,
   );
 }
 
