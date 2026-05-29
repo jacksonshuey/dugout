@@ -959,9 +959,6 @@ const CHAT_EXAMPLES = [
   "If a champion's engagement score drops below 0.3, enroll them in re-engagement.",
 ];
 
-const CHAT_GREETING =
-  "Tell me what to watch for and what to do — e.g. “flag stalled six-figure deals and DM the AE.” I'll draft the rule and you can refine it.";
-
 type ChatTurn = { id: number; role: "user" | "assistant"; content: string };
 
 // Mounted only while open (the parent gates it), so useState initializers give
@@ -1101,10 +1098,6 @@ function RuleChatModal({
 
         {/* Transcript */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-          <div className="rounded-lg bg-foreground/[0.04] px-3 py-2 text-[12px] text-muted leading-relaxed">
-            {CHAT_GREETING}
-          </div>
-
           {messages.length === 0 && (
             <div className="flex flex-wrap gap-1.5">
               {CHAT_EXAMPLES.map((ex) => (
