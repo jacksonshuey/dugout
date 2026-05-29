@@ -117,10 +117,9 @@ const headlines = [...demoSignals]
     return { account: acc?.name ?? "Workspace", title: s.title };
   });
 
-// Filler "product" cards slotted into the shorter columns so the board fills
-// in Tetris-style. Type drives both the widget and its accent: automation =
-// brand (orange) CTA into the composer; news = black live rotator.
-type FillerType = "automation" | "news";
+// Product widgets in their own "Tools" section, distinct from the pipeline
+// columns: automation = brand (orange) CTA into the composer; news = black
+// live rotator.
 
 // Shared collapsed-card height so every column's rows align (symmetric board).
 const CARD_MIN_H = "min-h-[150px]";
@@ -269,43 +268,38 @@ function StatCallout({ value, label }: { value: string; label: string }) {
 // ── Deal board (kanban by stage) ─────────────────────────────────────────────
 
 function DealBoard() {
-  const maxLen = Math.max(1, ...columns.map((c) => c.cards.length));
-  // Walk the columns assigning fillers from a global counter so types
-  // alternate across the whole board (Tetris-style variety).
-  let fi = 0;
-  const withFillers = columns.map((col) => {
-    const gap = maxLen - col.cards.length;
-    const fillers: { key: number; type: FillerType }[] = [];
-    for (let g = 0; g < gap; g++) {
-      fillers.push({ key: fi, type: fi % 2 === 0 ? "automation" : "news" });
-      fi++;
-    }
-    return { ...col, fillers };
-  });
-
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-start">
-      {withFillers.map((col) => (
-        <DealColumn
-          key={col.stage}
-          stage={col.stage}
-          cards={col.cards}
-          fillers={col.fillers}
-        />
-      ))}
+    <div className="space-y-8">
+      {/* Section: pipeline — stage columns of deals only */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] font-mono text-muted">
+          <span className="h-1.5 w-1.5 rounded-full bg-foreground" />
+          Pipeline
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-start">
+          {columns.map((col) => (
+            <DealColumn key={col.stage} stage={col.stage} cards={col.cards} />
+          ))}
+        </div>
+      </section>
+
+      {/* Section: tools — product widgets, distinct from the pipeline */}
+      <section className="space-y-4 border-t border-border pt-8">
+        <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] font-mono text-muted">
+          <span className="h-1.5 w-1.5 rounded-full bg-brand" />
+          Tools
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <AutomationFiller />
+          <NewsFiller offset={0} />
+          <NewsFiller offset={4} />
+        </div>
+      </section>
     </div>
   );
 }
 
-function DealColumn({
-  stage,
-  cards,
-  fillers,
-}: {
-  stage: Stage;
-  cards: DealCardData[];
-  fillers: { key: number; type: FillerType }[];
-}) {
+function DealColumn({ stage, cards }: { stage: Stage; cards: DealCardData[] }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -319,13 +313,6 @@ function DealColumn({
         {cards.map((c) => (
           <DealCard key={c.id} card={c} />
         ))}
-        {fillers.map((f) =>
-          f.type === "automation" ? (
-            <AutomationFiller key={`f${f.key}`} />
-          ) : (
-            <NewsFiller key={`f${f.key}`} offset={f.key} />
-          ),
-        )}
       </div>
     </div>
   );
