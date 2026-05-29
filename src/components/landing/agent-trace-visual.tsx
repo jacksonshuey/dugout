@@ -23,8 +23,8 @@ const AGENT_META: Record<
   append: { n: 4, glyph: "→", role: "records the entry to the feed" },
 };
 
-const REVEAL_MS = 1000; // beat between steps
-const SKIP_MS = 380; // faster reveal for skipped steps
+const REVEAL_MS = 1900; // beat between steps — slow enough to read each handoff
+const SKIP_MS = 750; // faster reveal for skipped steps
 
 // Representative run used when no real run exists yet (migration not applied or
 // no emails have flowed through). Mirrors the exact shape a real run produces:

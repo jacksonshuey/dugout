@@ -815,10 +815,6 @@ async function fetchWorkspaceFeed(): Promise<ExternalSignal[]> {
 // boundaries so the static section headers + DataSourcesRow render instantly
 // and the live data streams in.
 function MarketIntelLiveSection() {
-  const trackedAccountNames = accounts.flatMap((a) =>
-    a.ticker ? [a.name, a.ticker] : [a.name],
-  );
-
   return (
     <section className="max-w-6xl mx-auto px-6 py-20 sm:py-24 border-t border-border">
       <SectionEyebrow>Live newsfeed</SectionEyebrow>
@@ -837,11 +833,6 @@ function MarketIntelLiveSection() {
         <h3 className="text-sm font-semibold tracking-tight text-foreground/80">
           Every inbound email runs a four-agent chain
         </h3>
-        <p className="text-xs text-muted mt-1 max-w-2xl leading-snug">
-          A cheap gate decides if it&apos;s real news first (so junk never gets
-          summarized), then it&apos;s summarized, categorized, and appended to the
-          feed. Every step is traced: input, output, and how long it took.
-        </p>
       </div>
       <Suspense fallback={<PipelineFallback />}>
         <LivePipelineSection />
@@ -852,9 +843,7 @@ function MarketIntelLiveSection() {
           Mentions of your accounts
         </h3>
         <p className="text-xs text-muted mt-1 max-w-2xl leading-snug">
-          AI scans every inbound newsletter for tracked-account names. When
-          one hits, it gets summarized and tagged to that account so your AE
-          walks in informed.
+          AI scans every inbound newsletter for tracked-account names.
         </p>
       </div>
       <ClientNewsTicker />
@@ -863,7 +852,7 @@ function MarketIntelLiveSection() {
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <div>
             <h3 className="text-sm font-semibold tracking-tight text-foreground/80">
-              Top stories the team should know
+              Top news of the week
             </h3>
             <p className="text-xs text-muted mt-1 max-w-2xl leading-snug">
               High-impact news that doesn&apos;t mention any account by name:
@@ -875,7 +864,7 @@ function MarketIntelLiveSection() {
         </div>
       </div>
       <Suspense fallback={<FeedFallback />}>
-        <WorkspaceFeedSection trackedAccountNames={trackedAccountNames} />
+        <WorkspaceFeedSection />
       </Suspense>
     </section>
   );
@@ -896,18 +885,9 @@ async function LivePipelineSection() {
   );
 }
 
-async function WorkspaceFeedSection({
-  trackedAccountNames,
-}: {
-  trackedAccountNames: string[];
-}) {
+async function WorkspaceFeedSection() {
   const workspaceSignals = await fetchWorkspaceFeed();
-  return (
-    <SortableWorkspaceFeed
-      signals={workspaceSignals}
-      trackedAccountNames={trackedAccountNames}
-    />
-  );
+  return <SortableWorkspaceFeed signals={workspaceSignals} />;
 }
 
 function PipelineFallback() {

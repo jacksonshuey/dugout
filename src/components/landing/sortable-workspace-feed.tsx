@@ -1,33 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { ExternalSignal } from "@/lib/external-signals";
 
-// Sortable workspace inbox feed. Client component because the sort state
-// lives on the client; the server hands us the full list of recent
-// signals and we re-order in memory. Three sort axes:
-//
-//   - Recency: occurred_at desc (default)
-//   - Relevance: signals mentioning a tracked account first (the AE's
-//     own company list), then workspace_relevance tier
-//     (high > medium > low > none), tie-broken by recency
-//   - Magnitude: top stories from the past 7 days, ranked by AI-determined
-//     impact_score (0-100) set by the upstream Haiku classifier. Falls
-//     back to a (workspace_relevance × type magnitude) heuristic for
-//     legacy rows missing impact_score.
-//
-// Filtering UI doubles as a visible "live system" demonstration — the
-// reordering happens instantly on click, which is the cheapest way to
-// signal interactivity without spinning anything up server-side.
-
-type SortKey = "recency" | "relevance" | "magnitude";
-
-const RELEVANCE_RANK: Record<string, number> = {
-  high: 3,
-  medium: 2,
-  low: 1,
-  none: 0,
-};
+// "Top news of the week" feed. The server hands us recent workspace signals;
+// we surface the top stories from the past 7 days ranked by AI-determined
+// impact_score (0-100) set by the upstream Haiku classifier, falling back to a
+// (workspace_relevance × type magnitude) heuristic for legacy rows missing
+// impact_score. If nothing landed in the last week, we fall back to the
+// highest-impact items overall so the section never goes empty.
 
 const TYPE_MAGNITUDE: Record<string, number> = {
   ma_acquisition: 5,
@@ -69,28 +50,6 @@ function compareRecency(a: ExternalSignal, b: ExternalSignal): number {
   );
 }
 
-function signalText(s: ExternalSignal): string {
-  return `${s.summary} ${s.email_subject ?? ""}`.toLowerCase();
-}
-
-function mentionsAccount(signal: ExternalSignal, needles: string[]): boolean {
-  if (needles.length === 0) return false;
-  const haystack = signalText(signal);
-  return needles.some((n) => haystack.includes(n));
-}
-
-function makeCompareRelevance(needles: string[]) {
-  return (a: ExternalSignal, b: ExternalSignal): number => {
-    const ma = mentionsAccount(a, needles);
-    const mb = mentionsAccount(b, needles);
-    if (ma !== mb) return ma ? -1 : 1;
-    const ra = RELEVANCE_RANK[a.workspace_relevance ?? "none"] ?? 0;
-    const rb = RELEVANCE_RANK[b.workspace_relevance ?? "none"] ?? 0;
-    if (ra !== rb) return rb - ra;
-    return compareRecency(a, b);
-  };
-}
-
 function compareMagnitude(a: ExternalSignal, b: ExternalSignal): number {
   const ia = effectiveImpactScore(a);
   const ib = effectiveImpactScore(b);
@@ -105,35 +64,17 @@ function isWithinMagnitudeWindow(signal: ExternalSignal, nowMs: number): boolean
 
 export function SortableWorkspaceFeed({
   signals,
-  trackedAccountNames = [],
 }: {
   signals: ExternalSignal[];
-  // Names + tickers of the AE's tracked accounts. Used by the "Relevance"
-  // sort to float signals that mention a tracked company to the top.
-  trackedAccountNames?: string[];
 }) {
-  const [sortBy, setSortBy] = useState<SortKey>("recency");
-
-  const needles = useMemo(
-    () =>
-      trackedAccountNames
-        .map((n) => n.trim().toLowerCase())
-        .filter((n) => n.length > 0),
-    [trackedAccountNames],
-  );
-
-  const sorted = useMemo(() => {
-    if (sortBy === "magnitude") {
-      const nowMs = Date.now();
-      return signals
-        .filter((s) => isWithinMagnitudeWindow(s, nowMs))
-        .sort(compareMagnitude);
-    }
-    const copy = [...signals];
-    if (sortBy === "relevance") copy.sort(makeCompareRelevance(needles));
-    else copy.sort(compareRecency);
-    return copy;
-  }, [signals, sortBy, needles]);
+  const topOfWeek = useMemo(() => {
+    const nowMs = Date.now();
+    const withinWeek = signals.filter((s) => isWithinMagnitudeWindow(s, nowMs));
+    // Top news of the week, ranked by impact. Fall back to the highest-impact
+    // items overall if nothing landed in the last week, so it never empties.
+    const pool = withinWeek.length > 0 ? withinWeek : [...signals];
+    return pool.sort(compareMagnitude);
+  }, [signals]);
 
   if (signals.length === 0) {
     return (
@@ -145,66 +86,11 @@ export function SortableWorkspaceFeed({
   }
 
   return (
-    <div className="mt-4">
-      <div className="flex items-center gap-2 mb-3">
-        <span className="text-[10px] font-mono uppercase tracking-[0.1em] text-muted mr-1">
-          Sort
-        </span>
-        <SortButton
-          active={sortBy === "recency"}
-          onClick={() => setSortBy("recency")}
-        >
-          Recency
-        </SortButton>
-        <SortButton
-          active={sortBy === "relevance"}
-          onClick={() => setSortBy("relevance")}
-        >
-          Relevance
-        </SortButton>
-        <SortButton
-          active={sortBy === "magnitude"}
-          onClick={() => setSortBy("magnitude")}
-        >
-          Magnitude
-        </SortButton>
-      </div>
-
-      <div className="space-y-2">
-        {sorted.length === 0 && sortBy === "magnitude" ? (
-          <div className="rounded-lg border border-border bg-foreground/[0.02] p-6 text-sm text-muted">
-            No high-impact stories in the past {MAGNITUDE_WINDOW_DAYS} days.
-            Switch back to Recency or Relevance for the full feed.
-          </div>
-        ) : (
-          sorted.map((signal) => <FeedRow key={signal.id} signal={signal} />)
-        )}
-      </div>
+    <div className="mt-4 space-y-2">
+      {topOfWeek.map((signal) => (
+        <FeedRow key={signal.id} signal={signal} />
+      ))}
     </div>
-  );
-}
-
-function SortButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`text-[10px] font-mono uppercase tracking-[0.1em] py-1 px-2.5 rounded border transition-colors ${
-        active
-          ? "border-brand/40 bg-brand/10 text-brand"
-          : "border-border bg-background text-muted hover:text-foreground hover:border-foreground/30"
-      }`}
-    >
-      {children}
-    </button>
   );
 }
 
