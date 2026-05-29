@@ -63,6 +63,16 @@ const STAGE_ORDER: Stage[] = [
   "Contracting",
 ];
 
+// What each pipeline stage means — surfaced as a hover tooltip on the column.
+const STAGE_BLURBS: Record<Stage, string> = {
+  Intro: "First contact made — exploring whether there's a fit.",
+  Qualified: "Fit confirmed: budget, authority, need, and timeline all check out.",
+  "Demo Sat": "Product demo delivered — the buying team has seen Dugout in action.",
+  Evaluating: "Buyer is actively comparing options or running an internal review / pilot.",
+  "Selected Vendor": "Chosen as the preferred vendor; aligning on scope and terms.",
+  Contracting: "In legal & procurement — redlines, MSA, and signature.",
+};
+
 interface DealCardData {
   id: string;
   account: string;
@@ -309,7 +319,21 @@ function DealColumn({ stage, cards }: { stage: Stage; cards: DealCardData[] }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold tracking-tight">{stage}</h3>
+        <div className="group relative">
+          <h3
+            tabIndex={0}
+            title={STAGE_BLURBS[stage]}
+            className="text-lg font-semibold tracking-tight cursor-help underline decoration-dotted decoration-border underline-offset-4 outline-none"
+          >
+            {stage}
+          </h3>
+          <div
+            role="tooltip"
+            className="pointer-events-none absolute left-0 top-full z-30 mt-2 w-60 rounded-lg border border-border bg-background p-3 text-[11px] leading-snug text-muted shadow-lg opacity-0 translate-y-1 transition-all duration-150 group-hover:opacity-100 group-hover:translate-y-0 group-focus-within:opacity-100 group-focus-within:translate-y-0"
+          >
+            {STAGE_BLURBS[stage]}
+          </div>
+        </div>
         <span className="inline-flex items-center gap-1.5 rounded-md border border-border px-2 py-0.5 text-[11px] font-mono text-muted">
           {cards.length}
           <span aria-hidden>↕</span>
