@@ -954,7 +954,7 @@ function actionDescription(a: Action): string {
 // ===========================================================================
 
 const CHAT_EXAMPLES = [
-  "Flag deals over $150k that have had fewer than 3 meetings in 30 days, and DM the AE.",
+  "Flag deals over $150k that have had fewer than 3 meetings in 30 days, and Slack the AE.",
   "When a Selected Vendor account goes 14+ days without a touch, notify the CSM.",
   "If a champion's engagement score drops below 0.3, enroll them in re-engagement.",
 ];
