@@ -37,10 +37,13 @@ export async function POST(req: Request) {
 
   const client = getOpenAIClient();
   if (!client) {
-    return NextResponse.json({
-      error:
-        "AI rule builder is offline — no OpenAI key configured. You can still build a rule by hand below.",
-    });
+    return NextResponse.json(
+      {
+        error:
+          "AI rule builder is offline — no OpenAI key configured. You can still build a rule by hand below.",
+      },
+      { status: 503 },
+    );
   }
 
   try {
@@ -59,18 +62,24 @@ export async function POST(req: Request) {
     try {
       parsed = JSON.parse(rawText);
     } catch {
-      return NextResponse.json({
-        error: "Couldn't parse the AI response. Try rephrasing your request.",
-      });
+      return NextResponse.json(
+        {
+          error: "Couldn't parse the AI response. Try rephrasing your request.",
+        },
+        { status: 502 },
+      );
     }
 
     const { draft, warnings } = validateRuleDraft(parsed);
     if (!draft) {
-      return NextResponse.json({
-        error:
-          warnings[0] ??
-          "Couldn't turn that into a rule. Try naming a specific field or condition.",
-      });
+      return NextResponse.json(
+        {
+          error:
+            warnings[0] ??
+            "Couldn't turn that into a rule. Try naming a specific field or condition.",
+        },
+        { status: 422 },
+      );
     }
 
     return NextResponse.json({ rule: draft, warnings });
