@@ -3,6 +3,7 @@ import {
   getHighRelevanceSignals,
   getWorkspaceSignals,
 } from "@/lib/external-signals";
+import { getLiveAccountNews } from "@/lib/live-account-news";
 import { accounts } from "@/data/seed";
 import { LEGACY_ACCOUNT_ALIASES } from "@/data/legacy-account-aliases";
 
@@ -38,12 +39,16 @@ export async function GET() {
     const lookbackMs = LOOKBACK_HOURS * 60 * 60 * 1000;
     const sinceIso = new Date(Date.now() - lookbackMs).toISOString();
 
-    // Pull both pools in parallel - they hit independent rows in
-    // external_signals (account-tagged vs WORKSPACE_ACCOUNT_ID).
-    const [accountSignals, workspaceSignals] = await Promise.all([
-      getHighRelevanceSignals(lookbackMs),
-      getWorkspaceSignals(sinceIso, MAX_TICKER_ITEMS),
-    ]);
+    // Live, real account news from SEC EDGAR (the seed companies' own filings)
+    // is the primary, always-fresh source. Supabase pools (newsletter/web
+    // ingestion) merge in when present, but their absence must not empty the
+    // ticker — so each source is isolated and fails soft to [].
+    const [liveAccountNews, accountSignals, workspaceSignals] =
+      await Promise.all([
+        getLiveAccountNews().catch(() => []),
+        getHighRelevanceSignals(lookbackMs).catch(() => []),
+        getWorkspaceSignals(sinceIso, MAX_TICKER_ITEMS).catch(() => []),
+      ]);
 
     const nameById = new Map<string, string>(
       accounts.map((a) => [a.id, a.name]),
@@ -54,13 +59,22 @@ export async function GET() {
       if (!nameById.has(legacyId)) nameById.set(legacyId, name);
     }
 
-    const accountItems: TickerItem[] = accountSignals.map((s) => ({
-      id: s.id,
-      kind: "account" as const,
-      summary: s.summary,
-      accountName: nameById.get(s.account_id) ?? s.account_id,
-      occurredAt: s.occurred_at,
-    }));
+    // Merge live SEC headlines with any account-tagged Supabase rows, dedup by
+    // id (SEC ids are deterministic per filing).
+    const accountSource = [...liveAccountNews, ...accountSignals];
+    const seen = new Set<string>();
+    const accountItems: TickerItem[] = [];
+    for (const s of accountSource) {
+      if (seen.has(s.id)) continue;
+      seen.add(s.id);
+      accountItems.push({
+        id: s.id,
+        kind: "account",
+        summary: s.summary,
+        accountName: nameById.get(s.account_id) ?? s.account_id,
+        occurredAt: s.occurred_at,
+      });
+    }
 
     const workspaceItems: TickerItem[] = workspaceSignals.map((s) => ({
       id: s.id,

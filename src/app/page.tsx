@@ -21,11 +21,10 @@ import { RefreshButton } from "@/components/landing/refresh-button";
 import { ClientNewsTicker } from "@/components/landing/client-news-ticker";
 import { SortableWorkspaceFeed } from "@/components/landing/sortable-workspace-feed";
 import {
-  getWorkspaceSignals,
   rankTopWorkspaceNews,
   type ExternalSignal,
 } from "@/lib/external-signals";
-import { moderateSignals } from "@/lib/signal-moderator";
+import { getLiveAccountNews } from "@/lib/live-account-news";
 import {
   getLivePipelineSnapshot,
   type LivePipelineSnapshot,
@@ -41,10 +40,8 @@ export const revalidate = 60;
 const CONTACT_MAILTO =
   "mailto:jacksonshuey@gmail.com?subject=Dugout%20walkthrough";
 
-// "Top news of the week": rank a wide pool from the past week down to a small,
-// publisher-diverse set.
-const TOP_NEWS_LOOKBACK_DAYS = 7;
-const TOP_NEWS_POOL = 100;
+// "Top news of the week": rank the live company-news pool down to a small,
+// company-diverse set.
 const TOP_NEWS_COUNT = 6;
 
 // Landing page. Single scroll: vision → integration constellation →
@@ -440,10 +437,6 @@ function StepIntegrate() {
               </span>{" "}
               Paste an API key, set a sync frequency, verify, done.
             </p>
-            <p className="text-sm text-foreground/70 leading-relaxed">
-              No schema design on your end. Each adapter is already scaffolded
-              to pull your data and hand it to the zipper.
-            </p>
           </div>
           <div className="mt-auto pb-2 space-y-2">
             <div className="text-[10px] uppercase tracking-[0.2em] font-mono text-muted">
@@ -731,19 +724,15 @@ function formatRelativeTime(iso: string | null): string {
   return `${days}d ago`;
 }
 
-// Builds the "Top news of the week" feed. Fetches a wide pool of the week's
-// workspace signals, ranks them by relevance/impact with a per-publisher cap
-// (so one newsletter digest can't monopolize the feed), then moderates only
-// the handful actually shown. Fails soft to [] so a Supabase outage doesn't
-// take down the landing.
+// Builds the "Top news of the week" feed from live SEC EDGAR filings for the
+// real seed companies (authoritative, always fresh, no API keys). Ranks by
+// relevance/impact with a per-publisher (per-company) cap so the feed reads as
+// a diverse cross-section rather than one company's filing dump. Fails soft to
+// [] so an EDGAR hiccup doesn't take down the landing.
 async function fetchWorkspaceFeed(): Promise<ExternalSignal[]> {
   try {
-    const sinceIso = new Date(
-      Date.now() - TOP_NEWS_LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
-    ).toISOString();
-    const pool = await getWorkspaceSignals(sinceIso, TOP_NEWS_POOL);
-    const top = rankTopWorkspaceNews(pool, TOP_NEWS_COUNT);
-    return await moderateSignals(top);
+    const pool = await getLiveAccountNews();
+    return rankTopWorkspaceNews(pool, TOP_NEWS_COUNT);
   } catch {
     return [];
   }
@@ -782,7 +771,8 @@ function MarketIntelLiveSection() {
           Mentions of your accounts
         </h3>
         <p className="text-xs text-muted mt-1 max-w-2xl leading-snug">
-          AI scans every inbound newsletter for tracked-account names.
+          Live SEC filings pulled for every tracked account, classified the
+          moment they post.
         </p>
       </div>
       <ClientNewsTicker />
@@ -794,9 +784,9 @@ function MarketIntelLiveSection() {
               Top news of the week
             </h3>
             <p className="text-xs text-muted mt-1 max-w-2xl leading-snug">
-              High-impact news that doesn&apos;t mention any account by name:
-              M&amp;A, regulatory shifts, big-tech moves. Haiku ranks by
-              relevance so this stays signal, not noise.
+              The most material recent moves across your tracked companies —
+              acquisitions, earnings, leadership and regulatory filings —
+              ranked by impact.
             </p>
           </div>
           <RefreshButton label="Refresh feed" />

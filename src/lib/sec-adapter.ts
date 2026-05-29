@@ -1,4 +1,9 @@
-import type { ExternalSignalType, NewExternalSignal } from "./external-signals";
+import type {
+  ExternalSignal,
+  ExternalSignalType,
+  NewExternalSignal,
+} from "./external-signals";
+import type { AccountId } from "./types";
 import { scrapeUrl } from "./firecrawl-client";
 
 // SEC EDGAR adapter - fetches recent 8-K filings for public-company accounts
@@ -159,6 +164,91 @@ function buildFilingUrl(
 export function hasSecCoverage(ticker: string | undefined): boolean {
   if (!ticker) return false;
   return ticker.toUpperCase() in TICKER_TO_CIK;
+}
+
+// Material 8-K classifications that read as genuinely high-signal company news
+// (vs. procedural filings), used to tag relevance for the landing feed.
+const HIGH_RELEVANCE_TYPES = new Set<ExternalSignalType>([
+  "ma_acquisition",
+  "leadership_change",
+  "layoff",
+  "earnings",
+  "regulatory_action",
+  "funding_round",
+]);
+
+// Lightweight, KEYLESS live fetch for the public landing page. Unlike
+// fetchSignalsForTicker (which Firecrawl-scrapes each filing body and needs a
+// key), this reads only EDGAR's submissions metadata — authoritative company,
+// form, date, and 8-K item codes — and turns recent 8-Ks into display-ready
+// ExternalSignal rows. No API keys, no LLM: the data is the company's own SEC
+// filings. Returns [] on any failure so one company can't break the feed.
+export async function fetchFilingHeadlines(
+  accountId: string,
+  ticker: string,
+  companyName: string,
+  lookbackDays: number = 120,
+  maxItems: number = 3,
+): Promise<ExternalSignal[]> {
+  const cik = TICKER_TO_CIK[ticker.toUpperCase()];
+  if (!cik) return [];
+
+  const url = `${EDGAR_SUBMISSIONS}/CIK${cik}.json`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  let data: EdgarSubmissions;
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
+      // Cache EDGAR's response at the fetch layer so the 30s ticker poll and
+      // the feed don't re-hit SEC for every request.
+      next: { revalidate: 1800 },
+    });
+    if (!res.ok) throw new Error(`EDGAR ${res.status}: ${res.statusText}`);
+    data = (await res.json()) as EdgarSubmissions;
+  } finally {
+    clearTimeout(timeout);
+  }
+
+  const recent = data.filings?.recent;
+  if (!recent?.form) return [];
+
+  const cutoff = new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+  const nowIso = new Date().toISOString();
+  const out: ExternalSignal[] = [];
+
+  for (let i = 0; i < recent.form.length && out.length < maxItems; i++) {
+    if (recent.form[i] !== "8-K") continue;
+    const filingDate = recent.filingDate?.[i] ?? "";
+    if (!filingDate || filingDate < cutoff) continue;
+
+    const accession = recent.accessionNumber?.[i] ?? "";
+    const itemCodes = parseItemCodes(recent.items?.[i] ?? "");
+    const { type } = classifyFiling(itemCodes);
+    const filingUrl = accession
+      ? buildFilingUrl(cik, accession, recent.primaryDocument?.[i])
+      : null;
+
+    out.push({
+      id: `sec-${cik}-${accession || `${filingDate}-${i}`}`,
+      account_id: accountId as AccountId,
+      source: "sec_edgar",
+      type,
+      summary: buildSummary(companyName, itemCodes),
+      occurred_at: `${filingDate}T12:00:00.000Z`,
+      url: filingUrl,
+      source_url: filingUrl,
+      is_demo: false,
+      publisher_canonical_name: companyName,
+      workspace_relevance: HIGH_RELEVANCE_TYPES.has(type) ? "high" : "medium",
+      created_at: nowIso,
+    });
+  }
+
+  return out;
 }
 
 export async function fetchSignalsForTicker(
