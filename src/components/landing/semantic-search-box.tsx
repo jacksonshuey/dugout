@@ -49,6 +49,8 @@ export function SemanticSearchBox({
   useEffect(() => {
     const q = query.trim();
     if (!q) {
+      // Clear results when the query is emptied (debounced search effect).
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setHits([]);
       setState("idle");
       return;

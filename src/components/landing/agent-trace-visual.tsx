@@ -89,6 +89,9 @@ function usePrefersReducedMotion(): boolean {
   useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) return;
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    // SSR-safe: state starts false on the server; we read the real value
+    // after mount to avoid a hydration mismatch, so this setState is intended.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setReduced(mq.matches);
     const handler = (e: MediaQueryListEvent) => setReduced(e.matches);
     mq.addEventListener?.("change", handler);
@@ -111,6 +114,8 @@ export function AgentTraceVisual({ trace }: { trace: AgentTrace | null }) {
   useEffect(() => {
     if (steps.length === 0) return;
     if (reduced) {
+      // Reduced motion: skip the staged reveal and show the finished run.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCursor(steps.length);
       return;
     }

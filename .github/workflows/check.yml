@@ -14,6 +14,10 @@ jobs:
         with:
           node-version: "20"
           cache: npm
-      - run: npm ci
+      # `npm install` (not `npm ci`) because strict clean-install rejects the
+      # lockfile over platform-specific optional deps (@tailwindcss/oxide wasm
+      # variants) — a known npm cross-platform gap. install respects the lock
+      # and reconciles the Linux-only optionals instead of erroring.
+      - run: npm install --no-audit --no-fund
       - run: npm run lint
       - run: npm test
