@@ -510,7 +510,7 @@ function StepAutomations() {
       num={4}
       wide
       title="Automations"
-      sub="A rule and its action are one automation. Build a rule from any source (ontology fields, news, meetings, or AI extraction), chain triggers with AND, then chain the actions that run on a hit (Slack DM, Dock workspace, Outreach sequence, asset delivery, CSM notify). Three urgency tiers route the output: blocking to Slack within the hour, action to the queue, awareness to the weekly roundup. Every automation lands logged (acted, skipped, or snoozed, with the channel used and the observed outcome), which feeds back so the next one is better targeted."
+      sub="Create automations across your entire organization."
     >
       <InteractiveSignals />
     </StepShell>
