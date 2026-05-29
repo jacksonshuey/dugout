@@ -46,6 +46,35 @@ export interface NewInboundEmail {
   publisher_canonical_name?: string | null;
 }
 
+// Lightweight HTML → readable plaintext used to normalize newsletter bodies
+// into a single markdown-ish column. Drops style/script/heavy tags, keeps line
+// breaks, decodes the four common named entities. Pure; no network. Lives here
+// (not newsletter-adapter) so the webhook can compute it at insert time before
+// the classifier ever runs.
+export function normalizeBodyMarkdown(
+  textBody: string | null | undefined,
+  htmlBody: string | null | undefined,
+): string | null {
+  if (textBody && textBody.trim().length > 0) return textBody;
+  if (!htmlBody) return null;
+  const stripped = htmlBody
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\n\s*\n\s*\n/g, "\n\n")
+    .replace(/[ \t]+/g, " ")
+    .trim();
+  return stripped.length > 0 ? stripped : null;
+}
+
 // Returns the persisted row, or null if a row with the same message_id
 // already exists (dedup hit - AgentMail/Svix retried a webhook). Throws on
 // any other Supabase error so the webhook can return 5xx and let Svix retry.
@@ -62,6 +91,10 @@ export async function insertInboundEmail(
       received_at: email.received_at ?? new Date().toISOString(),
       text_body: email.text_body ?? null,
       html_body: email.html_body ?? null,
+      // body_markdown powers /inbox display + the tsvector full-text index.
+      // Computed at insert so the column is populated for every new row;
+      // legacy rows backfill via a future maintenance task.
+      body_markdown: normalizeBodyMarkdown(email.text_body, email.html_body),
       raw_size_bytes: email.raw_size_bytes,
       message_id: email.message_id ?? null,
       list_id: email.list_id ?? null,
@@ -78,11 +111,14 @@ export async function insertInboundEmail(
 }
 
 // Stamp an inbound email as classified, recording how many signals it
-// produced. Used by the webhook after the newsletter-adapter run. Idempotent:
-// safe to call multiple times if classification ever gets retried.
+// produced and the last classifier error (if any) for observability + sweeper
+// retry routing. Idempotent: safe to call multiple times if classification
+// ever gets retried. When `classifierError` is omitted, the column is cleared
+// — explicit success resets a prior error.
 export async function markClassified(
   id: string,
   signalCount: number,
+  classifierError?: string | null,
 ): Promise<void> {
   const sb = supabaseAdmin();
   const { error } = await sb
@@ -90,6 +126,7 @@ export async function markClassified(
     .update({
       classified_at: new Date().toISOString(),
       signals_emitted: signalCount,
+      classifier_error: classifierError ?? null,
     })
     .eq("id", id);
   if (error) throw new Error(`inbound_emails update failed: ${error.message}`);

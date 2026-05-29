@@ -194,9 +194,16 @@ export async function POST(req: Request) {
     const wh = new Webhook(secret);
     payload = wh.verify(rawBody, svixHeaders) as AgentMailEventPayload;
   } catch (e) {
+    // Each branch logs distinctly so operators can tell which class of failure
+    // is dropping webhooks without spelunking through stack traces.
     if (e instanceof WebhookVerificationError) {
+      console.warn(
+        `[agentmail] signature_mismatch svix-id=${svixHeaders["svix-id"] || "(missing)"} sig-len=${svixHeaders["svix-signature"].length}`,
+      );
       return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
     }
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn(`[agentmail] bad_payload: ${msg}`);
     return NextResponse.json({ error: "Bad payload" }, { status: 400 });
   }
 
