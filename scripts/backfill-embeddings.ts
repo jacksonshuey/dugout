@@ -8,7 +8,7 @@
 // Run with: npx tsx scripts/backfill-embeddings.ts [--limit N]
 
 import { supabaseAdmin } from "../src/lib/supabase";
-import { chunkText, embedBatch } from "../src/lib/embeddings";
+import { chunkText, embedBatch, stripHtml } from "../src/lib/embeddings";
 import {
   deleteEmbeddingsForSources,
   upsertEmbeddings,
@@ -23,7 +23,7 @@ function contentFor(row: {
   source_content_md: string | null;
 }): string {
   const summary = (row.summary ?? "").trim();
-  const src = (row.source_content_md ?? "").trim();
+  const src = stripHtml(row.source_content_md ?? "").trim();
   return src ? `${summary}\n\n${src}` : summary;
 }
 

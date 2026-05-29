@@ -15,7 +15,13 @@ let mockClient: { embeddings: { create: typeof createMock } } | null = {
   embeddings: { create: createMock },
 };
 
-import { chunkText, embed, embedBatch, EMBEDDING_DIMS } from "./embeddings";
+import {
+  chunkText,
+  embed,
+  embedBatch,
+  stripHtml,
+  EMBEDDING_DIMS,
+} from "./embeddings";
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -66,6 +72,23 @@ describe("embedBatch", () => {
     const out = await embedBatch(["", "  "]);
     expect(out).toEqual([null, null]);
     expect(createMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("stripHtml", () => {
+  test("strips tags, styles, and entities to readable text", () => {
+    const html =
+      '<style>.x{color:red}</style><table><td style="padding:0">Acme raised&nbsp;$200M&amp;more</td></table>';
+    const out = stripHtml(html);
+    expect(out).not.toMatch(/[<>]/);
+    expect(out).not.toContain("padding");
+    expect(out).toContain("Acme raised $200M&more");
+  });
+
+  test("leaves plain text / markdown essentially intact", () => {
+    expect(stripHtml("Lilly cuts price.\n\nGilead renews WHO deal.")).toBe(
+      "Lilly cuts price.\n\nGilead renews WHO deal.",
+    );
   });
 });
 

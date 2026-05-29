@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "./supabase";
-import { chunkText, embedBatch } from "./embeddings";
+import { chunkText, embedBatch, stripHtml } from "./embeddings";
 import { upsertEmbeddings, type DocEmbeddingInput } from "./doc-embeddings";
 
 // Batched, fail-soft embedding sweep. Finds recent external_signals that don't
@@ -21,7 +21,7 @@ interface SignalRow {
 
 function contentFor(row: SignalRow): string {
   const summary = (row.summary ?? "").trim();
-  const src = (row.source_content_md ?? "").trim();
+  const src = stripHtml(row.source_content_md ?? "").trim();
   return src ? `${summary}\n\n${src}` : summary;
 }
 

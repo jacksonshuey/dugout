@@ -32,6 +32,25 @@ function clean(text: string): string {
   return text.replace(/\s+/g, " ").trim().slice(0, MAX_EMBED_CHARS);
 }
 
+// Strip HTML to readable text before embedding/display. A lot of inbound
+// `source_content_md` is raw email HTML (tables, inline styles); embedding the
+// markup adds noise and renders as `<td style…>` garbage in search results.
+// Markdown/plain text passes through largely untouched (paragraph breaks kept).
+export function stripHtml(input: string): string {
+  return input
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&#?\w+;/g, " ")
+    .replace(/[ \t\f\v]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 // Split a document into overlapping chunks for embedding. Prefers to break at a
 // paragraph/sentence boundary near the target size so chunks read as coherent
 // passages rather than mid-word cuts. Short inputs return a single chunk;
