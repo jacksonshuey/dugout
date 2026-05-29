@@ -626,7 +626,7 @@ function PipelineDonutCard() {
             {fmtCompactUSD(weightedForecast)}
           </span>
         </div>
-        <div className="mt-1 text-[10px] text-muted">
+        <div className="mt-1 text-xs text-muted leading-snug">
           probability-adjusted, by close month
         </div>
         <div className="mt-3 space-y-2">
