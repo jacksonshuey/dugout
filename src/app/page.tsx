@@ -32,6 +32,7 @@ import { checkAllHealth } from "@/lib/integration-health";
 import { RefreshButton } from "@/components/landing/refresh-button";
 import { ClientNewsTicker } from "@/components/landing/client-news-ticker";
 import { SortableWorkspaceFeed } from "@/components/landing/sortable-workspace-feed";
+import { SemanticSearchBox } from "@/components/landing/semantic-search-box";
 import {
   getSignalsForAccount,
   getWorkspaceSignals,
@@ -88,6 +89,9 @@ export default function LandingPage() {
             funding announcements, exec changes, so an AE never walks in
             cold on what their account just did publicly.
           </p>
+          <div className="mt-6 max-w-2xl">
+            <SemanticSearchBox placeholder="Search your intel by meaning — e.g. “champions leaving”" />
+          </div>
         </div>
         <Suspense fallback={<DashboardFallback />}>
           <DemoConsole />
@@ -574,6 +578,9 @@ function StepOntology() {
       title="Ontology"
       sub="Every raw API field from every source zippers into a canonical object. One Account, one Contact, one Meeting, regardless of how many tools recorded it."
     >
+      <div className="mb-4 max-w-2xl">
+        <SemanticSearchBox placeholder="Search your intel by meaning — e.g. “regulatory risk in pharma”" />
+      </div>
       <div className="rounded-xl border border-border bg-foreground/[0.02] p-4">
         <ConnectivityGraph />
       </div>
