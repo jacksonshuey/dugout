@@ -90,7 +90,7 @@ export default function LandingPage() {
             cold on what their account just did publicly.
           </p>
           <div className="mt-6 max-w-2xl">
-            <SemanticSearchBox placeholder="Search your intel by meaning — e.g. “champions leaving”" />
+            <SemanticSearchBox />
           </div>
         </div>
         <Suspense fallback={<DashboardFallback />}>
@@ -579,10 +579,7 @@ function StepOntology() {
       sub="Every raw API field from every source zippers into a canonical object. One Account, one Contact, one Meeting, regardless of how many tools recorded it."
     >
       <div className="mb-4 max-w-2xl">
-        <SemanticSearchBox
-          dualScope
-          placeholder="Search by meaning — intel (“regulatory risk in pharma”) or schema (“where does close date live?”)"
-        />
+        <SemanticSearchBox />
       </div>
       <div className="rounded-xl border border-border bg-foreground/[0.02] p-4">
         <ConnectivityGraph />
