@@ -30,6 +30,7 @@ import {
   getLivePipelineSnapshot,
   type LivePipelineSnapshot,
 } from "@/lib/live-pipeline";
+import { OverviewDashboardBody } from "@/components/landing/overview-dashboard";
 
 // 60-second ISR window. Tight enough that the workspace inbox + transform
 // visual feel fresh on each visit; loose enough that Supabase isn't hit on
@@ -64,9 +65,29 @@ export default function LandingPage() {
       <Hero />
       <OnboardingWalkthrough />
       <MarketIntelLiveSection />
+      <OverviewDashboard />
       <NextUpSection />
       <Footer />
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Overview dashboard — workspace at a glance. A KPI strip (all derived from
+// the seeded pipeline/signals so the numbers stay consistent with the rest of
+// the page) over a compact live activity feed. Relative ages are anchored to
+// the most recent seeded signal so the feed reads fresh in the demo.
+// ---------------------------------------------------------------------------
+
+function OverviewDashboard() {
+  return (
+    <section className="max-w-6xl mx-auto px-6 py-20 sm:py-24 border-t border-border">
+      <SectionEyebrow>Live workspace</SectionEyebrow>
+      <h2 className="mt-3 text-3xl sm:text-4xl font-semibold tracking-tight max-w-3xl">
+        Your workspace at a glance.
+      </h2>
+      <OverviewDashboardBody />
+    </section>
   );
 }
 
