@@ -43,6 +43,7 @@ import {
   type MeetingSignalRow,
 } from "@/lib/meeting-signals";
 import { getIntegrationContext } from "@/lib/integration-context";
+import { semanticSearch, type SemanticHit } from "@/lib/semantic-search";
 import { getWorkspaceConfig } from "@/lib/workspace-server";
 import { DEFAULT_CONFIG, type WorkspaceConfig } from "@/lib/workspace";
 import type { Account, Opportunity, SignalType, Stage } from "@/lib/types";
@@ -425,6 +426,22 @@ export async function listAccounts(): Promise<
   return { ok: true, data: getAccountCatalog() };
 }
 
+// Tool 9: semantic_search - meaning-based retrieval across all ingested
+// content. Complements the structured tools above: use it for conceptual /
+// thematic questions, or when the right account/signal_type filter isn't
+// known. Fails soft to an empty match list.
+export async function semanticSearchTool(args: {
+  query: string;
+  account_slug?: string;
+  limit?: number;
+}): Promise<ToolResult<{ query: string; matches: SemanticHit[] }>> {
+  const matches = await semanticSearch(args.query, {
+    accountId: args.account_slug ?? null,
+    limit: args.limit,
+  });
+  return { ok: true, data: { query: args.query, matches } };
+}
+
 // ─── OpenAI function-calling schemas ────────────────────────────────────
 //
 // Shape matches the `tools` parameter of openai.chat.completions.create.
@@ -607,6 +624,34 @@ export const ASK_TOOL_SCHEMAS_OPENAI: OpenAI.Chat.Completions.ChatCompletionTool
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "semantic_search",
+      description:
+        "Meaning-based search across ALL ingested content (news, filings, transcripts, emails) by what it's ABOUT, not exact keywords. Use for conceptual or thematic questions ('what are we hearing about pricing pressure?'), or when you don't know which account or signal_type to filter on. Optionally scope to one account (its own results plus workspace-wide intel). Complements the structured tools above; it does not replace get_account_context for a known account.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description: "Natural-language search query.",
+          },
+          account_slug: {
+            type: "string",
+            description:
+              "Optional. Scope to one account (e.g. 'acc_moderna'); workspace-wide intel is always included.",
+          },
+          limit: {
+            type: "number",
+            description: "Max results to return. Defaults to 8.",
+          },
+        },
+        required: ["query"],
+        additionalProperties: false,
+      },
+    },
+  },
 ];
 
 // ─── Anthropic tool-use schemas ─────────────────────────────────────────
@@ -686,6 +731,10 @@ export async function dispatchTool(
       return rollup(args as Parameters<typeof rollup>[0]);
     case "list_accounts":
       return listAccounts();
+    case "semantic_search":
+      return semanticSearchTool(
+        args as Parameters<typeof semanticSearchTool>[0],
+      );
     default:
       return { ok: false, error: `Unknown tool: ${name}` };
   }

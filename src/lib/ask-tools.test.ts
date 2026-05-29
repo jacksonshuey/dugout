@@ -4,7 +4,25 @@
 // These tests verify the agent-facing contract: tool returns the right
 // shape, the right error on bad input, and stays read-only.
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
+
+// Mock the search lib so dispatch tests don't hit OpenAI/Supabase.
+vi.mock("@/lib/semantic-search", () => ({
+  semanticSearch: vi.fn(async () => [
+    {
+      id: "doc1",
+      sourceTool: "semantic_search",
+      summary: "preview",
+      content: "full chunk content",
+      sourceTable: "external_signals",
+      sourceId: "sig_1",
+      accountId: null,
+      kind: "news",
+      similarity: 0.91,
+    },
+  ]),
+}));
+
 import {
   ASK_TOOL_SCHEMAS,
   ASK_TOOL_SCHEMAS_ANTHROPIC,
@@ -28,8 +46,8 @@ describe("ASK_TOOL_SCHEMAS", () => {
       t.type === "function",
   );
 
-  test("exports exactly the 9 tools (8 original + list_accounts)", () => {
-    expect(ASK_TOOL_SCHEMAS).toHaveLength(9);
+  test("exports exactly the 10 tools (8 original + list_accounts + semantic_search)", () => {
+    expect(ASK_TOOL_SCHEMAS).toHaveLength(10);
     const names = functionTools.map((t) => t.function.name).sort();
     expect(names).toEqual(
       [
@@ -42,6 +60,7 @@ describe("ASK_TOOL_SCHEMAS", () => {
         "get_committee_engagement",
         "rollup",
         "list_accounts",
+        "semantic_search",
       ].sort(),
     );
   });
@@ -67,8 +86,8 @@ describe("ASK_TOOL_SCHEMAS", () => {
 });
 
 describe("ASK_TOOL_SCHEMAS_ANTHROPIC", () => {
-  test("exports exactly 9 tools with the same names as the OpenAI variant", () => {
-    expect(ASK_TOOL_SCHEMAS_ANTHROPIC).toHaveLength(9);
+  test("exports exactly 10 tools with the same names as the OpenAI variant", () => {
+    expect(ASK_TOOL_SCHEMAS_ANTHROPIC).toHaveLength(10);
 
     const anthropicNames = ASK_TOOL_SCHEMAS_ANTHROPIC.map((t) => t.name).sort();
     const openaiNames = ASK_TOOL_SCHEMAS_OPENAI.filter(
@@ -256,6 +275,20 @@ describe("dispatchTool", () => {
   test("returns ok:false on an unknown tool name", async () => {
     const r = await dispatchTool("does_not_exist", {});
     expect(r.ok).toBe(false);
+  });
+
+  test("dispatches semantic_search and returns hits", async () => {
+    const r = await dispatchTool("semantic_search", {
+      query: "pricing pressure",
+    });
+    expect(r.ok).toBe(true);
+    if (!r.ok) throw new Error("unreachable");
+    const data = r.data as {
+      query: string;
+      matches: { sourceId: string }[];
+    };
+    expect(data.query).toBe("pricing pressure");
+    expect(data.matches[0].sourceId).toBe("sig_1");
   });
 });
 

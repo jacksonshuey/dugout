@@ -85,7 +85,12 @@ as $$
     d.content,
     1 - (d.embedding <=> query_embedding::vector(1536)) as similarity
   from doc_embeddings d
-  where filter_account is null or d.account_id = filter_account
+  -- No filter → search everything. Scoped to an account → that account PLUS
+  -- workspace-wide intel ('__workspace__'), since market-wide news is relevant
+  -- to any account question.
+  where filter_account is null
+     or d.account_id = filter_account
+     or d.account_id = '__workspace__'
   order by d.embedding <=> query_embedding::vector(1536)
   limit match_count;
 $$;
