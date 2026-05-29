@@ -86,7 +86,6 @@ function NextUpSection() {
     },
     {
       title: "Semantic search across everything",
-      desc: "Ask in plain language for any field, integration, signal, or past meeting and get the right match by meaning, not keywords. One search over the entire workspace.",
       viz: <SemanticSearchViz />,
     },
     {
@@ -170,8 +169,8 @@ function WorkflowAutomationsViz() {
       <rect x="10" y="36" width="76" height="28" rx="6" fill="#7C3AED" fillOpacity="0.12" stroke="#7C3AED" strokeWidth="1.5" />
       <text x="48" y="48" textAnchor="middle" fontSize="9" fontFamily="ui-monospace, monospace" fontWeight="600" fill="#7C3AED">trigger</text>
       <text x="48" y="59" textAnchor="middle" fontSize="8" fontFamily="ui-monospace, monospace" fill="#7C3AED" fillOpacity="0.7">SF stage = SV</text>
-      <line x1="86" y1="50" x2="174" y2="50" stroke="var(--brand)" strokeWidth="1.6" strokeDasharray="5 4" className="flow-path" />
-      <polygon points="172,46 178,50 172,54" fill="var(--brand)" />
+      <line x1="92" y1="50" x2="164" y2="50" stroke="var(--brand)" strokeWidth="1.6" strokeDasharray="5 4" className="flow-path" />
+      <polygon points="164,45 172,50 164,55" fill="var(--brand)" />
       <rect x="174" y="36" width="76" height="28" rx="6" fill="var(--brand)" fillOpacity="0.12" stroke="var(--brand)" strokeWidth="1.5" />
       <text x="212" y="48" textAnchor="middle" fontSize="9" fontFamily="ui-monospace, monospace" fontWeight="600" fill="var(--brand)">action</text>
       <text x="212" y="59" textAnchor="middle" fontSize="8" fontFamily="ui-monospace, monospace" fill="var(--brand)" fillOpacity="0.75">Slack DM AE</text>
