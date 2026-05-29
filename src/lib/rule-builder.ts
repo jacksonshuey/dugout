@@ -33,6 +33,7 @@ const ACTION_KINDS: ActionKind[] = [
   "dock_workspace",
   "outreach_sequence",
   "send_asset",
+  "calendar_event",
   "snooze",
   "notify_csm",
 ];
@@ -251,6 +252,8 @@ function validateAction(raw: unknown): Action | null {
       return { kind: "outreach_sequence", template: asString(a.template)?.trim() || "Champion re-engagement" };
     case "send_asset":
       return { kind: "send_asset", asset: asString(a.asset)?.trim() || "Latest SOC 2 packet" };
+    case "calendar_event":
+      return { kind: "calendar_event", title: asString(a.title)?.trim() || "Jackson <> account champion" };
     case "snooze": {
       const days = typeof a.days === "number" ? a.days : parseInt(asString(a.days) ?? "", 10);
       return { kind: "snooze", days: Number.isFinite(days) && days > 0 ? days : 7 };

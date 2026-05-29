@@ -61,6 +61,7 @@ export type Action =
   | { kind: "dock_workspace"; template: string }
   | { kind: "outreach_sequence"; template: string }
   | { kind: "send_asset"; asset: string }
+  | { kind: "calendar_event"; title: string }
   | { kind: "snooze"; days: number }
   | { kind: "notify_csm" };
 
@@ -72,6 +73,7 @@ export const ACTION_TEMPLATES: { label: string; action: Action }[] = [
   { label: "Create Dock workspace", action: { kind: "dock_workspace", template: "CFO Leave-Behind" } },
   { label: "Enroll Outreach sequence", action: { kind: "outreach_sequence", template: "Champion re-engagement" } },
   { label: "Send asset", action: { kind: "send_asset", asset: "Latest SOC 2 packet" } },
+  { label: "Schedule a meeting", action: { kind: "calendar_event", title: "Jackson <> account champion" } },
   { label: "Notify CSM", action: { kind: "notify_csm" } },
   { label: "Snooze 7 days", action: { kind: "snooze", days: 7 } },
 ];

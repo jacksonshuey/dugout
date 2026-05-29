@@ -335,6 +335,29 @@ interface ActiveRule {
 
 const SEEDED_RULES: ActiveRule[] = [
   {
+    id: "rule_qualified_book_intro",
+    severity: "action",
+    name: "NEW_QUALIFIED_BOOK_INTRO",
+    title: "New qualified deal · auto-book the intro call",
+    account: "Stripe",
+    triggers: [
+      { kind: "ontology", field: "stage", comparator: "in", value: "Qualified" },
+      { kind: "ontology", field: "meeting_count_30d", comparator: "<", value: "2" },
+    ],
+    actions: [
+      { kind: "calendar_event", title: "Jackson <> account champion" },
+      { kind: "slack_dm_owner" },
+    ],
+    matches: [
+      { field: "stage", value: "Qualified", source: "Salesforce" },
+      { field: "meeting_count_30d", value: "1", source: "Gong" },
+    ],
+    evidence:
+      "Deal just reached Qualified with only one touch logged — Dugout books the intro call so the first meeting doesn't slip.",
+    evidenceFrom: "Pipeline review · May 24",
+    age: "2h ago",
+  },
+  {
     id: "rule_kkr_stale_high_value",
     severity: "action",
     name: "STALE_HIGH_VALUE_DEAL",
@@ -922,6 +945,8 @@ function actionKindLabel(a: Action): string {
       return "outreach";
     case "send_asset":
       return "asset";
+    case "calendar_event":
+      return "calendar";
     case "snooze":
       return "snooze";
     case "notify_csm":
@@ -941,6 +966,8 @@ function actionDescription(a: Action): string {
       return `Enroll in ${a.template}`;
     case "send_asset":
       return `Send ${a.asset}`;
+    case "calendar_event":
+      return `Schedule a meeting · ${a.title}`;
     case "snooze":
       return `Suppress for ${a.days} day${a.days === 1 ? "" : "s"}`;
     case "notify_csm":
@@ -955,7 +982,7 @@ function actionDescription(a: Action): string {
 
 const CHAT_EXAMPLES = [
   "Flag deals over $150k that have had fewer than 3 meetings in 30 days, and Slack the AE.",
-  "When a Selected Vendor account goes 14+ days without a touch, notify the CSM.",
+  "When a deal hits Qualified, schedule an intro meeting and DM the AE.",
   "If a champion's engagement score drops below 0.3, enroll them in re-engagement.",
 ];
 
@@ -2100,6 +2127,8 @@ function ActionEditor({
               onChange({ kind: "outreach_sequence", template: "Champion re-engagement" });
             else if (k === "send_asset")
               onChange({ kind: "send_asset", asset: "Latest SOC 2 packet" });
+            else if (k === "calendar_event")
+              onChange({ kind: "calendar_event", title: "Jackson <> account champion" });
             else if (k === "snooze") onChange({ kind: "snooze", days: 7 });
             else onChange({ kind: "notify_csm" });
           }}
@@ -2110,6 +2139,7 @@ function ActionEditor({
           <option value="dock_workspace">Create Dock workspace</option>
           <option value="outreach_sequence">Enroll Outreach sequence</option>
           <option value="send_asset">Send asset</option>
+          <option value="calendar_event">Schedule a meeting</option>
           <option value="notify_csm">Notify CSM</option>
           <option value="snooze">Snooze the rule</option>
         </select>
@@ -2202,6 +2232,22 @@ function ActionBody({
         placeholder="Asset to send"
         className="w-full px-3 py-1.5 rounded-md border border-border bg-background text-[12px] focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
       />
+    );
+  }
+  if (action.kind === "calendar_event") {
+    return (
+      <div className="space-y-1">
+        <input
+          type="text"
+          value={action.title}
+          onChange={(e) => onChange({ ...action, title: e.target.value })}
+          placeholder="Meeting title — e.g. Jackson <> account champion"
+          className="w-full px-3 py-1.5 rounded-md border border-border bg-background text-[12px] focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
+        />
+        <div className="text-[11px] text-muted italic">
+          Books a calendar event per matching account and drops it on your week.
+        </div>
+      </div>
     );
   }
   if (action.kind === "snooze") {
