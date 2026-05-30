@@ -4,11 +4,17 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   accountsById,
+  activities,
+  calls,
   contacts,
   demoSignals,
   opportunities,
   reps,
 } from "@/data/seed";
+import {
+  computeChampionEngagement,
+  engagementColorClass,
+} from "@/lib/champion-engagement";
 
 // "Live workspace" analytics dashboard — KPI stat cards, a weekday signals bar
 // chart, a pipeline-by-stage donut, and two list panels (recent deals + a
@@ -250,16 +256,39 @@ const forecastByMonth = (() => {
 })();
 const forecastMax = Math.max(...forecastByMonth.map((f) => f.amount), 1);
 
+// Champion engagement per opp, computed once at module init. Same pure
+// scoring used by the cron — here we just need the score for the dot color.
+// Returns null when no champion is mapped to the opp (nothing to color).
+function engagementFor(opp: (typeof opportunities)[number]): {
+  score: number;
+  driver: string;
+} | null {
+  const oppContacts = contacts.filter((c) => opp.contactRoleIds.includes(c.id));
+  const result = computeChampionEngagement({
+    opportunity: opp,
+    contacts: oppContacts,
+    activities,
+    calls,
+  });
+  if (result.championId === null) return null;
+  return { score: result.score, driver: result.drivers[0] ?? "" };
+}
+
 const recentDeals = [...opportunities]
   .sort((a, b) => b.amount - a.amount)
   .slice(0, 5)
-  .map((o) => ({
-    id: o.id,
-    account: accountsById.get(o.accountId)?.name ?? "Account",
-    name: o.name,
-    date: fmtDate(o.closeDate),
-    amount: o.amount,
-  }));
+  .map((o) => {
+    const engagement = engagementFor(o);
+    return {
+      id: o.id,
+      account: accountsById.get(o.accountId)?.name ?? "Account",
+      name: o.name,
+      date: fmtDate(o.closeDate),
+      amount: o.amount,
+      engagementScore: engagement?.score ?? null,
+      engagementDriver: engagement?.driver ?? null,
+    };
+  });
 
 const SEV_RANK: Record<string, number> = { blocking: 0, action: 1, awareness: 2 };
 const attention = [...demoSignals]
@@ -676,8 +705,19 @@ function RecentDealsCard() {
               {initials(d.account)}
             </span>
             <div className="min-w-0 flex-1">
-              <div className="text-[13px] font-semibold tracking-tight truncate">
-                {d.account}
+              <div className="flex items-center gap-2 text-[13px] font-semibold tracking-tight truncate">
+                {d.engagementScore !== null && (
+                  <span
+                    className={`inline-block h-2 w-2 shrink-0 rounded-full ${engagementColorClass(
+                      d.engagementScore,
+                    )}`}
+                    title={`Champion engagement ${d.engagementScore.toFixed(2)}${
+                      d.engagementDriver ? ` — ${d.engagementDriver}` : ""
+                    }`}
+                    aria-label={`Champion engagement ${d.engagementScore.toFixed(2)}`}
+                  />
+                )}
+                <span className="truncate">{d.account}</span>
               </div>
               <div className="text-[11px] text-muted truncate">{d.name}</div>
             </div>

@@ -47,6 +47,35 @@ export const ENGAGEMENT_SILENCE_FLOOR_DAYS = 14;
 export const RE_ENGAGEMENT_ENTER_THRESHOLD = 0.3;
 export const RE_ENGAGEMENT_EXIT_THRESHOLD = 0.4;
 
+// Display banding for the red/yellow/green dot rendered next to each company.
+// Red is locked to the re-engagement enter threshold so the visual matches the
+// gate (red = the score that would auto-enroll). Yellow runs from there up to
+// a comfortable headroom above the exit threshold — anything in the watch
+// band or just above is still worth a second glance.
+export const ENGAGEMENT_GREEN_THRESHOLD = 0.6;
+
+export type EngagementTier = "red" | "yellow" | "green";
+
+export function engagementTier(score: number): EngagementTier {
+  if (score < RE_ENGAGEMENT_ENTER_THRESHOLD) return "red";
+  if (score < ENGAGEMENT_GREEN_THRESHOLD) return "yellow";
+  return "green";
+}
+
+// Tailwind background-color class for the dot. Matches the existing severity
+// palette in components/landing/overview-dashboard.tsx (rose/amber) and the
+// `text-severity-green` token already in use elsewhere for the green case.
+export function engagementColorClass(score: number): string {
+  switch (engagementTier(score)) {
+    case "red":
+      return "bg-rose-500";
+    case "yellow":
+      return "bg-amber-500";
+    case "green":
+      return "bg-emerald-500";
+  }
+}
+
 // Component weights — must sum to 1.0. Responsiveness and recency carry the
 // most weight because a champion who stops replying or goes dark is the
 // strongest disengagement tell; sentiment and initiative are corroborating.

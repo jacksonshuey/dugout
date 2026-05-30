@@ -754,6 +754,11 @@ async function fetchWorkspaceFeed(): Promise<ExternalSignal[]> {
   const pool: ExternalSignal[] = [];
   for (const s of [...live, ...workspace, ...highRel]) {
     if (seen.has(s.id)) continue;
+    // Hard freshness floor: "Top news of the week" means the past week, full
+    // stop. Each source has its own internal lookback (the SEC adapter defaults
+    // to 120d so the account ticker always has filings to cycle), so without
+    // this uniform cutoff a stale 8-K outranks fresh items on relevance/impact.
+    if (s.occurred_at < sinceIso) continue;
     seen.add(s.id);
     pool.push(s);
   }
