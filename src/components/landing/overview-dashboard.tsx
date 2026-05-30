@@ -132,6 +132,10 @@ const DAY_BASE_START = [9 * 60, 8 * 60 + 30, 9 * 60 + 30, 8 * 60, 10 * 60];
 // Varied meeting lengths and gaps, walked round-robin so each day reads organic.
 const DURATIONS = [30, 60, 45, 90, 30, 45];
 const GAPS = [30, 15, 45, 30, 15];
+// Minimum start-to-start spacing. A meeting card is floored to MIN_CARD_PX (36)
+// tall, so two starts closer than ceil(36 / PX_PER_MIN) px would overlap. At
+// PX_PER_MIN = 0.7 a 36px card spans ~52min; 60min keeps a visible gap below it.
+const MIN_SLOT_MIN = 60;
 
 function fmtTime(min: number): string {
   const h24 = Math.floor(min / 60);
@@ -154,7 +158,7 @@ meetingPeople.forEach((c, i) => {
   const startMin = dayCursor.get(key) ?? DAY_BASE_START[dayIdx] ?? DAY_START_MIN;
   const durationMin = DURATIONS[(list.length + dayIdx) % DURATIONS.length] ?? 45;
   const gap = GAPS[(list.length + dayIdx) % GAPS.length] ?? 30;
-  dayCursor.set(key, startMin + durationMin + gap);
+  dayCursor.set(key, startMin + Math.max(durationMin + gap, MIN_SLOT_MIN));
 
   list.push({
     id: c.id,
@@ -442,9 +446,9 @@ function MeetingsCalendarCard() {
         </span>
       </div>
 
-      <div className="mt-4 overflow-x-auto">
+      <div className="mt-4">
         {/* Day header row, aligned to the time-gutter + 7 columns below */}
-        <div className="flex min-w-[640px]">
+        <div className="flex">
           <div className="w-12 shrink-0" />
           <div className="grid flex-1 grid-cols-7">
             {calWeekDays.map((d) => (
@@ -460,7 +464,7 @@ function MeetingsCalendarCard() {
 
         {/* Time axis + day columns */}
         <div
-          className="relative flex min-w-[640px]"
+          className="relative flex"
           style={{ height: TRACK_HEIGHT }}
         >
           {/* Hour labels (y-axis) */}
